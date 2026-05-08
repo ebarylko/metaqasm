@@ -4,7 +4,8 @@ import Typecheck(Expression(..),
       determineType,
       Identifier,
       TermType(..),
-      RegisterType(..)
+      RegisterType(..),
+      TypeError(..)
       )
 import qualified Data.Map as M
 
@@ -20,3 +21,7 @@ main = hspec $ do
     describe "Using a valid index to access a register" $ do
       it "Returns the content inside the register" $ do
         determineType (genContext [("x", Registers Quantum 2)]) RegisterAccess{registerName = "x", registerNumber = 0} `shouldBe` Right Qbit
+
+    describe "Using an index outside of the bounds of the registers" $ do
+      it "Returns an invalid index error" $ do
+        determineType (genContext [("x", Registers Quantum 2)]) RegisterAccess{registerName = "x", registerNumber = 2} `shouldBe` Left UsesInvalidArrayIndex

@@ -7,7 +7,8 @@ module Typecheck
       Identifier,
       TermType(..),
       TypeCalculationResult,
-      RegisterType(..)
+      RegisterType(..),
+      TypeError(..)
     ) where
 
 import qualified Data.Map as M
@@ -18,6 +19,8 @@ import Control.Monad (mfilter)
 
 type Identifier = String
 
+-- This data type represents the context under which to evaluate
+-- the type of a term
 type EvaluationContext = M.Map Identifier TermType
 
 -- This data type represents the values an expression can take on,
@@ -26,14 +29,10 @@ type EvaluationContext = M.Map Identifier TermType
 {-@ data Expression = Identifier | RegisterAccess{registerName::Identifier,  registerNumber::Index} @-}
 data Expression = Identifier | RegisterAccess{registerName::Identifier,  registerNumber::Int} deriving (Show, Eq)
 
-{-@ newtype RegistersInfo = RegistersInfo{registerName:: Identifier, numOfRegisters:: NonNegative} deriving (Show, Eq) @-}
-
--- This data type represents the possible commands a user can execute, including the creation of
--- n classical or quantum registers accessible under a certain name
-{-@  data Command = DeclareQuantumRegisters RegistersInfo | DeclareClassicalRegisters RegistersInfo deriving (Show, Eq) @-}
-
+-- This data type represents that a register can contain either a classical or a quantum bit
 data RegisterType = Quantum | Classical deriving (Show, Eq)
 
+-- This data type represents the possible types a term can take on
 data TermType
   = Bit
   | Qbit
@@ -44,7 +43,7 @@ data TermType
 data TermType
   = Bit
   | Qbit
-  | Registers RegisterType { numCRegs :: Nat }
+  | Registers RegisterType { numRegs :: Nat }
 @-}
 
 data TypeError = UsesInvalidArrayIndex deriving (Show, Eq)
@@ -66,10 +65,6 @@ determineType m (RegisterAccess{registerName, registerNumber}) = M.lookup regist
 
     getRegisterContentType :: TermType -> TypeCalculationResult
     getRegisterContentType (Registers Quantum _) = Right Qbit
-
-
-
-
 
 
 determineType _ _ = undefined

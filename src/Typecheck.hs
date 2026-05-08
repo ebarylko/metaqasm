@@ -1,4 +1,4 @@
-module Lib
+module Typecheck
     ( someFunc
     ) where
 

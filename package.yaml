@@ -36,17 +36,6 @@ ghc-options:
 library:
   source-dirs: src
 
-executables:
-  metaqasm-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - metaqasm
-
 tests:
   metaqasm-test:
     main:                Spec.hs
@@ -57,3 +46,4 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - metaqasm
+    - hspec

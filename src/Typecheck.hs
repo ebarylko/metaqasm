@@ -41,7 +41,6 @@ data TermType
   | Qbit
   | QuantumRegisters { numQRegs :: Nat }
   | ClassicalRegisters { numCRegs :: Nat }
-  deriving (Show, Eq)
 @-}
 
 data TypeError = UsesInvalidArrayIndex deriving (Show, Eq)

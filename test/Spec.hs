@@ -4,6 +4,7 @@ import Typecheck(Expression(..),
       determineType,
       Identifier,
       TermType(..),
+      RegisterType(..)
       )
 import qualified Data.Map as M
 
@@ -18,4 +19,4 @@ main = hspec $ do
   describe "Accessing elements from a collection of registers" $ do
     describe "Using a valid index to access a register" $ do
       it "Returns the content inside the register" $ do
-        determineType (genContext [("x", QuantumRegisters 2)]) RegisterAccess{registerName = "x", registerNumber = 0} `shouldBe` Right Qbit
+        determineType (genContext [("x", Registers Quantum 2)]) RegisterAccess{registerName = "x", registerNumber = 0} `shouldBe` Right Qbit

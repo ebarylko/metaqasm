@@ -1,13 +1,18 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Typecheck
     ( Expression(..),
       EvaluationContext,
       determineType,
       Identifier,
       TermType(..),
-      TypeCalculationResult
+      TypeCalculationResult,
+      RegisterType(..)
     ) where
 
 import qualified Data.Map as M
+import Data.Function ((&))
+import Control.Monad (mfilter)
 
 {-@ type Index  = Nat @-}
 
@@ -27,20 +32,19 @@ data Expression = Identifier | RegisterAccess{registerName::Identifier,  registe
 -- n classical or quantum registers accessible under a certain name
 {-@  data Command = DeclareQuantumRegisters RegistersInfo | DeclareClassicalRegisters RegistersInfo deriving (Show, Eq) @-}
 
+data RegisterType = Quantum | Classical deriving (Show, Eq)
 
 data TermType
   = Bit
   | Qbit
-  | QuantumRegisters Int
-  | ClassicalRegisters Int
+  | Registers RegisterType Int
   deriving (Show, Eq)
 
 {-@
 data TermType
   = Bit
   | Qbit
-  | QuantumRegisters { numQRegs :: Nat }
-  | ClassicalRegisters { numCRegs :: Nat }
+  | Registers RegisterType { numCRegs :: Nat }
 @-}
 
 data TypeError = UsesInvalidArrayIndex deriving (Show, Eq)
@@ -54,4 +58,18 @@ type TypeCalculationResult = Either TypeError TermType
 -- possible. Returns an error otherwise explaining why the type
 -- could not be determined
 determineType :: EvaluationContext -> Expression -> TypeCalculationResult
+determineType m (RegisterAccess{registerName, registerNumber}) = M.lookup registerName m & mfilter (isAccessingValidReg registerNumber) & maybe (Left UsesInvalidArrayIndex) getRegisterContentType
+  where
+    isAccessingValidReg registerIdx (Registers _ regCount) = regCount > registerIdx
+    isAccessingValidReg _ _ = False
+
+
+    getRegisterContentType :: TermType -> TypeCalculationResult
+    getRegisterContentType (Registers Quantum _) = Right Qbit
+
+
+
+
+
+
 determineType _ _ = undefined

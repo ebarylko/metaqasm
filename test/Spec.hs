@@ -41,25 +41,25 @@ registerGroupInfo = RegisterGroupInfo <$> registerType <*> positiveNum
 instance Arbitrary RegisterGroupInfo where
   arbitrary = registerGroupInfo
 
-toNat (NonNegative n) = Nat n
+-- This data type represents a specification describing a collection
+-- of quantum/classical registers of size N such that accessing the
+-- ith register, i in [0, N), is a valid operation
+data ValidRegAccessSpec = Spec RegisterGroupInfo Nat deriving (Show, Eq)
 
-instance Arbitrary Nat where
-  arbitrary = toNat <$> (arbitrary :: Gen (NonNegative Int))
+validRegAccessSpec :: Gen ValidRegAccessSpec
 
--- This type represents the combination of a specification for one or more
--- registers and the index of a random register, i, such that accessing
--- the ith register is valid according to the specification
-type ValidRegisterAccess = (RegisterGroupInfo, Nat)
-
-validRegisterAccess :: Gen ValidRegisterAccess
-
-validRegisterAccess = do
+validRegAccessSpec = do
   x@(RegisterGroupInfo regType numOfRegs@(Pos v)) <- registerGroupInfo
   randIdx <- chooseInt (0, v - 1)
-  return (x, Nat randIdx)
+  (return . Spec x) $  Nat randIdx
 
-prop_regAccessAlwaysValid  (spec@(RegisterGroupInfo regType numOfRegs), regIdx) =
-  determineType (genContext [("x", RegisterGroup spec)]) (accessNthRegister "x" regIdx) `shouldBe` (Right . calcContentType) regType
+
+instance Arbitrary ValidRegAccessSpec where
+  arbitrary = validRegAccessSpec
+
+
+prop_regAccessAlwaysValid  (Spec specInfo@(RegisterGroupInfo regType _) regIdx) =
+  determineType (genContext [("x", RegisterGroup specInfo)]) (accessNthRegister "x" regIdx) `shouldBe` (Right . calcContentType) regType
   where
 
     -- Takes the name of the registers to access, I, the index

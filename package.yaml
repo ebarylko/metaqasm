@@ -48,5 +48,4 @@ tests:
     dependencies:
     - metaqasm
     - hspec
-    - liquidhaskell
     - containers

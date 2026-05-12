@@ -6,7 +6,8 @@ import Typecheck(Expression(..),
       TermType(..),
       RegisterType(..),
       TypeError(..),
-      Nat(..)
+      Nat(..),
+      Positive(..)
       )
 import qualified Data.Map as M
 
@@ -18,7 +19,7 @@ genContext = M.fromList
 
 genNQuantumRegisters :: Int -> TermType
 
-genNQuantumRegisters = Registers Quantum . Nat
+genNQuantumRegisters = Registers Quantum . Positive
 
 -- Takes the name of the registers to access, I, the index
 -- of the wanted register, n, and returns a request to
@@ -27,11 +28,15 @@ accessNthRegister :: Identifier -> Int -> Expression
 
 accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = Nat regIdx}
 
+
+-- positiveNum = arbitrarySizedNatural `suchThat` (0 `<`)
+
 main :: IO ()
 main = hspec $ do
   describe "Accessing elements from a collection of registers" $ do
     describe "Using a valid index to access a register" $ do
       it "Returns the content inside the register" $ do
+        determineType (genContext [("x", genNQuantumRegisters 2)]) (accessNthRegister "x" 1) `shouldBe` Right Qbit
         determineType (genContext [("x", genNQuantumRegisters 2)]) (accessNthRegister "x" 1) `shouldBe` Right Qbit
 
     describe "Using an index outside of the bounds of the registers" $ do

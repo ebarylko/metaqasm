@@ -10,7 +10,8 @@ module Typecheck
       RegisterType(..),
       TypeError(..),
       Nat(..),
-      Positive(..)
+      Pos(..),
+      RegisterGroupInfo(..)
     ) where
 
 import qualified Data.Map as M
@@ -36,14 +37,16 @@ data Expression = Identifier | RegisterAccess{registerName::Identifier,  registe
 -- This data type represents that a register can contain either a classical or a quantum bit
 data RegisterType = Quantum | Classical deriving (Show, Eq)
 
-newtype Positive = Positive Int deriving (Show, Eq, Ord)
+newtype Pos = Pos Int deriving (Show, Eq, Ord)
+
+data RegisterGroupInfo = RegisterGroupInfo RegisterType Pos deriving (Show, Eq)
 
 -- This data type represents the possible types a term can take on, being a classical bit,
 -- a quantum bit, or a collection of classical/quantum registers of size N, where N > 0
 data TermType
   = Bit
   | Qbit
-  | Registers RegisterType Positive
+  | RegisterGroup RegisterGroupInfo
   deriving (Show, Eq)
 
 data TypeError = UsesInvalidArrayIndex deriving (Show, Eq)
@@ -60,12 +63,13 @@ determineType :: EvaluationContext -> Expression -> TypeCalculationResult
 determineType m (RegisterAccess{registerName, registerNumber}) = M.lookup registerName m & mfilter (isAccessingValidReg registerNumber) & maybe (Left UsesInvalidArrayIndex) getRegisterContentType
   where
     isAccessingValidReg :: Index -> TermType -> Bool
-    isAccessingValidReg (Nat registerIdx) (Registers _ (Positive regCount)) = regCount > registerIdx
+    isAccessingValidReg (Nat registerIdx) (RegisterGroup (RegisterGroupInfo _ (Pos regCount))) = regCount > registerIdx
     isAccessingValidReg _ _ = False
 
 
     getRegisterContentType :: TermType -> TypeCalculationResult
-    getRegisterContentType (Registers Quantum _) = Right Qbit
+    getRegisterContentType (RegisterGroup (RegisterGroupInfo Quantum _ )) = Right Qbit
+    getRegisterContentType (RegisterGroup (RegisterGroupInfo Classical _ )) = Right Bit
 
 
 determineType _ _ = undefined

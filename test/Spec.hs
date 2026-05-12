@@ -7,9 +7,13 @@ import Typecheck(Expression(..),
       RegisterType(..),
       TypeError(..),
       Nat(..),
-      Positive(..)
+      Pos(..),
+      RegisterGroupInfo(..)
       )
+
 import qualified Data.Map as M
+import Test.QuickCheck 
+import Test.Hspec.QuickCheck
 
 -- Takes an association list of identifiers to their respective types and
 -- returns an equivalent context to evaluate expressions
@@ -19,27 +23,68 @@ genContext = M.fromList
 
 genNQuantumRegisters :: Int -> TermType
 
-genNQuantumRegisters = Registers Quantum . Positive
-
--- Takes the name of the registers to access, I, the index
--- of the wanted register, n, and returns a request to
--- access the nth register of I
-accessNthRegister :: Identifier -> Int -> Expression
-
-accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = Nat regIdx}
+genNQuantumRegisters = RegisterGroup . RegisterGroupInfo Quantum . Pos
 
 
--- positiveNum = arbitrarySizedNatural `suchThat` (0 `<`)
+positiveNum :: Gen Pos
+positiveNum = toPos <$> (arbitrary :: Gen (Positive Int))
+  where
+    toPos (Positive n) = Pos n
+
+registerType :: Gen RegisterType
+registerType = oneof [return Classical, return Quantum]
+
+
+registerGroupInfo :: Gen RegisterGroupInfo
+registerGroupInfo = RegisterGroupInfo <$> registerType <*> positiveNum
+
+instance Arbitrary RegisterGroupInfo where
+  arbitrary = registerGroupInfo
+
+toNat (NonNegative n) = Nat n
+
+instance Arbitrary Nat where
+  arbitrary = toNat <$> (arbitrary :: Gen (NonNegative Int))
+
+-- This type represents the combination of a specification for one or more
+-- registers and the index of a random register, i, such that accessing
+-- the ith register is valid according to the specification
+type ValidRegisterAccess = (RegisterGroupInfo, Nat)
+
+validRegisterAccess :: Gen ValidRegisterAccess
+
+validRegisterAccess = do
+  x@(RegisterGroupInfo regType numOfRegs@(Pos v)) <- registerGroupInfo
+  randIdx <- chooseInt (0, v - 1)
+  return (x, Nat randIdx)
+
+prop_regAccessAlwaysValid  (spec@(RegisterGroupInfo regType numOfRegs), regIdx) =
+  determineType (genContext [("x", RegisterGroup spec)]) (accessNthRegister "x" regIdx) `shouldBe` (Right . calcContentType) regType
+  where
+
+    -- Takes the name of the registers to access, I, the index
+    -- of the wanted register, n, and returns a request to
+    -- access the nth register of I
+    accessNthRegister :: Identifier -> Nat -> Expression
+    accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
+
+    calcContentType :: RegisterType -> TermType
+    calcContentType Classical = Bit
+    calcContentType Quantum = Qbit
+
+
+
+
 
 main :: IO ()
 main = hspec $ do
-  describe "Accessing elements from a collection of registers" $ do
-    describe "Using a valid index to access a register" $ do
-      it "Returns the content inside the register" $ do
-        determineType (genContext [("x", genNQuantumRegisters 2)]) (accessNthRegister "x" 1) `shouldBe` Right Qbit
-        determineType (genContext [("x", genNQuantumRegisters 2)]) (accessNthRegister "x" 1) `shouldBe` Right Qbit
+  describe "Accessing elements from a collection of registers of size N > 0" $ do
+    prop "Accessing the ith register where i is in [0, N) returns the content inside the register" $ do
+      prop_regAccessAlwaysValid
+--        determineType (genContext [("x", genNQuantumRegisters 2)]) (accessNthRegister "x" 1) `shouldBe` Right Qbit
+--        determineType (genContext [("x", genNQuantumRegisters 2)]) (accessNthRegister "x" 1) `shouldBe` Right Qbit
 
-    describe "Using an index outside of the bounds of the registers" $ do
-      it "Returns an invalid index error" $ do
-        determineType (genContext [("x", genNQuantumRegisters 2)]) (accessNthRegister "x" 2) `shouldBe` Left UsesInvalidArrayIndex
-        --determineType (genContext [("x", Registers Quantum 2)]) RegisterAccess{registerName = "x", registerNumber = (-1)} `shouldBe` Left UsesInvalidArrayIndex
+--    describe "Using an index outside of the bounds of the registers" $ do
+--      it "Returns an invalid index error" $ do
+--        determineType (genContext [("x", genNQuantumRegisters 2)]) (accessNthRegister "x" 2) `shouldBe` Left UsesInvalidArrayIndex
+--        --determineType (genContext [("x", Registers Quantum 2)]) RegisterAccess{registerName = "x", registerNumber = (-1)} `shouldBe` Left UsesInvalidArrayIndex

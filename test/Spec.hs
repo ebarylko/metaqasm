@@ -39,18 +39,35 @@ instance Arbitrary RegisterGroupInfo where
 -- This data type represents a specification describing a collection
 -- of quantum/classical registers of size N such that accessing the
 -- ith register, i in [0, N), is a valid operation
-data ValidRegAccessSpec = Spec RegisterGroupInfo Nat deriving (Show, Eq)
+--data ValidRegAccessSpec = Spec RegisterGroupInfo Nat deriving (Show, Eq)
 
-validRegAccessSpec :: Gen ValidRegAccessSpec
+-- This data type represents a specification describing a collection
+-- of quantum/classical registers of size N and a request to
+-- access the ith register, where i >= 0
+data RegAccessSpec = Spec RegisterGroupInfo Nat deriving (Show, Eq)
 
-validRegAccessSpec = do
+-- Takes a function that modifies range of registers accessed
+-- in a specification and returns a generator that uses
+-- the function to determine which registers will be accessed
+genRegAccessSpec :: (Int -> (Int, Int)) -> Gen RegAccessSpec
+
+genRegAccessSpec f = do
   x@(RegisterGroupInfo _ (Pos v)) <- registerGroupInfo
-  randIdx <- chooseInt (0, v - 1)
+  randIdx <- (chooseInt . f) v
   (return . Spec x) $  Nat randIdx
 
+validRegAccessSpec :: Gen RegAccessSpec
 
-instance Arbitrary ValidRegAccessSpec where
-  arbitrary = validRegAccessSpec
+validRegAccessSpec = genRegAccessSpec $ \x -> (0, x - 1)
+
+--validRegAccessSpec = do
+--  x@(RegisterGroupInfo _ (Pos v)) <- registerGroupInfo
+--  randIdx <- chooseInt (0, v - 1)
+--  (return . Spec x) $  Nat randIdx
+
+
+--instance Arbitrary ValidRegAccessSpec where
+--  arbitrary = validRegAccessSpec
 
 
 -- Tests that accessing the ith register from a collection of registers of
@@ -109,7 +126,7 @@ main :: IO ()
 main = hspec $ do
   describe "Accessing elements from a collection of registers of size N > 0" $ do
     prop "Accessing the ith register where i is in [0, N) returns the content inside the register" $ do
-      prop_regAccessAlwaysValid
+      forAll validRegAccessSpec $ \spec -> prop_regAccessAlwaysValid spec
 
     prop "Accessing the ith register where i >= N returns an error" $ do
       prop_regAccessAlwaysFails

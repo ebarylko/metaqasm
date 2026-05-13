@@ -9,4 +9,8 @@ jobs:
       - uses: haskell-actions/setup@v2
         with:
           enable-stack: true
-      - run: stack test
+      - uses: freckle/stack-action@v5
+        with:
+          install-stack: false
+          upgrade-stack: false
+          stack-build-arguments: --fast

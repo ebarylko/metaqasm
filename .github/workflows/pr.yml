@@ -13,7 +13,4 @@ jobs:
         with:
           install-stack: false
           upgrade-stack: false
-          stack-build-arguments: false
-
-#      - run: stack test
-
+          stack-build-arguments: --fast

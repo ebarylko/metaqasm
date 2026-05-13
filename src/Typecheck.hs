@@ -39,6 +39,8 @@ data RegisterType = Quantum | Classical deriving (Show, Eq)
 
 newtype Pos = Pos Int deriving (Show, Eq, Ord)
 
+-- This type represents the info dictating how many registers are being
+-- used and of what kind
 data RegisterGroupInfo = RegisterGroupInfo RegisterType Pos deriving (Show, Eq)
 
 -- This data type represents the possible types a term can take on, being a classical bit,

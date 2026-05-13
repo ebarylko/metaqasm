@@ -37,14 +37,37 @@ instance Arbitrary RegisterGroupInfo where
   arbitrary = registerGroupInfo
 
 -- This data type represents a specification describing a collection
--- of quantum/classical registers of size N such that accessing the
--- ith register, i in [0, N), is a valid operation
---data ValidRegAccessSpec = Spec RegisterGroupInfo Nat deriving (Show, Eq)
-
--- This data type represents a specification describing a collection
 -- of quantum/classical registers of size N and a request to
 -- access the ith register, where i >= 0
 data RegAccessSpec = Spec RegisterGroupInfo Nat deriving (Show, Eq)
+
+
+
+-- Takes a register collection id A, the index of the register to
+-- access I, and returns an expression representing a request to
+-- access the Ith register of A
+accessNthRegister :: Identifier -> Nat -> Expression
+accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
+
+
+
+-- Tests that accessing the ith register from a collection of registers of
+-- size N, where N > i, always succeeds
+prop_regAccessAlwaysValid  (Spec specInfo@(RegisterGroupInfo regType _) regIdx) =
+  determineType (genContext [("x", RegisterGroup specInfo)]) (accessNthRegister "x" regIdx) `shouldBe` expectedRegisterContent
+  where
+
+    expectedRegisterContent = (Right . calcContentType) regType
+
+    calcContentType :: RegisterType -> TermType
+    calcContentType Classical = Bit
+    calcContentType Quantum = Qbit
+
+
+-- Tests that accessing the ith register from a collection of registers of
+-- size N, where N <= i, always fails
+prop_regAccessAlwaysFails  (Spec specInfo regIdx) =
+  determineType (genContext [("x", RegisterGroup specInfo)]) (accessNthRegister "x" regIdx) `shouldBe` Left UsesInvalidArrayIndex
 
 -- Takes a function that modifies range of registers accessed
 -- in a specification and returns a generator that uses
@@ -56,71 +79,17 @@ genRegAccessSpec f = do
   randIdx <- (chooseInt . f) v
   (return . Spec x) $  Nat randIdx
 
+-- Generates specifications where accessing the
+-- ith register is safe
 validRegAccessSpec :: Gen RegAccessSpec
 
 validRegAccessSpec = genRegAccessSpec $ \x -> (0, x - 1)
 
---validRegAccessSpec = do
---  x@(RegisterGroupInfo _ (Pos v)) <- registerGroupInfo
---  randIdx <- chooseInt (0, v - 1)
---  (return . Spec x) $  Nat randIdx
+-- Generates specifications where accessing the
+-- ith register is unsafe
+invalidRegAccessSpec :: Gen RegAccessSpec
 
-
---instance Arbitrary ValidRegAccessSpec where
---  arbitrary = validRegAccessSpec
-
-
--- Tests that accessing the ith register from a collection of registers of
--- size N, where N > i, always succeeds
-prop_regAccessAlwaysValid  (Spec specInfo@(RegisterGroupInfo regType _) regIdx) =
-  determineType (genContext [("x", RegisterGroup specInfo)]) (accessNthRegister "x" regIdx) `shouldBe` expectedRegisterContent
-  where
-
-    -- Takes the name of the registers to access, I, the index
-    -- of the wanted register, n, and returns a request to
-    -- access the nth register of I
-    accessNthRegister :: Identifier -> Nat -> Expression
-    accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
-
-    calcContentType :: RegisterType -> TermType
-    calcContentType Classical = Bit
-    calcContentType Quantum = Qbit
-
-    expectedRegisterContent = (Right . calcContentType) regType
-
--- This data type represents a specification describing a collection
--- of quantum/classical registers of size N such that accessing the
--- ith register, i > N, is a invalid operation
-data InvalidRegAccessSpec = Info RegisterGroupInfo Nat deriving (Show, Eq)
-
-invalidRegAccessSpec :: Gen InvalidRegAccessSpec
-
-invalidRegAccessSpec = do
-  x@(RegisterGroupInfo _ (Pos v)) <- registerGroupInfo
-  randIdx <- chooseInt (v, v + 50)
-  (return . Info x) $  Nat randIdx
-
-
-instance Arbitrary InvalidRegAccessSpec where
-  arbitrary = invalidRegAccessSpec
-
--- Tests that accessing the ith register from a collection of registers of
--- size N, where N <= i, always fails
-prop_regAccessAlwaysFails  (Info specInfo regIdx) =
-  determineType (genContext [("x", RegisterGroup specInfo)]) (accessNthRegister "x" regIdx) `shouldBe` Left UsesInvalidArrayIndex
-  where
-
-    -- Takes the name of the registers to access, I, the index
-    -- of the wanted register, n, and returns a request to
-    -- access the nth register of I
-    accessNthRegister :: Identifier -> Nat -> Expression
-    accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
-
-    calcContentType :: RegisterType -> TermType
-    calcContentType Classical = Bit
-    calcContentType Quantum = Qbit
-
-
+invalidRegAccessSpec = genRegAccessSpec $ \x -> (x, x + 50)
 
 main :: IO ()
 main = hspec $ do
@@ -129,4 +98,4 @@ main = hspec $ do
       forAll validRegAccessSpec $ \spec -> prop_regAccessAlwaysValid spec
 
     prop "Accessing the ith register where i >= N returns an error" $ do
-      prop_regAccessAlwaysFails
+      forAll invalidRegAccessSpec $ \spec -> prop_regAccessAlwaysFails spec

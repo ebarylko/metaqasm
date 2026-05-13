@@ -8,7 +8,8 @@ import Typecheck(Expression(..),
       TypeError(..),
       Nat(..),
       Pos(..),
-      RegisterGroupInfo(..)
+      RegisterGroupInfo(..),
+      Index
       )
 
 import qualified Data.Map as M
@@ -93,6 +94,20 @@ invalidRegAccessSpec :: Gen RegAccessSpec
 
 invalidRegAccessSpec = genRegAccessSpec $ \x -> (x, x + 50)
 
+instance Arbitrary Nat where
+  arbitrary = Nat . getNonNegative <$> (arbitrary :: Gen (NonNegative Int))
+
+type NonEmptyIdentifier = NonEmptyList Char
+
+prop_cannotAccessOutOfScopeRegColl :: NonEmptyIdentifier -> Index -> IO ()
+
+prop_cannotAccessOutOfScopeRegColl regName regIdx =
+  determineType emptyCtx (accessNthRegister regId regIdx) `shouldBe` (Left . VariableNotInScope) regId
+  where
+    emptyCtx = M.empty
+    regId = getNonEmpty regName
+
+
 main :: IO ()
 main = hspec $ do
   describe "Accessing elements from a collection of registers of size N > 0" $ do
@@ -101,3 +116,7 @@ main = hspec $ do
 
     prop "Accessing the ith register where i >= N returns an error" $ do
       forAll invalidRegAccessSpec  prop_regAccessAlwaysFails 
+
+  describe "Accessing elements from a collection of registers that is out of scope" $ do
+    prop "Accessing any register returns an error stating the collection is not in scope" $ do
+      prop_cannotAccessOutOfScopeRegColl

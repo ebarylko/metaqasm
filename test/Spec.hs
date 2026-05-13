@@ -48,6 +48,7 @@ accessNthRegister :: Identifier -> Nat -> Expression
 accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
 
 
+prop_regAccessAlwaysValid :: RegAccessSpec -> IO ()
 
 -- Tests that accessing the ith register from a collection of registers of
 -- size N, where N > i, always succeeds
@@ -60,6 +61,9 @@ prop_regAccessAlwaysValid  (Spec specInfo@(RegisterGroupInfo regType _) regIdx) 
     calcContentType :: RegisterType -> TermType
     calcContentType Classical = Bit
     calcContentType Quantum = Qbit
+
+
+prop_regAccessAlwaysFails :: RegAccessSpec -> IO ()
 
 
 -- Tests that accessing the ith register from a collection of registers of

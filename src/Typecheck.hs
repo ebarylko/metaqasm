@@ -62,16 +62,19 @@ type TypeCalculationResult = Either TypeError TermType
 -- possible. Returns an error otherwise explaining why the type
 -- could not be determined
 determineType :: EvaluationContext -> Expression -> TypeCalculationResult
-determineType m (RegisterAccess{registerName, registerNumber}) = M.lookup registerName m & mfilter (isAccessingValidReg registerNumber) & maybe (Left UsesInvalidArrayIndex) getRegisterContentType
+determineType m (RegisterAccess{registerName, registerNumber}) = M.lookup registerName m >>= getRegGroupInfo & mfilter (isAccessingValidReg registerNumber) & maybe (Left UsesInvalidArrayIndex) getRegisterContentType
   where
-    isAccessingValidReg :: Index -> TermType -> Bool
-    isAccessingValidReg (Nat registerIdx) (RegisterGroup (RegisterGroupInfo _ (Pos regCount))) = regCount > registerIdx
-    isAccessingValidReg _ _ = False
+    isAccessingValidReg :: Index -> RegisterGroupInfo -> Bool
+    isAccessingValidReg (Nat registerIdx) (RegisterGroupInfo _ (Pos regCount)) = regCount > registerIdx
 
+    getRegGroupInfo :: TermType -> Maybe RegisterGroupInfo
 
-    getRegisterContentType :: TermType -> TypeCalculationResult
-    getRegisterContentType (RegisterGroup (RegisterGroupInfo Quantum _ )) = Right Qbit
-    getRegisterContentType (RegisterGroup (RegisterGroupInfo Classical _ )) = Right Bit
+    getRegGroupInfo (RegisterGroup x) = return x
+    getRegGroupInfo _ = Nothing
+
+    getRegisterContentType :: RegisterGroupInfo -> TypeCalculationResult
+    getRegisterContentType (RegisterGroupInfo Quantum _ ) = Right Qbit
+    getRegisterContentType (RegisterGroupInfo Classical _ ) = Right Bit
 
 
 determineType _ _ = undefined

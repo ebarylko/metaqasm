@@ -22,9 +22,7 @@ genContext :: [(Identifier, TermType)] -> EvaluationContext
 genContext = M.fromList
 
 positiveNum :: Gen Pos
-positiveNum = toPos <$> (arbitrary :: Gen (Positive Int))
-  where
-    toPos (Positive n) = Pos n
+positiveNum = (Pos . getPositive) <$> (arbitrary :: Gen (Positive Int))
 
 registerType :: Gen RegisterType
 registerType = oneof [return Classical, return Quantum]
@@ -95,7 +93,7 @@ main :: IO ()
 main = hspec $ do
   describe "Accessing elements from a collection of registers of size N > 0" $ do
     prop "Accessing the ith register where i is in [0, N) returns the content inside the register" $ do
-      forAll validRegAccessSpec $ \spec -> prop_regAccessAlwaysValid spec
+      forAll validRegAccessSpec prop_regAccessAlwaysValid 
 
     prop "Accessing the ith register where i >= N returns an error" $ do
-      forAll invalidRegAccessSpec $ \spec -> prop_regAccessAlwaysFails spec
+      forAll invalidRegAccessSpec  prop_regAccessAlwaysFails 

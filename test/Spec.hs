@@ -117,16 +117,15 @@ prop_cannotAccessOutOfScopeRegColl regName regIdx =
 -- cannot be indexed.
 prop_canOnlyIndexARegColl :: TermType -> Identifier -> Index -> IO ()
 
-prop_canOnlyIndexARegColl actualVarType varName regIdx@(Nat v) =
-  determineType ctx regAccReq `shouldBe` Left (TypeMismatch varName actualVarType mismatch)
+prop_canOnlyIndexARegColl varType varID regIdx@(Nat v) =
+  determineType ctx regAccReq `shouldBe` Left (TypeMismatch varID varType mismatch)
   where
-    ctx = genContext [(varName, actualVarType)]
-    regAccReq = accessNthRegister varName regIdx
+    ctx = genContext [(varID, varType)]
+    regAccReq = accessNthRegister varID regIdx
 
     mismatch = ExpectedRegColl . Pos . (+ 1) $ v
 
 nonRegCollType :: Gen TermType
-
 nonRegCollType = elements [Bit, Qbit]
 
 main :: IO ()

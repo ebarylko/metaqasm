@@ -12,7 +12,7 @@ import Typecheck(Expression(..),
       )
 
 import qualified Data.Map as M
-import Test.QuickCheck 
+import Test.QuickCheck
 import Test.Hspec.QuickCheck
 import Data.List.NonEmpty as NL
 
@@ -28,7 +28,8 @@ instance Arbitrary RegisterType where
 instance Arbitrary Pos where
   arbitrary = Pos . getPositive <$> (arbitrary :: Gen (Positive Int))
 
-
+-- This type represents the information needed to create a collection of
+-- registers, being the type of the registers and the number of registers.
 type RegisterGroupInfo = (RegisterType, Pos)
 
 -- This data type represents a specification describing a collection

@@ -70,13 +70,6 @@ eitherFromPred :: (a -> Bool) -> (a -> err) -> a -> Either err a
 
 eitherFromPred predicate elseCase x = if predicate x then Right x else (Left . elseCase) x
 
-incNat  :: Nat -> Nat
-
-incNat (Nat v) = Nat $ v + 1
-
-unsafeNatToPos :: Nat -> Pos
-
-unsafeNatToPos (Nat v) = Pos v
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if
@@ -99,6 +92,14 @@ determineType m (RegisterAccess{registerName, registerNumber}) =
     isAccessingRegColl :: TermType -> Bool
     isAccessingRegColl (RegisterGroup _ _)  = True
     isAccessingRegColl _  = False
+
+    incNat  :: Nat -> Nat
+
+    incNat (Nat v) = Nat $ v + 1
+
+    unsafeNatToPos :: Nat -> Pos
+
+    unsafeNatToPos (Nat v) = Pos v
 
     minSize = unsafeNatToPos . incNat $ registerNumber
     genMismatchInfo = flip (TypeMismatch registerName)  (ExpectedRegColl minSize)

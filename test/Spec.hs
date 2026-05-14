@@ -47,7 +47,8 @@ data RegAccessSpec = Spec RegisterGroupInfo Nat deriving (Show, Eq)
 -- access I, and returns an expression representing a request to
 -- access the Ith register of A
 accessNthRegister :: Identifier -> Nat -> Expression
-accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
+--accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
+accessNthRegister = RegisterAccess 
 
 
 instance Arbitrary a => Arbitrary (NonEmpty a) where

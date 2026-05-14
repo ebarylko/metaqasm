@@ -23,10 +23,10 @@ genContext :: [(Identifier, TermType)] -> EvaluationContext
 genContext = M.fromList
 
 instance Arbitrary RegisterType where
-  arbitrary = oneof [return Classical, return Quantum]
+  arbitrary = elements [Classical, Quantum]
 
 instance Arbitrary Pos where
-  arbitrary = Pos . getPositive <$> (arbitrary :: Gen (Positive Int))
+  arbitrary = Pos . getPositive <$> arbitrary
 
 -- This type represents the information needed to create a collection of
 -- registers, being the type of the registers and the number of registers.
@@ -53,7 +53,7 @@ prop_regAccessAlwaysValid :: RegAccessSpec -> Identifier -> IO ()
 -- Tests that accessing the ith register from a collection of registers of
 -- size N, where N > i, always succeeds
 prop_regAccessAlwaysValid  (Spec info@(regType, _) regIdx) regName =
-  determineType (genContext [(regName, uncurry RegisterGroup info)]) (accessNthRegister regName regIdx) `shouldBe` expectedRegisterContent
+  determineType ctx regAccReq `shouldBe` expectedRegisterContent
   where
 
     expectedRegisterContent = (Right . calcContentType) regType
@@ -62,6 +62,9 @@ prop_regAccessAlwaysValid  (Spec info@(regType, _) regIdx) regName =
     calcContentType Classical = Bit
     calcContentType Quantum = Qbit
 
+    ctx = genContext [(regName, uncurry RegisterGroup info)]
+    regAccReq = accessNthRegister regName regIdx
+
 
 prop_regAccessAlwaysFails :: RegAccessSpec -> Identifier -> IO ()
 
@@ -69,7 +72,10 @@ prop_regAccessAlwaysFails :: RegAccessSpec -> Identifier -> IO ()
 -- Tests that accessing the ith register from a collection of registers of
 -- size N, where N <= i, always fails
 prop_regAccessAlwaysFails  (Spec info regIdx) regName =
-  determineType (genContext [(regName, uncurry RegisterGroup info)]) (accessNthRegister regName regIdx) `shouldBe` Left UsesInvalidArrayIndex
+  determineType ctx regAccReq `shouldBe` Left UsesInvalidArrayIndex
+  where
+    ctx = genContext [(regName, uncurry RegisterGroup info)]
+    regAccReq = accessNthRegister regName regIdx
 
 -- Takes a function that modifies range of registers accessed
 -- in a specification and returns a generator that uses
@@ -94,14 +100,15 @@ invalidRegAccessSpec :: Gen RegAccessSpec
 invalidRegAccessSpec = genRegAccessSpec $ \x -> (x, x + 50)
 
 instance Arbitrary Nat where
-  arbitrary = Nat . getNonNegative <$> (arbitrary :: Gen (NonNegative Int))
+  arbitrary = Nat . getNonNegative <$> arbitrary 
 
 prop_cannotAccessOutOfScopeRegColl :: Identifier -> Index -> IO ()
 
 prop_cannotAccessOutOfScopeRegColl regName regIdx =
-  determineType emptyCtx (accessNthRegister regName regIdx) `shouldBe` (Left . VariableNotInScope) regName
+  determineType emptyCtx regAccReq `shouldBe` (Left . VariableNotInScope) regName
   where
     emptyCtx = M.empty
+    regAccReq = accessNthRegister regName regIdx
 
 
 main :: IO ()

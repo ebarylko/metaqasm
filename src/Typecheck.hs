@@ -12,7 +12,7 @@ module Typecheck
       Nat(..),
       Pos(..),
       Index,
-      MisMatch(..)
+      Mismatch(..)
     ) where
 
 import qualified Data.Map as M
@@ -49,12 +49,12 @@ data TermType
   | RegisterGroup RegisterType Pos
   deriving (Show, Eq)
 
--- This data type represents the ways there can be a mismatch between an expected and actual type
-data MisMatch = ExpectedRegColl {minCollSize :: Pos} deriving (Show, Eq)
+-- This data type represents the ways there can be a mismatch between two type
+data Mismatch = ExpectedRegColl {minCollSize :: Pos} deriving (Show, Eq)
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
-data TypeEvaluationError = UsesInvalidArrayIndex | VariableNotInScope Identifier | TypeMismatch{varName :: Identifier, actualVarType:: TermType, whatWentWrong :: MisMatch} deriving (Show, Eq)
+data TypeEvaluationError = UsesInvalidArrayIndex | VariableNotInScope Identifier | TypeMismatch{varName :: Identifier, actualVarType:: TermType, whatWentWrong :: Mismatch} deriving (Show, Eq)
 
 -- This type represents the result of determining the type of an
 -- expression, being either a valid type or one that is invalid due to one or more reasons.
@@ -66,6 +66,9 @@ findTypeWithinScope :: Identifier -> EvaluationContext -> TypeCalculationResult
 
 findTypeWithinScope varName = M.lookup varName >>> maybe (Left $ VariableNotInScope varName) Right
 
+-- Takes a predicate, a function to generate an err, the input, and
+-- returns an error if the data does not satisfy the predicate. Returns the
+-- data otherwise.
 eitherFromPred :: (a -> Bool) -> (a -> err) -> a -> Either err a
 
 eitherFromPred predicate elseCase x = if predicate x then Right x else (Left . elseCase) x
@@ -84,25 +87,19 @@ determineType m (RegisterAccess{registerName, registerNumber}) =
   where
     isAccessingValidReg :: Index -> TermType -> Bool
     isAccessingValidReg (Nat registerIdx) (RegisterGroup _ (Pos regCount)) = regCount > registerIdx
+    isAccessingValidReg _ _ = False
 
     getRegisterContentType :: TermType -> TermType
     getRegisterContentType (RegisterGroup Quantum _ ) = Qbit
     getRegisterContentType (RegisterGroup Classical _ ) = Bit
+    getRegisterContentType _ = error "Should only have received a collection of registers"
 
     isAccessingRegColl :: TermType -> Bool
     isAccessingRegColl (RegisterGroup _ _)  = True
     isAccessingRegColl _  = False
 
-    incNat  :: Nat -> Nat
-
-    incNat (Nat v) = Nat $ v + 1
-
-    unsafeNatToPos :: Nat -> Pos
-
-    unsafeNatToPos (Nat v) = Pos v
-
-    minSize = unsafeNatToPos . incNat $ registerNumber
-    genMismatchInfo = flip (TypeMismatch registerName)  (ExpectedRegColl minSize)
+    genMinRegCollSize (Nat v) = Pos $ v + 1
+    genMismatchInfo =  flip (TypeMismatch registerName)  (ExpectedRegColl $ genMinRegCollSize registerNumber)
 
 
 determineType _ _ = undefined

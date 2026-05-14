@@ -9,7 +9,7 @@ import Typecheck(Expression(..),
       Nat(..),
       Pos(..),
       Index,
-      MisMatch(..)
+      Mismatch(..)
       )
 
 import qualified Data.Map as M

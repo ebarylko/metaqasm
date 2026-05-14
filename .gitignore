@@ -1,0 +1,6 @@
+.stack-work/
+CHANGELOG.md
+LICENSE
+app/
+dist-newstyle/
+metaqasm.cabal

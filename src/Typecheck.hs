@@ -18,6 +18,7 @@ module Typecheck
 import qualified Data.Map as M
 import Data.Function ((&))
 import Control.Arrow ((>>>))
+import Data.List.NonEmpty
 
 
 -- This data type represents a natural number
@@ -25,7 +26,7 @@ newtype Nat = Nat Int deriving (Eq, Show, Ord)
 
 type Index = Nat
 
-type Identifier = String
+type Identifier = NonEmpty Char
 
 -- This data type represents the context under which to evaluate
 -- the type of a term

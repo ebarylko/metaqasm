@@ -15,6 +15,7 @@ import Typecheck(Expression(..),
 import qualified Data.Map as M
 import Test.QuickCheck 
 import Test.Hspec.QuickCheck
+import Data.List.NonEmpty as NL
 
 -- Takes an association list of identifiers to their respective types and
 -- returns an equivalent context to evaluate expressions
@@ -49,12 +50,15 @@ accessNthRegister :: Identifier -> Nat -> Expression
 accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
 
 
-prop_regAccessAlwaysValid :: RegAccessSpec -> IO ()
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+  arbitrary = NL.fromList  <$> listOf1 arbitrary
+
+prop_regAccessAlwaysValid :: RegAccessSpec -> Identifier -> IO ()
 
 -- Tests that accessing the ith register from a collection of registers of
 -- size N, where N > i, always succeeds
-prop_regAccessAlwaysValid  (Spec specInfo@(RegisterGroupInfo regType _) regIdx) =
-  determineType (genContext [("x", RegisterGroup specInfo)]) (accessNthRegister "x" regIdx) `shouldBe` expectedRegisterContent
+prop_regAccessAlwaysValid  (Spec specInfo@(RegisterGroupInfo regType _) regIdx) regName =
+  determineType (genContext [(regName, RegisterGroup specInfo)]) (accessNthRegister regName regIdx) `shouldBe` expectedRegisterContent
   where
 
     expectedRegisterContent = (Right . calcContentType) regType
@@ -64,13 +68,13 @@ prop_regAccessAlwaysValid  (Spec specInfo@(RegisterGroupInfo regType _) regIdx) 
     calcContentType Quantum = Qbit
 
 
-prop_regAccessAlwaysFails :: RegAccessSpec -> IO ()
+prop_regAccessAlwaysFails :: RegAccessSpec -> Identifier -> IO ()
 
 
 -- Tests that accessing the ith register from a collection of registers of
 -- size N, where N <= i, always fails
-prop_regAccessAlwaysFails  (Spec specInfo regIdx) =
-  determineType (genContext [("x", RegisterGroup specInfo)]) (accessNthRegister "x" regIdx) `shouldBe` Left UsesInvalidArrayIndex
+prop_regAccessAlwaysFails  (Spec specInfo regIdx) regName =
+  determineType (genContext [(regName, RegisterGroup specInfo)]) (accessNthRegister regName regIdx) `shouldBe` Left UsesInvalidArrayIndex
 
 -- Takes a function that modifies range of registers accessed
 -- in a specification and returns a generator that uses
@@ -97,15 +101,12 @@ invalidRegAccessSpec = genRegAccessSpec $ \x -> (x, x + 50)
 instance Arbitrary Nat where
   arbitrary = Nat . getNonNegative <$> (arbitrary :: Gen (NonNegative Int))
 
-type NonEmptyIdentifier = NonEmptyList Char
-
-prop_cannotAccessOutOfScopeRegColl :: NonEmptyIdentifier -> Index -> IO ()
+prop_cannotAccessOutOfScopeRegColl :: Identifier -> Index -> IO ()
 
 prop_cannotAccessOutOfScopeRegColl regName regIdx =
-  determineType emptyCtx (accessNthRegister regId regIdx) `shouldBe` (Left . VariableNotInScope) regId
+  determineType emptyCtx (accessNthRegister regName regIdx) `shouldBe` (Left . VariableNotInScope) regName
   where
     emptyCtx = M.empty
-    regId = getNonEmpty regName
 
 
 main :: IO ()

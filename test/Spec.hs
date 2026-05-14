@@ -102,6 +102,8 @@ invalidRegAccessSpec = genRegAccessSpec $ \x -> (x, x + 50)
 instance Arbitrary Nat where
   arbitrary = Nat . getNonNegative <$> arbitrary 
 
+-- Tests that accessing a register collection that is not in
+-- the current evaluation scope always fails.
 prop_cannotAccessOutOfScopeRegColl :: Identifier -> Index -> IO ()
 
 prop_cannotAccessOutOfScopeRegColl regName regIdx =

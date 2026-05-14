@@ -5,10 +5,11 @@ import Typecheck(Expression(..),
       Identifier,
       TermType(..),
       RegisterType(..),
-      TypeError(..),
+      TypeEvaluationError(..),
       Nat(..),
       Pos(..),
-      Index
+      Index,
+      MisMatch(..)
       )
 
 import qualified Data.Map as M
@@ -112,16 +113,35 @@ prop_cannotAccessOutOfScopeRegColl regName regIdx =
     emptyCtx = M.empty
     regAccReq = accessNthRegister regName regIdx
 
+-- This tests that expressions not evaluating to a register collection
+-- cannot be indexed.
+prop_canOnlyIndexARegColl :: TermType -> Identifier -> Index -> IO ()
+
+prop_canOnlyIndexARegColl actualVarType varName regIdx@(Nat v) =
+  determineType ctx regAccReq `shouldBe` Left (TypeMismatch varName actualVarType mismatch)
+  where
+    ctx = genContext [(varName, actualVarType)]
+    regAccReq = accessNthRegister varName regIdx
+
+    mismatch = ExpectedRegColl . Pos . (+ 1) $ v
+
+nonRegCollType :: Gen TermType
+
+nonRegCollType = elements [Bit, Qbit]
 
 main :: IO ()
 main = hspec $ do
   describe "Accessing elements from a collection of registers of size N > 0" $ do
     prop "Accessing the ith register where i is in [0, N) returns the content inside the register" $ do
-      forAll validRegAccessSpec prop_regAccessAlwaysValid 
+      forAll validRegAccessSpec prop_regAccessAlwaysValid
 
     prop "Accessing the ith register where i >= N returns an error" $ do
-      forAll invalidRegAccessSpec  prop_regAccessAlwaysFails 
+      forAll invalidRegAccessSpec  prop_regAccessAlwaysFails
 
   describe "Accessing elements from a collection of registers that is out of scope" $ do
     prop "Accessing any register returns an error stating the collection is not in scope" $ do
       prop_cannotAccessOutOfScopeRegColl
+
+  describe "Accessing a register from an expression that does not evaluate to a register collection" $ do
+    prop "Accessing a register returns an error noting the type mismatch" $ do
+      forAll nonRegCollType prop_canOnlyIndexARegColl

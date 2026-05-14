@@ -8,10 +8,11 @@ module Typecheck
       TermType(..),
       TypeCalculationResult,
       RegisterType(..),
-      TypeError(..),
+      TypeEvaluationError(..),
       Nat(..),
       Pos(..),
-      Index
+      Index,
+      MisMatch(..)
     ) where
 
 import qualified Data.Map as M
@@ -48,21 +49,34 @@ data TermType
   | RegisterGroup RegisterType Pos
   deriving (Show, Eq)
 
-data TypeError = UsesInvalidArrayIndex | VariableNotInScope Identifier deriving (Show, Eq)
+-- This data type represents the ways there can be a mismatch between an expected and actual type
+data MisMatch = ExpectedRegColl {minCollSize :: Pos} deriving (Show, Eq)
+
+-- This data type represents all the possible reasons for why the type of an expression cannot be
+-- determined
+data TypeEvaluationError = UsesInvalidArrayIndex | VariableNotInScope Identifier | TypeMismatch{varName :: Identifier, actualVarType:: TermType, whatWentWrong :: MisMatch} deriving (Show, Eq)
 
 -- This type represents the result of determining the type of an
 -- expression, being either a valid type or one that is invalid due to one or more reasons.
-type TypeCalculationResult = Either TypeError TermType
+type TypeCalculationResult = Either TypeEvaluationError TermType
 
 -- Takes an id referring to an expression, an evaluation scope, and returns the type of the referenced
 -- expression if it exists. Returns an error otherwise.
-findTypeWithinScope :: Identifier -> EvaluationContext -> Either TypeError TermType
+findTypeWithinScope :: Identifier -> EvaluationContext -> TypeCalculationResult
 
 findTypeWithinScope varName = M.lookup varName >>> maybe (Left $ VariableNotInScope varName) Right
 
-eitherFromPred :: (a -> Bool) -> err -> a -> Either err a
+eitherFromPred :: (a -> Bool) -> (a -> err) -> a -> Either err a
 
-eitherFromPred predicate elseCase x = if predicate x then Right x else Left elseCase
+eitherFromPred predicate elseCase x = if predicate x then Right x else (Left . elseCase) x
+
+incNat  :: Nat -> Nat
+
+incNat (Nat v) = Nat $ v + 1
+
+unsafeNatToPos :: Nat -> Pos
+
+unsafeNatToPos (Nat v) = Pos v
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if
@@ -71,7 +85,8 @@ eitherFromPred predicate elseCase x = if predicate x then Right x else Left else
 determineType :: EvaluationContext -> Expression -> TypeCalculationResult
 determineType m (RegisterAccess{registerName, registerNumber}) =
   findTypeWithinScope registerName m
-  >>= eitherFromPred (isAccessingValidReg registerNumber) UsesInvalidArrayIndex
+  >>= eitherFromPred isAccessingRegColl genMismatchInfo
+  >>= eitherFromPred (isAccessingValidReg registerNumber) (const UsesInvalidArrayIndex)
   & fmap getRegisterContentType
   where
     isAccessingValidReg :: Index -> TermType -> Bool
@@ -80,6 +95,13 @@ determineType m (RegisterAccess{registerName, registerNumber}) =
     getRegisterContentType :: TermType -> TermType
     getRegisterContentType (RegisterGroup Quantum _ ) = Qbit
     getRegisterContentType (RegisterGroup Classical _ ) = Bit
+
+    isAccessingRegColl :: TermType -> Bool
+    isAccessingRegColl (RegisterGroup _ _)  = True
+    isAccessingRegColl _  = False
+
+    minSize = unsafeNatToPos . incNat $ registerNumber
+    genMismatchInfo = flip (TypeMismatch registerName)  (ExpectedRegColl minSize)
 
 
 determineType _ _ = undefined

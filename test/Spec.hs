@@ -8,7 +8,6 @@ import Typecheck(Expression(..),
       TypeError(..),
       Nat(..),
       Pos(..),
-      RegisterGroupInfo(..),
       Index
       )
 
@@ -23,18 +22,14 @@ genContext :: [(Identifier, TermType)] -> EvaluationContext
 
 genContext = M.fromList
 
-positiveNum :: Gen Pos
-positiveNum = (Pos . getPositive) <$> (arbitrary :: Gen (Positive Int))
+instance Arbitrary RegisterType where
+  arbitrary = oneof [return Classical, return Quantum]
 
-registerType :: Gen RegisterType
-registerType = oneof [return Classical, return Quantum]
+instance Arbitrary Pos where
+  arbitrary = Pos . getPositive <$> (arbitrary :: Gen (Positive Int))
 
 
-registerGroupInfo :: Gen RegisterGroupInfo
-registerGroupInfo = RegisterGroupInfo <$> registerType <*> positiveNum
-
-instance Arbitrary RegisterGroupInfo where
-  arbitrary = registerGroupInfo
+type RegisterGroupInfo = (RegisterType, Pos)
 
 -- This data type represents a specification describing a collection
 -- of quantum/classical registers of size N and a request to
@@ -42,13 +37,11 @@ instance Arbitrary RegisterGroupInfo where
 data RegAccessSpec = Spec RegisterGroupInfo Nat deriving (Show, Eq)
 
 
-
 -- Takes a register collection id A, the index of the register to
 -- access I, and returns an expression representing a request to
 -- access the Ith register of A
 accessNthRegister :: Identifier -> Nat -> Expression
---accessNthRegister name regIdx = RegisterAccess{registerName = name, registerNumber = regIdx}
-accessNthRegister = RegisterAccess 
+accessNthRegister = RegisterAccess
 
 
 instance Arbitrary a => Arbitrary (NonEmpty a) where
@@ -58,8 +51,8 @@ prop_regAccessAlwaysValid :: RegAccessSpec -> Identifier -> IO ()
 
 -- Tests that accessing the ith register from a collection of registers of
 -- size N, where N > i, always succeeds
-prop_regAccessAlwaysValid  (Spec specInfo@(RegisterGroupInfo regType _) regIdx) regName =
-  determineType (genContext [(regName, RegisterGroup specInfo)]) (accessNthRegister regName regIdx) `shouldBe` expectedRegisterContent
+prop_regAccessAlwaysValid  (Spec info@(regType, _) regIdx) regName =
+  determineType (genContext [(regName, uncurry RegisterGroup info)]) (accessNthRegister regName regIdx) `shouldBe` expectedRegisterContent
   where
 
     expectedRegisterContent = (Right . calcContentType) regType
@@ -74,8 +67,8 @@ prop_regAccessAlwaysFails :: RegAccessSpec -> Identifier -> IO ()
 
 -- Tests that accessing the ith register from a collection of registers of
 -- size N, where N <= i, always fails
-prop_regAccessAlwaysFails  (Spec specInfo regIdx) regName =
-  determineType (genContext [(regName, RegisterGroup specInfo)]) (accessNthRegister regName regIdx) `shouldBe` Left UsesInvalidArrayIndex
+prop_regAccessAlwaysFails  (Spec info regIdx) regName =
+  determineType (genContext [(regName, uncurry RegisterGroup info)]) (accessNthRegister regName regIdx) `shouldBe` Left UsesInvalidArrayIndex
 
 -- Takes a function that modifies range of registers accessed
 -- in a specification and returns a generator that uses
@@ -83,7 +76,7 @@ prop_regAccessAlwaysFails  (Spec specInfo regIdx) regName =
 genRegAccessSpec :: (Int -> (Int, Int)) -> Gen RegAccessSpec
 
 genRegAccessSpec f = do
-  x@(RegisterGroupInfo _ (Pos v)) <- registerGroupInfo
+  x@(_, (Pos v)) <- arbitrary
   randIdx <- (chooseInt . f) v
   (return . Spec x) $  Nat randIdx
 

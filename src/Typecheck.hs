@@ -11,7 +11,6 @@ module Typecheck
       TypeError(..),
       Nat(..),
       Pos(..),
-      RegisterGroupInfo(..),
       Index
     ) where
 
@@ -47,12 +46,10 @@ newtype Pos = Pos Int deriving (Show, Eq, Ord)
 -- used and of what kind
 data RegisterGroupInfo = RegisterGroupInfo RegisterType Pos deriving (Show, Eq)
 
--- This data type represents the possible types a term can take on, being a classical bit,
--- a quantum bit, or a collection of classical/quantum registers of size N, where N > 0
 data TermType
   = Bit
   | Qbit
-  | RegisterGroup RegisterGroupInfo
+  | RegisterGroup RegisterType Pos
   deriving (Show, Eq)
 
 data TypeError = UsesInvalidArrayIndex | VariableNotInScope Identifier deriving (Show, Eq)
@@ -78,19 +75,15 @@ eitherFromPred predicate elseCase x = if predicate x then Right x else Left else
 determineType :: EvaluationContext -> Expression -> TypeCalculationResult
 determineType m (RegisterAccess{registerName, registerNumber}) =
   findTypeWithinScope registerName m
-  >>= getRegGroupInfo
   >>= eitherFromPred (isAccessingValidReg registerNumber) UsesInvalidArrayIndex
   & fmap getRegisterContentType
   where
-    isAccessingValidReg :: Index -> RegisterGroupInfo -> Bool
-    isAccessingValidReg (Nat registerIdx) (RegisterGroupInfo _ (Pos regCount)) = regCount > registerIdx
+    isAccessingValidReg :: Index -> TermType -> Bool
+    isAccessingValidReg (Nat registerIdx) (RegisterGroup _ (Pos regCount)) = regCount > registerIdx
 
-    getRegGroupInfo (RegisterGroup x) = return x
-    getRegGroupInfo _ = undefined
-
-    getRegisterContentType :: RegisterGroupInfo -> TermType
-    getRegisterContentType (RegisterGroupInfo Quantum _ ) = Qbit
-    getRegisterContentType (RegisterGroupInfo Classical _ ) = Bit
+    getRegisterContentType :: TermType -> TermType
+    getRegisterContentType (RegisterGroup Quantum _ ) = Qbit
+    getRegisterContentType (RegisterGroup Classical _ ) = Bit
 
 
 determineType _ _ = undefined

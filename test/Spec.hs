@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 import Test.Hspec
 import Typecheck(Expression(..),
       EvaluationContext,
@@ -17,11 +18,13 @@ import Test.QuickCheck
 import Test.Hspec.QuickCheck
 import Data.List.NonEmpty as NL
 
--- Takes an association list of identifiers to their respective types and
--- returns an equivalent context to evaluate expressions
-genContext :: [(Identifier, TermType)] -> EvaluationContext
+-- Takes an identifier, the type it is associated with, and
+-- returns a minimal non-empty context 
+genMinContext :: Identifier -> TermType -> EvaluationContext
 
-genContext = M.fromList
+genMinContext = M.singleton
+
+
 
 instance Arbitrary RegisterType where
   arbitrary = elements [Classical, Quantum]
@@ -63,7 +66,7 @@ prop_regAccessAlwaysValid  (Spec info@(regType, _) regIdx) regName =
     calcContentType Classical = Bit
     calcContentType Quantum = Qbit
 
-    ctx = genContext [(regName, uncurry RegisterGroup info)]
+    ctx = genMinContext regName (uncurry RegisterGroup info)
     regAccReq = accessNthRegister regName regIdx
 
 
@@ -75,7 +78,7 @@ prop_regAccessAlwaysFails :: RegAccessSpec -> Identifier -> IO ()
 prop_regAccessAlwaysFails  (Spec info regIdx) regName =
   determineType ctx regAccReq `shouldBe` Left UsesInvalidArrayIndex
   where
-    ctx = genContext [(regName, uncurry RegisterGroup info)]
+    ctx = genMinContext regName (uncurry RegisterGroup info)
     regAccReq = accessNthRegister regName regIdx
 
 -- Takes a function that modifies range of registers accessed
@@ -120,10 +123,10 @@ prop_canOnlyIndexARegColl :: TermType -> Identifier -> Index -> IO ()
 prop_canOnlyIndexARegColl varType varID regIdx@(Nat v) =
   determineType ctx regAccReq `shouldBe` Left (TypeMismatch varID varType mismatch)
   where
-    ctx = genContext [(varID, varType)]
+    ctx = genMinContext varID varType
     regAccReq = accessNthRegister varID regIdx
 
-    mismatch = ExpectedRegColl . Pos . (+ 1) $ v
+    mismatch = ExpectedAtLeastNRegs . Pos . (+ 1) $ v
 
 nonRegCollType :: Gen TermType
 nonRegCollType = elements [Bit, Qbit]

@@ -49,8 +49,9 @@ data TermType
   | RegisterGroup RegisterType Pos
   deriving (Show, Eq)
 
--- This data type represents the ways there can be a mismatch between two type
-data Mismatch = ExpectedRegColl {minCollSize :: Pos} deriving (Show, Eq)
+-- This data type represents the ways there can be a mismatch between two type, e.g., a collection of n registers was expected but
+-- a parameter of another type was used.
+data Mismatch = ExpectedAtLeastNRegs {n :: Pos} deriving (Show, Eq)
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
@@ -99,7 +100,7 @@ determineType m (RegisterAccess{registerName, registerNumber}) =
     isAccessingRegColl _  = False
 
     genMinRegCollSize (Nat v) = Pos $ v + 1
-    genMismatchInfo =  flip (TypeMismatch registerName)  (ExpectedRegColl $ genMinRegCollSize registerNumber)
+    genMismatchInfo actType =  TypeMismatch registerName actType $ ExpectedAtLeastNRegs $ genMinRegCollSize registerNumber
 
 
 determineType _ _ = undefined

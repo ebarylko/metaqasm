@@ -24,8 +24,6 @@ genMinContext :: Identifier -> TermType -> EvaluationContext
 
 genMinContext = M.singleton
 
-
-
 instance Arbitrary RegisterType where
   arbitrary = elements [Classical, Quantum]
 

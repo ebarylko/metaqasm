@@ -49,7 +49,7 @@ data TermType
   | RegisterGroup RegisterType Pos
   deriving (Show, Eq)
 
--- This data type represents the ways there can be a mismatch between two type, e.g., a collection of n registers was expected but
+-- This data type represents the ways there can be a mismatch between two types, e.g., a collection of n registers was expected but
 -- a parameter of another type was used.
 data Mismatch = ExpectedAtLeastNRegs {n :: Pos} deriving (Show, Eq)
 

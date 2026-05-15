@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 import Test.Hspec
 import Typecheck(Expression(..),
       EvaluationContext,
@@ -5,10 +6,11 @@ import Typecheck(Expression(..),
       Identifier,
       TermType(..),
       RegisterType(..),
-      TypeError(..),
+      TypeEvaluationError(..),
       Nat(..),
       Pos(..),
-      Index
+      Index,
+      Mismatch(..)
       )
 
 import qualified Data.Map as M
@@ -16,11 +18,11 @@ import Test.QuickCheck
 import Test.Hspec.QuickCheck
 import Data.List.NonEmpty as NL
 
--- Takes an association list of identifiers to their respective types and
--- returns an equivalent context to evaluate expressions
-genContext :: [(Identifier, TermType)] -> EvaluationContext
+-- Takes an identifier, the type it is associated with, and
+-- returns a minimal non-empty context 
+genMinContext :: Identifier -> TermType -> EvaluationContext
 
-genContext = M.fromList
+genMinContext = M.singleton
 
 instance Arbitrary RegisterType where
   arbitrary = elements [Classical, Quantum]
@@ -62,7 +64,7 @@ prop_regAccessAlwaysValid  (Spec info@(regType, _) regIdx) regName =
     calcContentType Classical = Bit
     calcContentType Quantum = Qbit
 
-    ctx = genContext [(regName, uncurry RegisterGroup info)]
+    ctx = genMinContext regName (uncurry RegisterGroup info)
     regAccReq = accessNthRegister regName regIdx
 
 
@@ -74,7 +76,7 @@ prop_regAccessAlwaysFails :: RegAccessSpec -> Identifier -> IO ()
 prop_regAccessAlwaysFails  (Spec info regIdx) regName =
   determineType ctx regAccReq `shouldBe` Left UsesInvalidArrayIndex
   where
-    ctx = genContext [(regName, uncurry RegisterGroup info)]
+    ctx = genMinContext regName (uncurry RegisterGroup info)
     regAccReq = accessNthRegister regName regIdx
 
 -- Takes a function that modifies range of registers accessed
@@ -112,16 +114,34 @@ prop_cannotAccessOutOfScopeRegColl regName regIdx =
     emptyCtx = M.empty
     regAccReq = accessNthRegister regName regIdx
 
+-- This tests that expressions not evaluating to a register collection
+-- cannot be indexed.
+prop_canOnlyIndexARegColl :: TermType -> Identifier -> Index -> IO ()
+
+prop_canOnlyIndexARegColl varType varID regIdx@(Nat v) =
+  determineType ctx regAccReq `shouldBe` Left (TypeMismatch varID varType mismatch)
+  where
+    ctx = genMinContext varID varType
+    regAccReq = accessNthRegister varID regIdx
+
+    mismatch = ExpectedAtLeastNRegs . Pos . (+ 1) $ v
+
+nonRegCollType :: Gen TermType
+nonRegCollType = elements [Bit, Qbit]
 
 main :: IO ()
 main = hspec $ do
   describe "Accessing elements from a collection of registers of size N > 0" $ do
     prop "Accessing the ith register where i is in [0, N) returns the content inside the register" $ do
-      forAll validRegAccessSpec prop_regAccessAlwaysValid 
+      forAll validRegAccessSpec prop_regAccessAlwaysValid
 
     prop "Accessing the ith register where i >= N returns an error" $ do
-      forAll invalidRegAccessSpec  prop_regAccessAlwaysFails 
+      forAll invalidRegAccessSpec  prop_regAccessAlwaysFails
 
   describe "Accessing elements from a collection of registers that is out of scope" $ do
     prop "Accessing any register returns an error stating the collection is not in scope" $ do
       prop_cannotAccessOutOfScopeRegColl
+
+  describe "Accessing a register from an expression that does not evaluate to a register collection" $ do
+    prop "Accessing a register returns an error noting the type mismatch" $ do
+      forAll nonRegCollType prop_canOnlyIndexARegColl

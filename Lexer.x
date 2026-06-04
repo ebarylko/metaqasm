@@ -2,7 +2,7 @@
 module Lexer (Token(..), alexMonadScan) where
 }
 
-%wrapper "monad"
+%wrapper "posn"
 
 $digit  = 0-9        -- digits
 $alpha  = [a-zA-Z]   -- alphabetic characters
@@ -18,55 +18,58 @@ tokens :-
   \/\/.*                                                    ;
 
   -- Tokens
-  \[                                                        { token (readBracket TLBracket) }
-  \]                                                        { token (readBracket TRBracket) }
-  \(                                                        { token (readBracket LParen) }
-  \)                                                        { token (readBracket RParen) }
-  \"[^\"]*\"                                                { token lexString }
-  [a-z]($digit|$alpha)*                                     { token lexId }
-  [1-9]$digit*|0                                            { token lexNat }
+  \[                                                        { readBracket LBracket }
+  \]                                                        { readBracket RBracket }
+  \(                                                        { readBracket LParen }
+  \)                                                        { readBracket RParen }
+  \"[^\"]*\"                                                { lexString }
+  [a-z]($digit|$alpha)*                                     { lexId }
+  [1-9]$digit*|0                                            { lexNat }
 
 {
 
+newtype LineNumber = LineNumber Int
+
 -- OpenQASM tokens
-data Token =
-  | TLBracket
-  | TRBracket
-  | TLParen
-  | TRParen
-  -- identifiers & literals
-  | TString String
-  | TID String
-  | TNat Int
-  | EOF
+data Token = LBracket LineNumber
+  | RBracket LineNumber
+  | LParen LineNumber
+  | RParen LineNumber
+  | Str String LineNumber
+  | ID String LineNumber
+  | Nat Int LineNumber
   deriving (Eq,Show)
 
-type TokenGenerator = AlexInput -> Int -> Token
+-- Represents functions that takes line information,
+-- a portion of the stream to read, and constructs a token
+type TokenGenerator = AlexPosn -> String -> Token
 
--- Takes the type of expected bracket and returns the corresponding token
-readBracket :: Token -> TokenGenerator
+type Bracket = LineNumber -> Token
 
-readBracket expectedBracket _ _ = expectedBracket
+-- Takes the expected bracket and returns the token corresponding to that bracket
+readBracket :: Bracket -> TokenGenerator
+
+getLineNumber :: AlexPosn -> LineNumber
+getLineNumber (_, lineNumber, _) = LineNumber lineNumber
+
+readBracket expectedBracket lineInfo _ = (expectedBracket . getLineNumber)  lineInfo
+
+genToken :: (a -> LineNumber -> Token) -> (String -> a) -> TokenGenerator
+
+genToken tokFn f = = \lineInfo text -> tokFn (f text) (getLineNumber lineInfo)
 
 -- Takes an string and generates the corresponding token for it
-lexString :: TokenGenerator
-lexString (_, _, _, stream) stringLength = TString validId
-where validId = filter (/= '"') . take stringLength $ stream
+lexString = genToken Str (filter (/= '"'))
 
 -- Takes an id and generates the corresponding token for it
-lexId :: TokenGenerator
-lexId (_, _, _, stream) idLength = TID . take idLength $ stream
+lexId = genToken Id id
 
 -- Produces a token for a natural number
-lexNat :: TokenGenerator
-lexNat (_, _, _, stream) numLength = TNat . num
-       where
-        num = read . take numLength $ stream
+lexNat = Nat read
 
-
-
--- Represents the end of a file lexed token
-alexEOF :: Alex Token
-alexEOF = return EOF
-
+-- lexNat :: TokenGenerator
+-- lexNat lineInfo nat = Nat num lineNum
+--        where
+--         num = read nat
+--         lineNum = getLineNumber lineInfo
 }

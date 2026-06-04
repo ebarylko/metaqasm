@@ -1,12 +1,11 @@
 {
-  module Grammer(parseTokens) where
+  module Grammar(parseTokens) where
 
 import Lexer
 }
 
 %name parseTokens
 %tokentype { Token }
-%error { parseError }
 %lexer { lexText } { EOF }
 %monad { Either String } { (>>=) } { return }
 
@@ -34,19 +33,19 @@ arg : id             { toVar $1 }
   data Ast context =
     GateApp (Ast context) (Ast context)
     | Var String context
-    | RegisterAccess (Ast context) (Ast context) 
+    | RegisterAccess (Ast context) (Ast context)
     | Index Int context
 
 -- This type represents a token paired with information
 -- on which line the token was found
 type TokenWithLineInfo = (AlexState, Token)
 
-newType LineNumber = LineNumber Int
+newtype LineNumber = LineNumber Int
 
 -- Extracts the line number from the available
 -- line information
 getLineNumber :: AlexPosn -> LineNumber
-getLineNumber (_, lineNumber, _) = LineNumber lineNumber
+getLineNumber (AlexPn _ lineNumber _) = LineNumber lineNumber
 
 -- Coverts a token representing a variable name to its
 -- corresponding AST
@@ -57,7 +56,7 @@ toVar (lineInfo, varName) = Var varName $ getLineNumber lineInfo
 
 toIdx :: TokenWithLineInfo -> Ast LineNumber
 
-toIdx (lineInfo, idx) = Index idx (        getLineNumber lineInfo)
+toIdx (lineInfo, idx) = Index idx $ getLineNumber lineInfo
 
 
 -- Takes two tokens representing the name of a register collection
@@ -68,7 +67,13 @@ toRegAccess :: TokenWithLineInfo -> TokenWithLineInfo -> Ast LineInfo
 toRegAccess regCollToken idxToken = RegisterAccess (toVar regCollToken) (toIdx idxToken)
 
 
-parseError :: [Token] -> a
-parseError xs = error $ "Parse error: " ++ concatMap show xs
+type ParseResult ctx = Either String (Ast ctx)
+
+parseError :: Token -> ParseResult a
+parseError tok = Left $ show tok ++ "is not valid according to the grammar"
+
+lexText  :: (Token -> ParseResult ctx) -> ParseResult ctx
+
+lexText f = alexMonadScan 
 
 }

@@ -54,6 +54,9 @@ getLineNumber (_, lineNumber, _) = LineNumber lineNumber
 
 readBracket expectedBracket lineInfo _ = (expectedBracket . getLineNumber)  lineInfo
 
+-- Takes a function for generating a token given some data and a line number,
+-- a function to generate the wanted data, and returns a function that
+-- generates a token using the two given functions
 genToken :: (a -> LineNumber -> Token) -> (String -> a) -> TokenGenerator
 
 genToken tokFn f = = \lineInfo text -> tokFn (f text) (getLineNumber lineInfo)

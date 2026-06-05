@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - containers
+- array
 
 ghc-options:
 - -Wall
@@ -36,6 +37,9 @@ ghc-options:
 
 library:
   source-dirs: src
+  build-tools:
+    - alex
+    - happy
 
 tests:
   metaqasm-test:

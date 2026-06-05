@@ -1,5 +1,5 @@
 {
-module Lexer (Token(..), alexMonadScan) where
+module Lexer (Token(..), LineNumber(..), alexScanTokens) where
 }
 
 %wrapper "posn"
@@ -28,7 +28,7 @@ tokens :-
 
 {
 
-newtype LineNumber = LineNumber Int
+newtype LineNumber = LineNumber Int deriving (Eq, Show)
 
 -- OpenQASM tokens
 data Token = LBracket LineNumber
@@ -36,7 +36,7 @@ data Token = LBracket LineNumber
   | LParen LineNumber
   | RParen LineNumber
   | Str String LineNumber
-  | ID String LineNumber
+  | Id String LineNumber
   | Nat Int LineNumber
   deriving (Eq,Show)
 
@@ -50,7 +50,7 @@ type Bracket = LineNumber -> Token
 readBracket :: Bracket -> TokenGenerator
 
 getLineNumber :: AlexPosn -> LineNumber
-getLineNumber (_, lineNumber, _) = LineNumber lineNumber
+getLineNumber (AlexPn _ lineNumber _) = LineNumber lineNumber
 
 readBracket expectedBracket lineInfo _ = (expectedBracket . getLineNumber)  lineInfo
 
@@ -59,7 +59,7 @@ readBracket expectedBracket lineInfo _ = (expectedBracket . getLineNumber)  line
 -- generates a token using the two given functions
 genToken :: (a -> LineNumber -> Token) -> (String -> a) -> TokenGenerator
 
-genToken tokFn f = = \lineInfo text -> tokFn (f text) (getLineNumber lineInfo)
+genToken tokFn f = \lineInfo text -> tokFn (f text) (getLineNumber lineInfo)
 
 -- Takes an string and generates the corresponding token for it
 lexString = genToken Str (filter (/= '"'))
@@ -68,7 +68,7 @@ lexString = genToken Str (filter (/= '"'))
 lexId = genToken Id id
 
 -- Produces a token for a natural number
-lexNat = Nat read
+lexNat = genToken Nat read
 
 -- lexNat :: TokenGenerator
 -- lexNat lineInfo nat = Nat num lineNum

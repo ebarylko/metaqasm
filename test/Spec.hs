@@ -8,13 +8,14 @@ import Typecheck(TypeEvaluationError(..),
 import Syntax(Identifier, WithContext(..))
 import Lexer(alexScanTokens, LineNumber(..))
 import Grammar(parseTokens)
-import Test.QuickCheck(elements, oneof, forAll, listOf, Gen)
+import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))
 import Control.Arrow((>>>))
 import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
+import Generators(outOfScopeRegColl, outOfScopeExpr, Expr)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -53,35 +54,6 @@ prop_cannotAccessOutOfScopeRegColl regCollName  =
     registerAccess = regCollName <> "[0]"
     expectedLineNum = LineNumber 1
     variableNotInScopeErr = genNotInScopeErr regCollName expectedLineNum
-
-
-outOfScopeRegColl :: Gen String
-outOfScopeRegColl = (:) <$> lowerCaseLetter <*> listOf alphaNumeric
-  where
-    lowerCaseLetter :: Gen Char
-    lowerCaseLetter = elements ['a'..'z']
-
-    upperCaseLetter :: Gen Char
-    upperCaseLetter = elements ['A'..'Z']
-
-    letter :: Gen Char
-    letter = oneof [lowerCaseLetter, upperCaseLetter]
-
-    digit :: Gen Char
-    digit = elements ['0'..'9']
-
-    alphaNumeric :: Gen Char
-    alphaNumeric = oneof [letter, digit]
-
-
-
-type Expr = String
-outOfScopeExpr :: Gen Expr
-
-outOfScopeVarName = outOfScopeRegColl
-outOfScopeRegAccess = (++) <$> outOfScopeRegColl <*> pure "[0]"
-
-outOfScopeExpr = oneof [outOfScopeVarName, outOfScopeRegAccess]
 
 prop_cannotApplyGateToOutOfScopeExpr :: Expr -> IO ()
 

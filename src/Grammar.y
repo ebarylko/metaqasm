@@ -24,10 +24,13 @@ nat     { Nat num lineNum}
 
 %%
 
+
 arg : id             {(Var . toVar) $1 }
-    | id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
+| id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
 
 {
+
+-- gateApp : id '(' arg ')' {H $3}
 
 -- Converts a token representing a variable name to its
 -- corresponding term in the grammar

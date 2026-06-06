@@ -24,12 +24,11 @@ outOfScopeRegColl = (:) <$> lowerCaseLetter <*> listOf alphaNumeric
     alphaNumeric = oneof [letter, digit]
 
 type Expr = String
-outOfScopeExpr :: Gen Expr
 
 outOfScopeVarName = outOfScopeRegColl
 
 outOfScopeRegAccess :: Gen Expr
 outOfScopeRegAccess = (++) <$> outOfScopeRegColl <*> pure "[0]"
 
-outOfScopeExpr :: Gen String
+outOfScopeExpr :: Gen Expr
 outOfScopeExpr = oneof [outOfScopeVarName, outOfScopeRegAccess]

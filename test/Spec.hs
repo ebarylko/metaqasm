@@ -3,7 +3,8 @@ import Test.Hspec
 import Typecheck(TypeEvaluationError(..),
                 TermType(..),
                 determineType,
-                TypeErrAt)
+                TypeErrAt,
+                Term)
 
 import Syntax(Identifier, WithContext(..))
 import Lexer(alexScanTokens, LineNumber(..))
@@ -16,6 +17,8 @@ import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
 import Generators(outOfScopeRegColl, outOfScopeExpr, Expr)
+import qualified Vary
+
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -31,7 +34,7 @@ type ProgramTypeEvaluationResult = Either MetaQasmError TermType
 -- the parsing or type checking of the code is returned.
 calcTypeOf :: String -> ProgramTypeEvaluationResult
 
-calcTypeOf = (alexScanTokens >>> parseTokens >>> changeErrTo ParseError) >=> (determineType emptyCtx >>> changeErrTo TypeErr)
+calcTypeOf = (alexScanTokens >>> parseTokens >>> changeErrTo ParseError) >=> (Vary.from >>> determineType emptyCtx >>> changeErrTo TypeErr)
   where
     changeErrTo :: (a -> b) -> Either a c -> Either b c
     changeErrTo = first
@@ -55,6 +58,8 @@ prop_cannotAccessOutOfScopeRegColl regCollName  =
     expectedLineNum = LineNumber 1
     variableNotInScopeErr = genNotInScopeErr regCollName expectedLineNum
 
+-- Asserts that a hadamard gate cannot be applied to
+-- an out of scope expression
 prop_cannotApplyGateToOutOfScopeExpr :: Expr -> IO ()
 
 prop_cannotApplyGateToOutOfScopeExpr expr =

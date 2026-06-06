@@ -1,10 +1,11 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE GHC2024 #-}
 
 module Typecheck
     (determineType,
       TermType(..),
       TypeEvaluationError(..),
-      TypeErrAt
+      TypeErrAt,
+      Term
     ) where
 
 import qualified Data.Map as M
@@ -12,9 +13,12 @@ import Control.Arrow ((>>>))
 import Syntax(Identifier,
               Expression(..),
               WithContext(..),
-              Id)
+              Id,
+              GateApp(..))
 import Lexer(LineNumber(..))
-
+import Vary (Vary, (:|))
+import qualified Vary
+import Data.Function ((&))
 
 
 -- This data type represents the context under which to evaluate
@@ -51,13 +55,25 @@ findTypeWithinScope (WithContext varName lineNum) = M.lookup varName >>> maybe l
     lookupErr = Left $ WithContext (VariableNotInScope varName) lineNum
 
 
+verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
+
+verifyRegAccess m (RegisterAccess registerName _) = findTypeWithinScope registerName m
+
+type Term = Vary '[Expression, GateApp] 
+
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if
 -- possible. Returns an error otherwise explaining why the type
 -- could not be determined
-determineType :: EvaluationContext -> Expression -> TypeCalculationResult
-determineType m (RegisterAccess registerName _) =
-  findTypeWithinScope registerName m
+determineType :: EvaluationContext -> Term -> TypeCalculationResult
+--determineType :: EvaluationContext -> Expression -> TypeCalculationResult
+--determineType m (RegisterAccess registerName _) =
+--  findTypeWithinScope registerName m
+
+determineType m term = term &
+  (Vary.on @Expression (\x -> verifyRegAccess m x)
+  $ Vary.on @GateApp (const (Right Qbit))
+   $ Vary.exhaustiveCase  )
 
 
-determineType _ _ = error "Have not implemented this yet"
+

@@ -70,9 +70,4 @@ lexId = genToken Id id
 -- Produces a token for a natural number
 lexNat = genToken Nat read
 
--- lexNat :: TokenGenerator
--- lexNat lineInfo nat = Nat num lineNum
---        where
---         num = read nat
---         lineNum = getLineNumber lineInfo
 }

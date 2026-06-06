@@ -1,42 +1,21 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Typecheck
-    ( Expression(..),
-      EvaluationContext,
-      determineType,
-      Identifier,
+    (determineType,
       TermType(..),
-      TypeCalculationResult,
-      RegisterType(..),
       TypeEvaluationError(..),
-      Nat(..),
-      Pos(..),
-      Index,
-      Mismatch(..)
     ) where
 
 import qualified Data.Map as M
-import Data.Function ((&))
 import Control.Arrow ((>>>))
-import Data.List.NonEmpty
+import Syntax(Identifier,
+              Expression(..))
 
 
--- This data type represents a natural number
-newtype Nat = Nat Int deriving (Eq, Show, Ord)
-
-type Index = Nat
-
-type Identifier = NonEmpty Char
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
 type EvaluationContext = M.Map Identifier TermType
-
-
--- This data type represents the values an expression can take on,
--- being either a reference to another term or an attempt to obtain a bit or qubit from a
--- collection of registers
-data Expression = Identifier | RegisterAccess{registerName::Identifier,  registerNumber::Nat} deriving (Show, Eq)
 
 -- This data type represents that a register can contain either a classical or a quantum bit
 data RegisterType = Quantum | Classical deriving (Show, Eq)
@@ -49,13 +28,9 @@ data TermType
   | RegisterGroup RegisterType Pos
   deriving (Show, Eq)
 
--- This data type represents the ways there can be a mismatch between two types, e.g., a collection of n registers was expected but
--- a parameter of another type was used.
-data Mismatch = ExpectedAtLeastNRegs {n :: Pos} deriving (Show, Eq)
-
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
-data TypeEvaluationError = UsesInvalidArrayIndex | VariableNotInScope Identifier | TypeMismatch{varName :: Identifier, actualVarType:: TermType, whatWentWrong :: Mismatch} deriving (Show, Eq)
+data TypeEvaluationError = VariableNotInScope Identifier deriving (Show, Eq)
 
 -- This type represents the result of determining the type of an
 -- expression, being either a valid type or one that is invalid due to one or more reasons.
@@ -81,26 +56,27 @@ eitherFromPred predicate elseCase x = if predicate x then Right x else (Left . e
 -- could not be determined
 determineType :: EvaluationContext -> Expression -> TypeCalculationResult
 determineType m (RegisterAccess{registerName, registerNumber}) =
-  findTypeWithinScope registerName m
-  >>= eitherFromPred isAccessingRegColl genMismatchInfo
-  >>= eitherFromPred (isAccessingValidReg registerNumber) (const UsesInvalidArrayIndex)
-  & fmap getRegisterContentType
-  where
-    isAccessingValidReg :: Index -> TermType -> Bool
-    isAccessingValidReg (Nat registerIdx) (RegisterGroup _ (Pos regCount)) = regCount > registerIdx
-    isAccessingValidReg _ _ = False
+  error "Need to implement the register access case"
+--  findTypeWithinScope registerName m
+--  >>= eitherFromPred isAccessingRegColl genMismatchInfo
+--  >>= eitherFromPred (isAccessingValidReg registerNumber) (const UsesInvalidArrayIndex)
+--  & fmap getRegisterContentType
+--  where
+--    isAccessingValidReg :: Index -> TermType -> Bool
+--    isAccessingValidReg (Nat registerIdx) (RegisterGroup _ (Pos regCount)) = regCount > registerIdx
+--    isAccessingValidReg _ _ = False
+--
+--    getRegisterContentType :: TermType -> TermType
+--    getRegisterContentType (RegisterGroup Quantum _ ) = Qbit
+--    getRegisterContentType (RegisterGroup Classical _ ) = Bit
+--    getRegisterContentType _ = error "Should only have received a collection of registers"
+--
+--    isAccessingRegColl :: TermType -> Bool
+--    isAccessingRegColl (RegisterGroup _ _)  = True
+--    isAccessingRegColl _  = False
+--
+--    genMinRegCollSize (Nat v) = Pos $ v + 1
+--    genMismatchInfo actType =  TypeMismatch registerName actType $ ExpectedAtLeastNRegs $ genMinRegCollSize registerNumber
 
-    getRegisterContentType :: TermType -> TermType
-    getRegisterContentType (RegisterGroup Quantum _ ) = Qbit
-    getRegisterContentType (RegisterGroup Classical _ ) = Bit
-    getRegisterContentType _ = error "Should only have received a collection of registers"
 
-    isAccessingRegColl :: TermType -> Bool
-    isAccessingRegColl (RegisterGroup _ _)  = True
-    isAccessingRegColl _  = False
-
-    genMinRegCollSize (Nat v) = Pos $ v + 1
-    genMismatchInfo actType =  TypeMismatch registerName actType $ ExpectedAtLeastNRegs $ genMinRegCollSize registerNumber
-
-
-determineType _ _ = undefined
+determineType _ _ = error "Have not implemented this yet"

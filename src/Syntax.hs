@@ -1,4 +1,4 @@
-module Ast(Expression(..),
+module Syntax(Expression(..),
           WithContext(..),
           Identifier,
           Index(..),

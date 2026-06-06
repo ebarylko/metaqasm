@@ -1,22 +1,18 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
 import Test.Hspec
-import Typecheck(Expression(..),
-      EvaluationContext,
-      determineType,
-      Identifier,
-      TermType(..),
-      RegisterType(..),
-      TypeEvaluationError(..),
-      Nat(..),
-      Pos(..),
-      Index,
-      Mismatch(..)
-      )
+import Typecheck(TypeEvaluationError(..),
+                TermType(..),
+                determineType)
 
-import qualified Data.Map as M
-import Test.QuickCheck
+import Syntax(Identifier)
+import Lexer(alexScanTokens)
+import Grammar(parseTokens)
+import Test.QuickCheck(elements, oneof, forAll, listOf, Gen)
 import Test.Hspec.QuickCheck
-import Data.List.NonEmpty as NL
+import Data.Bifunctor (Bifunctor(first))
+import Control.Arrow((>>>))
+import qualified Data.Map as M
+import Control.Monad ((>=>))
+
 
 -- -- Takes an identifier, the type it is associated with, and
 -- -- returns a minimal non-empty context
@@ -129,19 +125,62 @@ import Data.List.NonEmpty as NL
 -- nonRegCollType :: Gen TermType
 -- nonRegCollType = elements [Bit, Qbit]
 
+-- This represents the possible errors in a metaQasm program, being
+-- either an error that occurred when parsing the code or
+-- when evaluating the types of the program
+data MetaQasmError = ParseError String | TypeErr TypeEvaluationError deriving (Eq, Show)
+
+type ProgramTypeEvaluationResult = Either MetaQasmError TermType
+calcTypeOf :: String -> ProgramTypeEvaluationResult
+
+calcTypeOf = (alexScanTokens >>> parseTokens >>> changeErrTo ParseError) >=> (determineType emptyCtx >>> changeErrTo TypeErr)
+  where
+    changeErrTo :: (a -> b) -> Either a c -> Either b c
+    changeErrTo = first
+    emptyCtx = M.empty
+
+
+-- -- Tests that accessing a register collection that is not in
+-- -- the current evaluation scope always fails.
+prop_cannotAccessOutOfScopeRegColl :: Identifier -> IO ()
+
+prop_cannotAccessOutOfScopeRegColl regCollName  =
+  calcTypeOf registerAccess `shouldBe` variableNotInScopeErr
+  where
+    registerAccess = regCollName <> "[0]"
+    variableNotInScopeErr = Left $ TypeErr $ VariableNotInScope regCollName
+
+lowerCaseLetter :: Gen Char
+lowerCaseLetter = elements ['a'..'z']
+
+upperCaseLetter :: Gen Char
+upperCaseLetter = elements ['A'..'Z']
+
+letter :: Gen Char
+letter = oneof [lowerCaseLetter, upperCaseLetter]
+
+digit :: Gen Char
+digit = elements ['0'..'9']
+
+alphaNumeric :: Gen Char
+alphaNumeric = oneof [letter, digit]
+
+outOfScopeRegColl :: Gen String
+outOfScopeRegColl = (:) <$> lowerCaseLetter <*> listOf alphaNumeric
+
 main :: IO ()
 main = hspec $ do
-  describe "Accessing elements from a collection of registers of size N > 0" $ do
-    prop "Accessing the ith register where i is in [0, N) returns the content inside the register" $ do
+--  describe "Accessing elements from a collection of registers of size N > 0" $ do
+ --   prop "Accessing the ith register where i is in [0, N) returns the content inside the register" $ do
      -- forAll validRegAccessSpec prop_regAccessAlwaysValid
-      pending
+--      pending
 
 --    prop "Accessing the ith register where i >= N returns an error" $ do
 --      --forAll invalidRegAccessSpec  prop_regAccessAlwaysFails
 --
---  describe "Accessing elements from a collection of registers that is out of scope" $ do
---    prop "Accessing any register returns an error stating the collection is not in scope" $ do
---      --prop_cannotAccessOutOfScopeRegColl
+  describe "Accessing elements from a collection of registers that is out of scope" $ do
+    prop "Accessing any register returns an error stating the collection is not in scope" $ do
+      forAll outOfScopeRegColl prop_cannotAccessOutOfScopeRegColl
 --
 --  describe "Accessing a register from an expression that does not evaluate to a register collection" $ do
 --    prop "Accessing a register returns an error noting the type mismatch" $ do

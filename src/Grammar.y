@@ -1,7 +1,7 @@
 {
 module Grammar(parseTokens) where
 import Lexer
-import Ast(Expression(..),
+import Syntax(Expression(..),
            WithContext(..),
            Index(..),
            Idx,

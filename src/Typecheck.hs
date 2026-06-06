@@ -4,12 +4,15 @@ module Typecheck
     (determineType,
       TermType(..),
       TypeEvaluationError(..),
+      TypeErrAt
     ) where
 
 import qualified Data.Map as M
 import Control.Arrow ((>>>))
 import Syntax(Identifier,
-              Expression(..))
+              Expression(..),
+              WithContext(..))
+import Lexer(LineNumber(..))
 
 
 
@@ -32,15 +35,17 @@ data TermType
 -- determined
 data TypeEvaluationError = VariableNotInScope Identifier deriving (Show, Eq)
 
+type TypeErrAt = WithContext TypeEvaluationError LineNumber
+
 -- This type represents the result of determining the type of an
 -- expression, being either a valid type or one that is invalid due to one or more reasons.
-type TypeCalculationResult = Either TypeEvaluationError TermType
+type TypeCalculationResult = Either TypeErrAt TermType
 
 -- Takes an id referring to an expression, an evaluation scope, and returns the type of the referenced
 -- expression if it exists. Returns an error otherwise.
-findTypeWithinScope :: Identifier -> EvaluationContext -> TypeCalculationResult
+--findTypeWithinScope :: Identifier -> EvaluationContext -> TypeCalculationResult
 
-findTypeWithinScope varName = M.lookup varName >>> maybe (Left $ VariableNotInScope varName) Right
+--findTypeWithinScope varName = M.lookup varName >>> maybe (Left $ VariableNotInScope varName) Right
 
 -- Takes a predicate, a function to generate an err, the input, and
 -- returns an error if the data does not satisfy the predicate. Returns the

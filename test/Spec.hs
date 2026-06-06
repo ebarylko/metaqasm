@@ -1,10 +1,11 @@
 import Test.Hspec
 import Typecheck(TypeEvaluationError(..),
                 TermType(..),
-                determineType)
+                determineType,
+                TypeErrAt)
 
-import Syntax(Identifier)
-import Lexer(alexScanTokens)
+import Syntax(Identifier, WithContext(..))
+import Lexer(alexScanTokens, LineNumber(..))
 import Grammar(parseTokens)
 import Test.QuickCheck(elements, oneof, forAll, listOf, Gen)
 import Test.Hspec.QuickCheck
@@ -128,7 +129,7 @@ import Control.Monad ((>=>))
 -- This represents the possible errors in a metaQasm program, being
 -- either an error that occurred when parsing the code or
 -- when evaluating the types of the program
-data MetaQasmError = ParseError String | TypeErr TypeEvaluationError deriving (Eq, Show)
+data MetaQasmError = ParseError String | TypeErr TypeErrAt deriving (Eq, Show)
 
 type ProgramTypeEvaluationResult = Either MetaQasmError TermType
 calcTypeOf :: String -> ProgramTypeEvaluationResult
@@ -148,7 +149,8 @@ prop_cannotAccessOutOfScopeRegColl regCollName  =
   calcTypeOf registerAccess `shouldBe` variableNotInScopeErr
   where
     registerAccess = regCollName <> "[0]"
-    variableNotInScopeErr = Left $ TypeErr $ VariableNotInScope regCollName
+    expectedLineNum = LineNumber 1
+    variableNotInScopeErr = Left $ TypeErr $ WithContext (VariableNotInScope regCollName) expectedLineNum
 
 lowerCaseLetter :: Gen Char
 lowerCaseLetter = elements ['a'..'z']

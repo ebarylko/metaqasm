@@ -29,8 +29,8 @@ arg : id             {(Var . toVar) $1 }
 
 {
 
--- Coverts a token representing a variable name to its
--- corresponding term in the grammer
+-- Converts a token representing a variable name to its
+-- corresponding term in the grammar
 toVar :: Token -> Id
 toVar (Id varName lineNum) = WithContext varName lineNum
 

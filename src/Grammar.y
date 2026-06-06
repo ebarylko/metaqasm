@@ -40,5 +40,5 @@ toIdx (Nat num lineNum) = WithContext (Index num) lineNum
 type ParseResult  = Either String
 
 parseError :: [Token] -> ParseResult a
-parseError (x : _) = Left $ "The following cannot be parsed: " ++ show x
+parseError toks = Left $ "The following cannot be parsed: " ++ show toks
 }

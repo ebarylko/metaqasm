@@ -16,7 +16,7 @@ import Syntax(Identifier,
               Id,
               GateApp(..))
 import Lexer(LineNumber(..))
-import Vary (Vary, (:|))
+import Vary (Vary)
 import qualified Vary
 import Data.Function ((&))
 
@@ -59,6 +59,12 @@ verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
 verifyRegAccess m (RegisterAccess registerName _) = findTypeWithinScope registerName m
 
+verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
+
+verifyGateApp m (H regColl@(RegisterAccess _ _)) = verifyRegAccess m regColl
+
+verifyGateApp m (H (Var varName)) = findTypeWithinScope varName m
+
 type Term = Vary '[Expression, GateApp] 
 
 -- Takes a context under which to evaluate an expression, an
@@ -66,13 +72,10 @@ type Term = Vary '[Expression, GateApp]
 -- possible. Returns an error otherwise explaining why the type
 -- could not be determined
 determineType :: EvaluationContext -> Term -> TypeCalculationResult
---determineType :: EvaluationContext -> Expression -> TypeCalculationResult
---determineType m (RegisterAccess registerName _) =
---  findTypeWithinScope registerName m
 
 determineType m term = term &
-  (Vary.on @Expression (\x -> verifyRegAccess m x)
-  $ Vary.on @GateApp (const (Right Qbit))
+  (Vary.on @Expression (verifyRegAccess m)
+  $ Vary.on @GateApp (verifyGateApp m)
    $ Vary.exhaustiveCase  )
 
 

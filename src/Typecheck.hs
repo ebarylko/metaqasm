@@ -34,6 +34,7 @@ data TermType
   = Bit
   | Qbit
   | RegisterGroup RegisterType Pos
+  | Unit
   deriving (Show, Eq)
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be

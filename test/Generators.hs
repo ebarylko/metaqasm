@@ -1,9 +1,15 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Generators(outOfScopeRegColl,
-                  outOfScopeExpr,
-                  Expr)
+                  outOfScopeExpr)
   where
 
 import Test.QuickCheck
+import Formatting
+import Syntax(Identifier)
+import Control.Arrow((&&&), (>>>))
+import Test.QuickCheck.Instances.Tuple ((>**<))
+import Data.Function((&))
+
 
 outOfScopeRegColl :: Gen String
 outOfScopeRegColl = (:) <$> lowerCaseLetter <*> listOf alphaNumeric
@@ -32,3 +38,43 @@ outOfScopeRegAccess = (++) <$> outOfScopeRegColl <*> pure "[0]"
 
 outOfScopeExpr :: Gen Expr
 outOfScopeExpr = oneof [outOfScopeVarName, outOfScopeRegAccess]
+
+
+-- This data type represents a valid request to access the ith element of a register collection
+-- with n >= i registers
+data ValidRegCollAccess = ValidRegCollAccess{regCollName :: Identifier, numOfRegs :: Int, wantedRegIdx :: Int}
+
+
+genValidRegCollAccess :: Gen ValidRegCollAccess
+
+genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `suchThat` isAccessingValidReg & fmap (uncurry3 ValidRegCollAccess)
+  where
+    isAccessingValidReg (_, numOfRegs, requestedReg) = numOfRegs > requestedReg
+    posNum :: Gen Int
+    posNum = getPositive <$> arbitrary
+
+    uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
+    uncurry3 f = \(x, y, z) -> f x y z
+
+
+-- Takes a specification detailing a valid access
+-- of a register collection x with n registers and
+-- generates a declaration of a register with name x and
+-- n registers
+genQuantumRegDecl :: ValidRegCollAccess -> Expr
+genQuantumRegDecl (ValidRegCollAccess regCollName numOfRegs _) = formatToString ("creg" %+ string % braced int ) regCollName  numOfRegs
+
+-- Takes a specification detailing a valid access
+-- of the ith element of a register collection and
+-- generates the string representation of such an
+-- access
+genRegCollAccess :: ValidRegCollAccess -> Expr
+genRegCollAccess (ValidRegCollAccess regCollName _ wantedRegIdx) = formatToString (string % braced int) regCollName wantedRegIdx
+
+-- Generates metaQASM code where a hadamard gate is applied to
+-- a qubit that is in scope
+programWithQubitInScope :: Gen Expr
+programWithQubitInScope =  genValidRegCollAccess  & fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
+  where
+    formatInScopeRegAccess :: Expr -> Expr -> Expr
+    formatInScopeRegAccess = formatToString (string %+ "in" % braced  ("h" % parenthesised string)  )

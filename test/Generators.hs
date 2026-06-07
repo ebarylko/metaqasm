@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Generators(outOfScopeRegColl,
-                  outOfScopeExpr)
+                  outOfScopeExpr,
+                  programWithQubitInScope,
+                  Expr)
   where
 
 import Test.QuickCheck
@@ -42,14 +44,13 @@ outOfScopeExpr = oneof [outOfScopeVarName, outOfScopeRegAccess]
 
 -- This data type represents a valid request to access the ith element of a register collection
 -- with n >= i registers
-data ValidRegCollAccess = ValidRegCollAccess{regCollName :: Identifier, numOfRegs :: Int, wantedRegIdx :: Int}
-
+data ValidRegCollAccess = ValidRegCollAccess{_regCollName :: Identifier, _numOfRegs :: Int, _wantedRegIdx :: Int}
 
 genValidRegCollAccess :: Gen ValidRegCollAccess
 
 genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `suchThat` isAccessingValidReg & fmap (uncurry3 ValidRegCollAccess)
   where
-    isAccessingValidReg (_, numOfRegs, requestedReg) = numOfRegs > requestedReg
+    isAccessingValidReg (_, numOfElems, requestedRegIdx) = numOfElems > requestedRegIdx
     posNum :: Gen Int
     posNum = getPositive <$> arbitrary
 
@@ -62,14 +63,14 @@ genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `
 -- generates a declaration of a register with name x and
 -- n registers
 genQuantumRegDecl :: ValidRegCollAccess -> Expr
-genQuantumRegDecl (ValidRegCollAccess regCollName numOfRegs _) = formatToString ("creg" %+ string % braced int ) regCollName  numOfRegs
+genQuantumRegDecl (ValidRegCollAccess regCollId numOfRegs' _) = formatToString ("creg" %+ string % braced int ) regCollId  numOfRegs'
 
 -- Takes a specification detailing a valid access
 -- of the ith element of a register collection and
 -- generates the string representation of such an
 -- access
 genRegCollAccess :: ValidRegCollAccess -> Expr
-genRegCollAccess (ValidRegCollAccess regCollName _ wantedRegIdx) = formatToString (string % braced int) regCollName wantedRegIdx
+genRegCollAccess (ValidRegCollAccess regCollId _ wantedRegIdx') = formatToString (string % braced int) regCollId wantedRegIdx'
 
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope

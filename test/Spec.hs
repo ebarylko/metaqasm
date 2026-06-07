@@ -17,7 +17,10 @@ import Control.Arrow((>>>))
 import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
-import Generators(outOfScopeRegColl, outOfScopeExpr, Expr)
+import Generators(outOfScopeRegColl,
+                  outOfScopeExpr,
+                  Expr,
+                  programWithQubitInScope)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -70,8 +73,8 @@ prop_cannotApplyGateToOutOfScopeExpr expr =
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) (LineNumber 1)
     extractVarName = takeWhile (/= '[')
 
--- Tests that applying the hadamard gate to any qubit
--- is a valid operation
+-- Tests that applying the hadamard gate to qubit
+-- that is in scope is a valid operation
 prop_canApplyHGateToQbit :: Expr -> IO ()
 
 prop_canApplyHGateToQbit hGateApp =

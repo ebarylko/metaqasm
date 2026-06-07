@@ -39,8 +39,6 @@ arg : id             {(Var . toVar) $1 }
 
 
 {
-type Program = Vary.Vary '[GateApp, Expression]
-
 -- Converts a token representing a variable name to its
 -- corresponding term in the grammar
 toVar :: Token -> Id

@@ -1,14 +1,18 @@
 {
+{-# LANGUAGE GHC2024 #-}
 module Grammar(parseTokens) where
 import Lexer
 import Syntax(Expression(..),
-           WithContext(..),
-           Index(..),
-           Idx,
-           Id)
+              WithContext(..),
+              Index(..),
+              Idx,
+              Id,
+              GateApp(..))
+import qualified Vary
+import Typecheck(Term)
 }
 
-%name parseTokens
+%name parseTokens 
 %tokentype { Token }
 %error { parseError }
 %monad { ParseResult } { (>>=) } { return }
@@ -24,11 +28,17 @@ nat     { Nat num lineNum}
 
 %%
 
+term :: {Term}
+term : gateApp {Vary.from $1 }
+| arg     { Vary.from $1 }
+
+gateApp : id '(' arg ')' {H $3}
+
 arg : id             {(Var . toVar) $1 }
-    | id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
+| id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
+
 
 {
-
 -- Converts a token representing a variable name to its
 -- corresponding term in the grammar
 toVar :: Token -> Id
@@ -40,5 +50,5 @@ toIdx (Nat num lineNum) = WithContext (Index num) lineNum
 type ParseResult  = Either String
 
 parseError :: [Token] -> ParseResult a
-parseError (x : _) = Left $ "The following cannot be parsed: " ++ show x
+parseError toks = Left $ "The following cannot be parsed: " ++ show toks
 }

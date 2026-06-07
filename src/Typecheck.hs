@@ -1,10 +1,11 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE GHC2024 #-}
 
 module Typecheck
     (determineType,
       TermType(..),
       TypeEvaluationError(..),
-      TypeErrAt
+      TypeErrAt,
+      Term
     ) where
 
 import qualified Data.Map as M
@@ -12,9 +13,12 @@ import Control.Arrow ((>>>))
 import Syntax(Identifier,
               Expression(..),
               WithContext(..),
-              Id)
+              Id,
+              GateApp(..))
 import Lexer(LineNumber(..))
-
+import Vary (Vary)
+import qualified Vary
+import Data.Function ((&))
 
 
 -- This data type represents the context under which to evaluate
@@ -50,14 +54,36 @@ findTypeWithinScope (WithContext varName lineNum) = M.lookup varName >>> maybe l
   where
     lookupErr = Left $ WithContext (VariableNotInScope varName) lineNum
 
+-- Takes the current context, an request to access a register collection, and
+-- verifies if the request is valid, i.e., if the register collection exists and
+-- a valid register is selected. Returns the type of the register if so and an
+-- error otherwise
+verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
+
+verifyRegAccess m (RegisterAccess registerName _) = findTypeWithinScope registerName m
+
+
+-- Takes the current context, the application of a gate, and
+-- verifies if the application is valid under the given context.
+-- Returns the type of the application if so. Returns an error otherwise.
+verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
+
+verifyGateApp m (H regColl@(RegisterAccess _ _)) = verifyRegAccess m regColl
+
+verifyGateApp m (H (Var varName)) = findTypeWithinScope varName m
+
+type Term = Vary '[Expression, GateApp]
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if
 -- possible. Returns an error otherwise explaining why the type
 -- could not be determined
-determineType :: EvaluationContext -> Expression -> TypeCalculationResult
-determineType m (RegisterAccess registerName _) =
-  findTypeWithinScope registerName m
+determineType :: EvaluationContext -> Term -> TypeCalculationResult
+
+determineType m term = term &
+  (Vary.on @Expression (verifyRegAccess m)
+  $ Vary.on @GateApp (verifyGateApp m)
+   $ Vary.exhaustiveCase  )
 
 
-determineType _ _ = error "Have not implemented this yet"
+

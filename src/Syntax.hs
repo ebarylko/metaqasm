@@ -3,7 +3,8 @@ module Syntax(Expression(..),
           Identifier,
           Index(..),
           Idx,
-          Id) where
+          Id,
+          GateApp(..)) where
 
 import Lexer(LineNumber)
 
@@ -23,3 +24,5 @@ type Idx = WithContext Index LineNumber
 -- being either a reference to another term or an attempt to obtain a bit or qubit from a
 -- collection of registers
 data Expression = Var Id  | RegisterAccess{registerName:: Id,  registerNumber::Idx} deriving (Show, Eq)
+
+data GateApp = H Expression

@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE GHC2024 #-}
 module Grammar(parseTokens) where
 import Lexer
 import Syntax(Expression(..),
@@ -7,9 +8,11 @@ import Syntax(Expression(..),
               Idx,
               Id,
               GateApp(..))
+import qualified Vary
+import Typecheck(Term)
 }
 
-%name parseTokens
+%name parseTokens 
 %tokentype { Token }
 %error { parseError }
 %monad { ParseResult } { (>>=) } { return }
@@ -25,13 +28,18 @@ nat     { Nat num lineNum}
 
 %%
 
+term :: {Term}
+term : gateApp {Vary.from $1 }
+| arg     { Vary.from $1 }
+
+gateApp : id '(' arg ')' {H $3}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
 
-gateApp : id '(' arg ')' {H $3}
 
 {
+type Program = Vary.Vary '[GateApp, Expression]
 
 -- Converts a token representing a variable name to its
 -- corresponding term in the grammar

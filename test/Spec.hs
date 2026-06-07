@@ -34,7 +34,7 @@ type ProgramTypeEvaluationResult = Either MetaQasmError TermType
 -- the parsing or type checking of the code is returned.
 calcTypeOf :: String -> ProgramTypeEvaluationResult
 
-calcTypeOf = (alexScanTokens >>> parseTokens >>> changeErrTo ParseError) >=> (Vary.from >>> determineType emptyCtx >>> changeErrTo TypeErr)
+calcTypeOf = (alexScanTokens >>> parseTokens >>> changeErrTo ParseError) >=> (determineType emptyCtx >>> changeErrTo TypeErr)
   where
     changeErrTo :: (a -> b) -> Either a c -> Either b c
     changeErrTo = first
@@ -77,5 +77,4 @@ main = hspec $ do
 
   describe "Applying a hadamard gate to an out of scope expression" $ do
     prop "Returns an error stating the expression is not in scope" $ do
-      pending
-      --forAll outOfScopeExpr prop_cannotApplyGateToOutOfScopeExpr
+      forAll outOfScopeExpr prop_cannotApplyGateToOutOfScopeExpr

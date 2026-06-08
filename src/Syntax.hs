@@ -4,7 +4,9 @@ module Syntax(Expression(..),
           Index(..),
           Idx,
           Id,
-          GateApp(..)) where
+          PosNum(..),
+          GateApp(..),
+          Command(..)) where
 
 import Lexer(LineNumber)
 
@@ -25,4 +27,12 @@ type Idx = WithContext Index LineNumber
 -- collection of registers
 data Expression = Var Id  | RegisterAccess{registerName:: Id,  registerNumber::Idx} deriving (Show, Eq)
 
+-- This data type represents the application of gates to qubits.
 data GateApp = H Expression
+
+-- Represents a positive number
+newtype PosNum = PosNum Int deriving (Eq, Show)
+
+-- This data type represents evaluating gate applications under a context
+-- where a quantum register collection is available.
+data Command = QRegDeclIn{regCollName :: Identifier, numOfRegs :: PosNum, innerExpr :: Command}  | Gate GateApp

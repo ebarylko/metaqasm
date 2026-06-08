@@ -14,7 +14,8 @@ import Syntax(Identifier,
               Expression(..),
               WithContext(..),
               Id,
-              GateApp(..))
+              GateApp(..),
+              Command(..))
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
@@ -73,7 +74,10 @@ verifyGateApp m (H regColl@(RegisterAccess _ _)) = verifyRegAccess m regColl
 
 verifyGateApp m (H (Var varName)) = findTypeWithinScope varName m
 
-type Term = Vary '[Expression, GateApp]
+type Term = Vary '[Expression, GateApp, Command]
+
+verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
+verifyCommand m (Gate x@(H _)) = verifyGateApp m x
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if
@@ -84,6 +88,7 @@ determineType :: EvaluationContext -> Term -> TypeCalculationResult
 determineType m term = term &
   (Vary.on @Expression (verifyRegAccess m)
   $ Vary.on @GateApp (verifyGateApp m)
+  $ Vary.on @Command (verifyCommand m)
    $ Vary.exhaustiveCase  )
 
 

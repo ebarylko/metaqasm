@@ -29,7 +29,6 @@ tokens :-
   \"[^\"]*\"                                                { lexString }
   [a-z]($digit|$alpha)*                                     { lexId }
   [1-9]$digit*|0                                            { lexNat }
-  [1-9]$digit*                                            { lexPos }
 
 {
 

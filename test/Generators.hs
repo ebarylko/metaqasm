@@ -63,14 +63,14 @@ genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `
 -- generates a declaration of a register with name x and
 -- n registers
 genQuantumRegDecl :: ValidRegCollAccess -> Expr
-genQuantumRegDecl (ValidRegCollAccess regCollId numOfRegs' _) = formatToString ("creg" %+ string % braced int ) regCollId  numOfRegs'
+genQuantumRegDecl (ValidRegCollAccess regCollId numOfRegs' _) = formatToString ("creg" %+ string % squared int ) regCollId  numOfRegs'
 
 -- Takes a specification detailing a valid access
 -- of the ith element of a register collection and
 -- generates the string representation of such an
 -- access
 genRegCollAccess :: ValidRegCollAccess -> Expr
-genRegCollAccess (ValidRegCollAccess regCollId _ wantedRegIdx') = formatToString (string % braced int) regCollId wantedRegIdx'
+genRegCollAccess (ValidRegCollAccess regCollId _ wantedRegIdx') = formatToString (string % squared int) regCollId wantedRegIdx'
 
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope

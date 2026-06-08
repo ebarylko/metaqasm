@@ -15,7 +15,8 @@ import Syntax(Identifier,
               WithContext(..),
               Id,
               GateApp(..),
-              Command(..))
+              Command(..),
+              NatNum)
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
@@ -29,12 +30,10 @@ type EvaluationContext = M.Map Identifier TermType
 -- This data type represents that a register can contain either a classical or a quantum bit
 data RegisterType = Quantum | Classical deriving (Show, Eq)
 
-newtype Pos = Pos Int deriving (Show, Eq, Ord)
-
 data TermType
   = Bit
   | Qbit
-  | RegisterGroup RegisterType Pos
+  | RegisterGroup RegisterType NatNum
   | Unit
   deriving (Show, Eq)
 
@@ -78,6 +77,11 @@ type Term = Vary '[Expression, GateApp, Command]
 
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(H _)) = verifyGateApp m x
+
+verifyCommand m (QRegDeclIn regCollName numOfRegs innerExpr) =
+  verifyCommand newContext innerExpr
+  where
+    newContext = M.insert regCollName (RegisterGroup Quantum numOfRegs) m
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

@@ -7,8 +7,9 @@ import Syntax(Expression(..),
               Index(..),
               Identifier,
               Idx,
-              PosNum(..),
               Id,
+              NatNum,
+              NonNeg(..),
               GateApp(..),
               Command(..))
 import qualified Vary
@@ -32,14 +33,13 @@ in      {In}
 str     { Str s lineNum}
 id      { Id name lineNum}
 nat     { Nat num lineNum}
-pos     { Pos num lineNum}
 
 %%
 
 term :: {Term}
 term : command {Vary.from $1} | gateApp {Vary.from $1 } | arg { Vary.from $1 }
 
-command : creg id '[' pos ']' in '{' command '}' {QRegDeclIn (toRegCollName $2) (toPos $4) $8} |
+command : creg id '[' nat ']' in '{' command '}' {QRegDeclIn (toRegCollName $2) (toNat $4) $8} |
 gateApp {Gate $1}
 
 gateApp : id '(' arg ')' {H $3}
@@ -62,8 +62,8 @@ toIdx (Nat num lineNum) = WithContext (Index num) lineNum
 toRegCollName :: Token -> Identifier
 toRegCollName (Id name _) = name
 
-toPos :: Token -> PosNum
-toPos (Pos num _) = PosNum num
+toNat :: Token -> NatNum
+toNat (Nat num ctx) =  WithContext (NonNeg num) ctx
 
 type ParseResult  = Either String
 

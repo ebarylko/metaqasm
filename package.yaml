@@ -56,3 +56,4 @@ tests:
     - containers
     - QuickCheck
     - formatting
+    - checkers

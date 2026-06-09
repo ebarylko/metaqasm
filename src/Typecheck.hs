@@ -14,7 +14,12 @@ import Syntax(Identifier,
               Expression(..),
               WithContext(..),
               Id,
-              GateApp(..))
+              Idx,
+              Index(..),
+              NonNeg(..),
+              GateApp(..),
+              Command(..),
+              NatNum)
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
@@ -28,12 +33,11 @@ type EvaluationContext = M.Map Identifier TermType
 -- This data type represents that a register can contain either a classical or a quantum bit
 data RegisterType = Quantum | Classical deriving (Show, Eq)
 
-newtype Pos = Pos Int deriving (Show, Eq, Ord)
-
 data TermType
   = Bit
   | Qbit
-  | RegisterGroup RegisterType Pos
+  | RegisterGroup RegisterType NatNum
+  | Unit
   deriving (Show, Eq)
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
@@ -54,25 +58,51 @@ findTypeWithinScope (WithContext varName lineNum) = M.lookup varName >>> maybe l
   where
     lookupErr = Left $ WithContext (VariableNotInScope varName) lineNum
 
+eitherFromPred :: (a -> Bool) -> (a -> err) -> Either err a -> Either err a
+eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Left (errFn x))
+
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
--- a valid register is selected. Returns the type of the register if so and an
+-- a valid register is selected. Returns the type of the register if so or an
 -- error otherwise
 verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
-verifyRegAccess m (RegisterAccess registerName _) = findTypeWithinScope registerName m
+verifyRegAccess m (RegisterAccess registerName regIdx) =
+  findTypeWithinScope registerName m
+  & eitherFromPred (isAccessingValidReg regIdx) undefined
+  & fmap (const Qbit)
+  where
+    isAccessingValidReg :: Idx -> TermType -> Bool
+    isAccessingValidReg (WithContext (Index regIdx) _) (RegisterGroup Quantum (WithContext (NonNeg numOfRegs) _)) = regIdx < numOfRegs
 
+isQubit :: TermType -> Bool
+
+isQubit = (== Qbit)
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
-verifyGateApp m (H regColl@(RegisterAccess _ _)) = verifyRegAccess m regColl
+verifyGateApp m (H regColl@(RegisterAccess _ _)) =
+  verifyRegAccess m regColl
+  & eitherFromPred isQubit undefined
+  & fmap (const Unit)
 
-verifyGateApp m (H (Var varName)) = findTypeWithinScope varName m
+verifyGateApp m (H (Var varName)) =
+  findTypeWithinScope varName m
+  & eitherFromPred isQubit undefined
 
-type Term = Vary '[Expression, GateApp]
+type Term = Vary '[Expression, GateApp, Command]
+
+-- Verifies that executing a command produces a valid type.
+verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
+verifyCommand m (Gate x@(H _)) = verifyGateApp m x
+
+verifyCommand m (QRegDeclIn regCollName numOfRegs innerExpr) =
+  verifyCommand newContext innerExpr
+  where
+    newContext = M.insert regCollName (RegisterGroup Quantum numOfRegs) m
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if
@@ -83,6 +113,7 @@ determineType :: EvaluationContext -> Term -> TypeCalculationResult
 determineType m term = term &
   (Vary.on @Expression (verifyRegAccess m)
   $ Vary.on @GateApp (verifyGateApp m)
+  $ Vary.on @Command (verifyCommand m)
    $ Vary.exhaustiveCase  )
 
 

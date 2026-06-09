@@ -16,7 +16,10 @@ import Control.Arrow((>>>))
 import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
-import Generators(outOfScopeRegColl, outOfScopeExpr, Expr)
+import Generators(outOfScopeRegColl,
+                  outOfScopeExpr,
+                  Expr,
+                  programWithQubitInScope)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -69,6 +72,13 @@ prop_cannotApplyGateToOutOfScopeExpr expr =
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) (LineNumber 1)
     extractVarName = takeWhile (/= '[')
 
+-- Tests that applying the hadamard gate to a qubit
+-- that is in scope is a valid operation
+prop_canApplyHGateToQbit :: Expr -> IO ()
+
+prop_canApplyHGateToQbit hGateApp =
+  calcTypeOf hGateApp `shouldBe` Right Unit
+
 main :: IO ()
 main = hspec $ do
   describe "Accessing elements from a collection of registers that is out of scope" $ do
@@ -78,3 +88,7 @@ main = hspec $ do
   describe "Applying a hadamard gate to an out of scope expression" $ do
     prop "Returns an error stating the expression is not in scope" $ do
       forAll outOfScopeExpr prop_cannotApplyGateToOutOfScopeExpr
+
+  describe "Applying a hadamard gate to a qubit that is in scope" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithQubitInScope prop_canApplyHGateToQbit

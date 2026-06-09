@@ -20,8 +20,12 @@ tokens :-
   -- Tokens
   \[                                                        { readBracket LBracket }
   \]                                                        { readBracket RBracket }
+  \{                                                        { readBracket LCurlyBracket }
+  \}                                                        { readBracket RCurlyBracket }
   \(                                                        { readBracket LParen }
   \)                                                        { readBracket RParen }
+  creg                                                       {ignoreInputAndReturn Creg}
+  in                                                       {ignoreInputAndReturn In}
   \"[^\"]*\"                                                { lexString }
   [a-z]($digit|$alpha)*                                     { lexId }
   [1-9]$digit*|0                                            { lexNat }
@@ -33,11 +37,15 @@ newtype LineNumber = LineNumber Int deriving (Eq, Show)
 -- OpenQASM tokens
 data Token = LBracket LineNumber
   | RBracket LineNumber
+  | RCurlyBracket LineNumber
+  | LCurlyBracket LineNumber
   | LParen LineNumber
   | RParen LineNumber
   | Str String LineNumber
   | Id String LineNumber
   | Nat Int LineNumber
+  | Creg
+  | In
   deriving (Eq,Show)
 
 -- Represents functions that takes line information,
@@ -53,6 +61,13 @@ getLineNumber :: AlexPosn -> LineNumber
 getLineNumber (AlexPn _ lineNumber _) = LineNumber lineNumber
 
 readBracket expectedBracket lineInfo _ = (expectedBracket . getLineNumber)  lineInfo
+
+-- Takes a token and returns a function that
+-- ignores the current text in the stream and outputs the given
+-- token
+ignoreInputAndReturn :: Token -> TokenGenerator
+
+ignoreInputAndReturn tok _ _ = tok
 
 -- Takes a function for generating a token given some data and a line number,
 -- a function to generate the wanted data, and returns a function that

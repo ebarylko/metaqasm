@@ -9,7 +9,7 @@ module Generators(outOfScopeRegColl,
 
 import Test.QuickCheck
 import Formatting
-import Syntax(Identifier, NonNeg(..))
+import Syntax(Identifier, Index(..))
 import Control.Arrow((&&&), (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<))
 import Data.Function((&))
@@ -130,6 +130,6 @@ programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWi
     regCollDecl = "creg" %+ string % squared int
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
-    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
+    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (Index regIdx')
 
 

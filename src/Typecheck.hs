@@ -14,6 +14,7 @@ import Syntax(Identifier,
               Expression(..),
               WithContext(..),
               Id,
+              Index(..),
               Idx,
               Index(..),
               NonNeg(..),
@@ -42,7 +43,7 @@ data TermType
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
-data TypeEvaluationError = VariableNotInScope Identifier | EmptyRegCollDecl Identifier | InvalidRegAccess{collName :: Identifier, invalidIdx ::NonNeg} deriving (Show, Eq)
+data TypeEvaluationError = VariableNotInScope Identifier | EmptyRegCollDecl Identifier | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index} deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
 
@@ -67,13 +68,17 @@ eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Le
 -- error otherwise
 verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
-verifyRegAccess m (RegisterAccess registerName regIdx) =
+verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
-  & eitherFromPred (isAccessingValidReg regIdx) (error "Have not handled the case where the register access is invalid")
+  & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
   & fmap (const Qbit)
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
     isAccessingValidReg (WithContext (Index regIdx) _) (RegisterGroup Quantum (WithContext (NonNeg numOfRegs) _)) = regIdx < numOfRegs
+
+    genInvalidAccessErr :: TermType -> TypeErrAt
+    genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
+
 
 isQubit :: TermType -> Bool
 

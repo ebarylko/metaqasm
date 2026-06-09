@@ -96,7 +96,7 @@ programWithQubitInScope =  genValidRegCollAccess  & convertToMetaQasmProgram
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen Expr
 
-programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl <*> arbitrarySizedNatural
+programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl <*> (arbitrarySizedNatural :: Gen Integer)
   where
     toProgWithEmptyRegCollDecl regCollName regIdx = formatToString (emptyRegCollDecl %+ "in" %+  braced hadamardApp) regCollName regCollName regIdx
     emptyRegCollDecl = "creg" %+ string % "[0]"

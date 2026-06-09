@@ -99,10 +99,13 @@ type Term = Vary '[Expression, GateApp, Command]
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(H _)) = verifyGateApp m x
 
-verifyCommand m (QRegDeclIn regCollName numOfRegs innerExpr) =
-  verifyCommand newContext innerExpr
+verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
+  | isEmptyRegColl  = emptyRegCollDeclErr
+  | otherwise = verifyCommand newContext innerExpr
   where
     newContext = M.insert regCollName (RegisterGroup Quantum numOfRegs) m
+    isEmptyRegColl = num == NonNeg 0
+    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

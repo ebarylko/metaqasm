@@ -89,11 +89,6 @@ programWithQubitInScope =  genValidRegCollAccess  & convertToMetaQasmProgram
     convertToMetaQasmProgram :: Gen ValidRegCollAccess -> Gen Expr
     convertToMetaQasmProgram = fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
 
--- Generates an empty register collection declaration of the form collName[0]
---emptyRegColl :: Gen Expr
---
---emptyRegColl = formatToString (string % "[0]") <$> outOfScopeRegColl
-
 -- Generates metaQASM code where an empty
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen Expr

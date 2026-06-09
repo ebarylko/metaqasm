@@ -85,8 +85,3 @@ programWithQubitInScope =  genValidRegCollAccess  & convertToMetaQasmProgram
 
     convertToMetaQasmProgram :: Gen ValidRegCollAccess -> Gen Expr
     convertToMetaQasmProgram = fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
-
---programWithQubitInScope =  genValidRegCollAccess  & fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
---  where
---    formatInScopeRegAccess :: Expr -> Expr -> Expr
---    formatInScopeRegAccess = formatToString (string %+ "in" %+ braced  ("h" % parenthesised string)  )

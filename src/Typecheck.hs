@@ -42,7 +42,7 @@ data TermType
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
-data TypeEvaluationError = VariableNotInScope Identifier deriving (Show, Eq)
+data TypeEvaluationError = VariableNotInScope Identifier | EmptyRegCollDecl Identifier deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
 
@@ -69,7 +69,7 @@ verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
 verifyRegAccess m (RegisterAccess registerName regIdx) =
   findTypeWithinScope registerName m
-  & eitherFromPred (isAccessingValidReg regIdx) undefined
+  & eitherFromPred (isAccessingValidReg regIdx) (error "Have not handled the case where the register access is invalid")
   & fmap (const Qbit)
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
@@ -86,12 +86,12 @@ verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
 verifyGateApp m (H regColl@(RegisterAccess _ _)) =
   verifyRegAccess m regColl
-  & eitherFromPred isQubit undefined
+  & eitherFromPred isQubit (error "Have not handled the case where the register access is invalid")
   & fmap (const Unit)
 
 verifyGateApp m (H (Var varName)) =
   findTypeWithinScope varName m
-  & eitherFromPred isQubit undefined
+  & eitherFromPred isQubit (error "Have not handled the case where the variable is not a qubit")
 
 type Term = Vary '[Expression, GateApp, Command]
 
@@ -99,10 +99,14 @@ type Term = Vary '[Expression, GateApp, Command]
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(H _)) = verifyGateApp m x
 
-verifyCommand m (QRegDeclIn regCollName numOfRegs innerExpr) =
-  verifyCommand newContext innerExpr
+verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
+  | isEmptyRegColl  = emptyRegCollDeclErr
+  | otherwise = verifyCommand newContext innerExpr
   where
     newContext = M.insert regCollName (RegisterGroup Quantum numOfRegs) m
+    isEmptyRegColl = num == NonNeg 0
+    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
+
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

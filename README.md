@@ -1,5 +1,6 @@
 # Structure of the repository
 
+```
 ├── package.yaml - Lists the dependencies for the project
 ├── src
 │   ├── Grammar.y - Dictates the grammar of the language, i.e., how tokens get parsed to form expressions in the language
@@ -9,7 +10,7 @@
 └── test
     ├── Generators.hs - Contains all the generators used in the tests (Spec.hs)
     └── Spec.hs - tests that the lexer, parser, and typechecker can properly evaluate metaQASM code
-
+```
 
 # Running the tests
 

@@ -46,6 +46,8 @@ outOfScopeExpr = oneof [outOfScopeVarName, outOfScopeRegAccess]
 -- with n >= i registers
 data ValidRegCollAccess = ValidRegCollAccess{_regCollName :: Identifier, _numOfRegs :: Int, _wantedRegIdx :: Int}
 
+-- This generates an instance of a valid register
+-- access
 genValidRegCollAccess :: Gen ValidRegCollAccess
 
 genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `suchThat` isAccessingValidReg & fmap (uncurry3 ValidRegCollAccess)
@@ -60,8 +62,8 @@ genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `
 
 -- Takes a specification detailing a valid access
 -- of a register collection x with n registers and
--- generates a declaration of a register with name x and
--- n registers
+-- generates a declaration of a quantum register collection
+-- with name x and n registers
 genQuantumRegDecl :: ValidRegCollAccess -> Expr
 genQuantumRegDecl (ValidRegCollAccess regCollId numOfRegs' _) = formatToString ("creg" %+ string % squared int ) regCollId  numOfRegs'
 
@@ -75,7 +77,16 @@ genRegCollAccess (ValidRegCollAccess regCollId _ wantedRegIdx') = formatToString
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope
 programWithQubitInScope :: Gen Expr
-programWithQubitInScope =  genValidRegCollAccess  & fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
+
+programWithQubitInScope =  genValidRegCollAccess  & convertToMetaQasmProgram
   where
     formatInScopeRegAccess :: Expr -> Expr -> Expr
     formatInScopeRegAccess = formatToString (string %+ "in" %+ braced  ("h" % parenthesised string)  )
+
+    convertToMetaQasmProgram :: Gen ValidRegCollAccess -> Gen Expr
+    convertToMetaQasmProgram = fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
+
+--programWithQubitInScope =  genValidRegCollAccess  & fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
+--  where
+--    formatInScopeRegAccess :: Expr -> Expr -> Expr
+--    formatInScopeRegAccess = formatToString (string %+ "in" %+ braced  ("h" % parenthesised string)  )

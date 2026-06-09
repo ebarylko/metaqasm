@@ -3,15 +3,17 @@ module Generators(outOfScopeRegColl,
                   outOfScopeExpr,
                   programWithQubitInScope,
                   Expr,
-                  programWithEmptyRegCollDecl)
+                  programWithEmptyRegCollDecl,
+                  programWithInvalidRegAccess)
   where
 
 import Test.QuickCheck
 import Formatting
-import Syntax(Identifier, Command (numOfRegs))
+import Syntax(Identifier, NonNeg(..))
 import Control.Arrow((&&&), (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<))
 import Data.Function((&))
+import Typecheck(TypeEvaluationError(..))
 
 
 outOfScopeRegColl :: Gen String
@@ -118,11 +120,16 @@ programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl 
     emptyRegCollDecl = "creg" %+ string % "[0]"
 
 -- Generates pairs of programs that access invalid registers
--- and the specification used to create them
-programWithInvalidRegAccess :: Gen (Expr, RegCollAccessSpec)
+-- and the errors received when evaluating them
+programWithInvalidRegAccess :: Gen (Expr, TypeEvaluationError)
 
-programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess id)
+programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> Expr
     toProgWithInvalidAccess (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString  (regCollDecl %+ "in" %+ braced hadamardApp) regCollId numOfRegs' regCollId regIdx'
     regCollDecl = "creg" %+ string % squared int
+
+    toErr :: RegCollAccessSpec -> TypeEvaluationError
+    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
+
+

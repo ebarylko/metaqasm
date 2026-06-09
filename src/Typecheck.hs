@@ -63,7 +63,7 @@ eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Le
 
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
--- a valid register is selected. Returns the type of the register if so and an
+-- a valid register is selected. Returns the type of the register if so or an
 -- error otherwise
 verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
@@ -95,6 +95,7 @@ verifyGateApp m (H (Var varName)) =
 
 type Term = Vary '[Expression, GateApp, Command]
 
+-- Verifies that executing a command produces a valid type.
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(H _)) = verifyGateApp m x
 

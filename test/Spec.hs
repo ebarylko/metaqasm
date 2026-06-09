@@ -73,7 +73,7 @@ prop_cannotApplyGateToOutOfScopeExpr expr =
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) (LineNumber 1)
     extractVarName = takeWhile (/= '[')
 
--- Tests that applying the hadamard gate to qubit
+-- Tests that applying the hadamard gate to a qubit
 -- that is in scope is a valid operation
 prop_canApplyHGateToQbit :: Expr -> IO ()
 

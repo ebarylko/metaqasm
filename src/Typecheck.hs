@@ -42,7 +42,7 @@ data TermType
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
-data TypeEvaluationError = VariableNotInScope Identifier | EmptyRegCollDecl Identifier deriving (Show, Eq)
+data TypeEvaluationError = VariableNotInScope Identifier | EmptyRegCollDecl Identifier | InvalidRegAccess{collName :: Identifier, invalidIdx ::NonNeg} deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
 

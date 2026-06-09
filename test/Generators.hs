@@ -8,7 +8,7 @@ module Generators(outOfScopeRegColl,
 
 import Test.QuickCheck
 import Formatting
-import Syntax(Identifier)
+import Syntax(Identifier, Command (numOfRegs))
 import Control.Arrow((&&&), (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<))
 import Data.Function((&))
@@ -42,18 +42,16 @@ outOfScopeRegAccess = (++) <$> outOfScopeRegColl <*> pure "[0]"
 outOfScopeExpr :: Gen Expr
 outOfScopeExpr = oneof [outOfScopeVarName, outOfScopeRegAccess]
 
+-- This data type represents a request to access a register in a register collection. However, the
+-- request can be invalid if the wanted register is outside of the bounds of the collection
+data RegCollAccessSpec = RegCollAccessSpec{_regCollName :: Identifier, _numOfRegs :: Int, _wantedRegIdx :: Int}
 
--- This data type represents a valid request to access the ith element of a register collection
--- with n >= i registers
-data ValidRegCollAccess = ValidRegCollAccess{_regCollName :: Identifier, _numOfRegs :: Int, _wantedRegIdx :: Int}
+-- Takes a predicate and returns a generator that only
+-- outputs access specifications that satisfy the predicate
+genRegCollAccessSpec :: (RegCollAccessSpec -> Bool) -> Gen RegCollAccessSpec
 
--- This generates an instance of a valid register
--- access
-genValidRegCollAccess :: Gen ValidRegCollAccess
-
-genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `suchThat` isAccessingValidReg & fmap (uncurry3 ValidRegCollAccess)
+genRegCollAccessSpec predicate = ((>**<) outOfScopeRegColl posNum arbitrarySizedNatural  & fmap (uncurry3 RegCollAccessSpec)) `suchThat` predicate
   where
-    isAccessingValidReg (_, numOfElems, requestedRegIdx) = numOfElems > requestedRegIdx
     posNum :: Gen Int
     posNum = getPositive <$> arbitrary
 
@@ -61,12 +59,29 @@ genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `
     uncurry3 f = \(x, y, z) -> f x y z
 
 
+-- This generates an instance of a valid register
+-- access spec where the wanted register is inside of the
+-- register collection
+genValidRegCollAccessSpec :: Gen RegCollAccessSpec
+genValidRegCollAccessSpec = genRegCollAccessSpec isAccessingValidReg
+  where
+    isAccessingValidReg (RegCollAccessSpec _ regCount regIdx) = regCount > regIdx
+
+-- This generates an instance of an invalid register
+-- access spec where the wanted register is outside of the
+-- bounds of the register collection
+genInvalidRegCollAccessSpec :: Gen RegCollAccessSpec
+
+genInvalidRegCollAccessSpec = genRegCollAccessSpec isAccessingInvalidReg
+  where
+    isAccessingInvalidReg (RegCollAccessSpec _ regCount regIdx) = regIdx >= regCount
+
 -- Takes a specification detailing a valid access
 -- of a register collection x with n registers and
 -- generates a declaration of a quantum register collection
 -- with name x and n registers
-genQuantumRegDecl :: ValidRegCollAccess -> Expr
-genQuantumRegDecl (ValidRegCollAccess regCollId numOfRegs' _) = formatToString ("creg" %+ string % squared int ) regCollId  numOfRegs'
+genQuantumRegDecl :: RegCollAccessSpec -> Expr
+genQuantumRegDecl (RegCollAccessSpec regCollId numOfRegs' _) = formatToString ("creg" %+ string % squared int ) regCollId  numOfRegs'
 
 regCollAccess = string % squared int
 
@@ -74,19 +89,19 @@ regCollAccess = string % squared int
 -- of the ith element of a register collection and
 -- generates the string representation of such an
 -- access
-genRegCollAccess :: ValidRegCollAccess -> Expr
-genRegCollAccess (ValidRegCollAccess regCollId _ wantedRegIdx') = formatToString regCollAccess regCollId wantedRegIdx'
+genRegCollAccess :: RegCollAccessSpec -> Expr
+genRegCollAccess (RegCollAccessSpec regCollId _ wantedRegIdx') = formatToString regCollAccess regCollId wantedRegIdx'
 
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope
 programWithQubitInScope :: Gen Expr
 
-programWithQubitInScope =  genValidRegCollAccess  & convertToMetaQasmProgram
+programWithQubitInScope =  genValidRegCollAccessSpec  & convertToMetaQasmProgram
   where
     formatInScopeRegAccess :: Expr -> Expr -> Expr
     formatInScopeRegAccess = formatToString (string %+ "in" %+ braced  ("h" % parenthesised string)  )
 
-    convertToMetaQasmProgram :: Gen ValidRegCollAccess -> Gen Expr
+    convertToMetaQasmProgram :: Gen RegCollAccessSpec -> Gen Expr
     convertToMetaQasmProgram = fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
 
 -- Generates metaQASM code where an empty

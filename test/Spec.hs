@@ -6,7 +6,7 @@ import Typecheck(TypeEvaluationError(..),
                 TypeErrAt,
                 Term)
 
-import Syntax(Identifier, WithContext(..))
+import Syntax(Identifier, WithContext(..), NonNeg)
 import Lexer(alexScanTokens, LineNumber(..))
 import Grammar(parseTokens)
 import Test.QuickCheck(forAll)
@@ -92,6 +92,17 @@ prop_cannotDeclareEmptyRegColl program =
     regCollName = extractRegCollName program
     extractRegCollName = drop 5 >>> takeWhile (/= '[')
 
+-- programWithInvalidRegAccess = undefined
+
+---- Tests that a MetaQASM program that accesses a register
+---- not present in a register collection is invalid
+--prop_cannotAccessRegOutsideOfRegColl :: (Expr,  Identifier,  NonNeg) -> IO ()
+--
+--prop_cannotAccessRegOutsideOfRegColl (program, regCollId, invalidIdx) =
+--  calcTypeOf program `shouldBe` invalidRegAccessErr
+--  where
+--    invalidRegAccessErr = Left $ TypeErr $ WithContext (InvalidRegAccess regCollId invalidIdx) (LineNumber 1)
+
 
 main :: IO ()
 main = hspec $ do
@@ -110,3 +121,7 @@ main = hspec $ do
   describe "Declaring an empty quantum register collection" $ do
     prop "Results in an error noting that this is not permitted" $ do
       forAll programWithEmptyRegCollDecl prop_cannotDeclareEmptyRegColl
+
+ -- describe "Accessing a register outside the bounds of a register collection" $ do
+ --   prop "Results in an error noting that this is not permitted" $ do
+ --     forAll programWithInvalidRegAccess prop_cannotAccessRegOutsideOfRegColl

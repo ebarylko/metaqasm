@@ -19,7 +19,8 @@ import Formatting
 import Generators(outOfScopeRegColl,
                   outOfScopeExpr,
                   Expr,
-                  programWithQubitInScope)
+                  programWithQubitInScope,
+                  programWithEmptyRegCollDecl)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -79,6 +80,19 @@ prop_canApplyHGateToQbit :: Expr -> IO ()
 prop_canApplyHGateToQbit hGateApp =
   calcTypeOf hGateApp `shouldBe` Right Unit
 
+
+-- Tests that declaring an empty quantum register
+-- collection is an invalid operation
+prop_cannotDeclareEmptyRegColl :: Expr -> IO ()
+
+prop_cannotDeclareEmptyRegColl program =
+  calcTypeOf program `shouldBe` emptyRegCollErr
+  where
+    emptyRegCollErr = Left $ TypeErr $ WithContext (EmptyRegCollDecl regCollName) (LineNumber 1)
+    regCollName = extractRegCollName program
+    extractRegCollName = drop 5 >>> takeWhile (/= '[')
+
+
 main :: IO ()
 main = hspec $ do
   describe "Accessing elements from a collection of registers that is out of scope" $ do
@@ -92,3 +106,7 @@ main = hspec $ do
   describe "Applying a hadamard gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
       forAll programWithQubitInScope prop_canApplyHGateToQbit
+
+  describe "Declaring an empty quantum register collection" $ do
+    prop "Results in an error noting that this is not permitted" $ do
+      forAll programWithEmptyRegCollDecl prop_cannotDeclareEmptyRegColl

@@ -2,7 +2,8 @@
 module Generators(outOfScopeRegColl,
                   outOfScopeExpr,
                   programWithQubitInScope,
-                  Expr)
+                  Expr,
+                  programWithEmptyRegCollDecl)
   where
 
 import Test.QuickCheck
@@ -85,3 +86,18 @@ programWithQubitInScope =  genValidRegCollAccess  & convertToMetaQasmProgram
 
     convertToMetaQasmProgram :: Gen ValidRegCollAccess -> Gen Expr
     convertToMetaQasmProgram = fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
+
+-- Generates an empty register collection declaration of the form collName[0]
+--emptyRegColl :: Gen Expr
+--
+--emptyRegColl = formatToString (string % "[0]") <$> outOfScopeRegColl
+
+-- Generates metaQASM code where an empty
+-- register collection is declared
+programWithEmptyRegCollDecl :: Gen Expr
+
+programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl <*> arbitrarySizedNatural
+  where
+    toProgWithEmptyRegCollDecl regCollName regIdx = formatToString (emptyRegCollDecl %+ "in" %+  braced hadamardApp) regCollName regCollName regIdx
+    emptyRegCollDecl = "creg" %+ string % "[0]"
+    hadamardApp = "h" % parenthesised (string % squared int)

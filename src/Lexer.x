@@ -44,7 +44,6 @@ data Token = LBracket LineNumber
   | Str String LineNumber
   | Id String LineNumber
   | Nat Int LineNumber
-  | Pos Int LineNumber
   | Creg
   | In
   deriving (Eq,Show)
@@ -85,8 +84,5 @@ lexId = genToken Id id
 
 -- Produces a token for a natural number
 lexNat = genToken Nat read
-
--- Produces a token for a positive number
-lexPos = genToken Pos read
 
 }

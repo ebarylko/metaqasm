@@ -4,8 +4,7 @@ import Typecheck(TypeEvaluationError(..),
                 TermType(..),
                 determineType,
                 TypeErrAt,
-                Term,
-                TermType(..))
+                Term)
 
 import Syntax(Identifier, WithContext(..))
 import Lexer(alexScanTokens, LineNumber(..))

@@ -14,6 +14,9 @@ import Syntax(Identifier,
               Expression(..),
               WithContext(..),
               Id,
+              Idx,
+              Index(..),
+              NonNeg(..),
               GateApp(..),
               Command(..),
               NatNum)
@@ -55,23 +58,40 @@ findTypeWithinScope (WithContext varName lineNum) = M.lookup varName >>> maybe l
   where
     lookupErr = Left $ WithContext (VariableNotInScope varName) lineNum
 
+eitherFromPred :: (a -> Bool) -> (a -> err) -> Either err a -> Either err a
+eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Left (errFn x))
+
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
 -- a valid register is selected. Returns the type of the register if so and an
 -- error otherwise
 verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
-verifyRegAccess m (RegisterAccess registerName _) = findTypeWithinScope registerName m
+verifyRegAccess m (RegisterAccess registerName regIdx) =
+  findTypeWithinScope registerName m
+  & eitherFromPred (isAccessingValidReg regIdx) undefined
+  & fmap (const Qbit)
+  where
+    isAccessingValidReg :: Idx -> TermType -> Bool
+    isAccessingValidReg (WithContext (Index regIdx) _) (RegisterGroup Quantum (WithContext (NonNeg numOfRegs) _)) = regIdx < numOfRegs
 
+isQubit :: TermType -> Bool
+
+isQubit = (== Qbit)
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
-verifyGateApp m (H regColl@(RegisterAccess _ _)) = verifyRegAccess m regColl
+verifyGateApp m (H regColl@(RegisterAccess _ _)) =
+  verifyRegAccess m regColl
+  & eitherFromPred isQubit undefined
+  & fmap (const Unit)
 
-verifyGateApp m (H (Var varName)) = findTypeWithinScope varName m
+verifyGateApp m (H (Var varName)) =
+  findTypeWithinScope varName m
+  & eitherFromPred isQubit undefined
 
 type Term = Vary '[Expression, GateApp, Command]
 

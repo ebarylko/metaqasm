@@ -5,6 +5,7 @@ module Syntax(Expression(..),
           Idx,
           Id,
           GateApp(..),
+          NonNeg(..),
           NatNum,
           NonNeg(..),
           Command(..)) where

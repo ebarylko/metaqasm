@@ -68,12 +68,14 @@ genValidRegCollAccess = (>**<) outOfScopeRegColl posNum arbitrarySizedNatural  `
 genQuantumRegDecl :: ValidRegCollAccess -> Expr
 genQuantumRegDecl (ValidRegCollAccess regCollId numOfRegs' _) = formatToString ("creg" %+ string % squared int ) regCollId  numOfRegs'
 
+regCollAccess = string % squared int
+
 -- Takes a specification detailing a valid access
 -- of the ith element of a register collection and
 -- generates the string representation of such an
 -- access
 genRegCollAccess :: ValidRegCollAccess -> Expr
-genRegCollAccess (ValidRegCollAccess regCollId _ wantedRegIdx') = formatToString (string % squared int) regCollId wantedRegIdx'
+genRegCollAccess (ValidRegCollAccess regCollId _ wantedRegIdx') = formatToString regCollAccess regCollId wantedRegIdx'
 
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope
@@ -96,8 +98,8 @@ programWithQubitInScope =  genValidRegCollAccess  & convertToMetaQasmProgram
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen Expr
 
-programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl <*> (arbitrarySizedNatural :: Gen Integer)
+programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl <*> arbitrarySizedNatural
   where
     toProgWithEmptyRegCollDecl regCollName regIdx = formatToString (emptyRegCollDecl %+ "in" %+  braced hadamardApp) regCollName regCollName regIdx
     emptyRegCollDecl = "creg" %+ string % "[0]"
-    hadamardApp = "h" % parenthesised (string % squared int)
+    hadamardApp = "h" % parenthesised regCollAccess

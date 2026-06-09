@@ -78,4 +78,4 @@ programWithQubitInScope :: Gen Expr
 programWithQubitInScope =  genValidRegCollAccess  & fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
   where
     formatInScopeRegAccess :: Expr -> Expr -> Expr
-    formatInScopeRegAccess = formatToString (string %+ "in" % braced  ("h" % parenthesised string)  )
+    formatInScopeRegAccess = formatToString (string %+ "in" %+ braced  ("h" % parenthesised string)  )

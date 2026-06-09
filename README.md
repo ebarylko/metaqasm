@@ -1,4 +1,4 @@
-# Structure of the repository
+# Repository breakdown
 
 ```
 ├── package.yaml - Lists the dependencies for the project
@@ -9,9 +9,9 @@
 │   └── Typecheck.hs - Controls how the type of a term in the language is determined
 └── test
     ├── Generators.hs - Contains all the generators used in the tests (Spec.hs)
-    └── Spec.hs - tests that the lexer, parser, and typechecker can properly evaluate metaQASM code
+    └── Spec.hs - Tests that the lexer, parser, and typechecker working in tandem can correctly evaluate metaQASM code
 ```
 
-# Running the tests
+# Running the tests locally
 
 Run `stack test` in the root of the repository.

@@ -104,6 +104,10 @@ programWithQubitInScope =  genValidRegCollAccessSpec  & convertToMetaQasmProgram
     convertToMetaQasmProgram :: Gen RegCollAccessSpec -> Gen Expr
     convertToMetaQasmProgram = fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
 
+-- Formats an application of a hadamard gate to a qubit, generating a
+-- string of the form 'h(regColl[idx])'
+hadamardApp = "h" % parenthesised regCollAccess
+
 -- Generates metaQASM code where an empty
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen Expr
@@ -112,4 +116,13 @@ programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl 
   where
     toProgWithEmptyRegCollDecl regCollName regIdx = formatToString (emptyRegCollDecl %+ "in" %+  braced hadamardApp) regCollName regCollName regIdx
     emptyRegCollDecl = "creg" %+ string % "[0]"
-    hadamardApp = "h" % parenthesised regCollAccess
+
+-- Generates pairs of programs that access invalid registers
+-- and the specification used to create them
+programWithInvalidRegAccess :: Gen (Expr, RegCollAccessSpec)
+
+programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess id)
+  where
+    toProgWithInvalidAccess :: RegCollAccessSpec -> Expr
+    toProgWithInvalidAccess (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString  (regCollDecl %+ "in" %+ braced hadamardApp) regCollId numOfRegs' regCollId regIdx'
+    regCollDecl = "creg" %+ string % squared int

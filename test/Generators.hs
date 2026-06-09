@@ -78,12 +78,14 @@ genInvalidRegCollAccessSpec = genRegCollAccessSpec isAccessingInvalidReg
   where
     isAccessingInvalidReg (RegCollAccessSpec _ regCount regIdx) = regIdx >= regCount
 
+quantumRegCollDecl = "creg" %+ string % squared int
+
 -- Takes a specification detailing a valid access
 -- of a register collection x with n registers and
 -- generates a declaration of a quantum register collection
 -- with name x and n registers
 genQuantumRegDecl :: RegCollAccessSpec -> Expr
-genQuantumRegDecl (RegCollAccessSpec regCollId numOfRegs' _) = formatToString ("creg" %+ string % squared int ) regCollId  numOfRegs'
+genQuantumRegDecl (RegCollAccessSpec regCollId numOfRegs' _) = formatToString quantumRegCollDecl regCollId  numOfRegs'
 
 regCollAccess = string % squared int
 
@@ -126,8 +128,7 @@ programWithInvalidRegAccess :: Gen (Expr, TypeEvaluationError)
 programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> Expr
-    toProgWithInvalidAccess (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString  (regCollDecl %+ "in" %+ braced hadamardApp) regCollId numOfRegs' regCollId regIdx'
-    regCollDecl = "creg" %+ string % squared int
+    toProgWithInvalidAccess (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString  (quantumRegCollDecl %+ "in" %+ braced hadamardApp) regCollId numOfRegs' regCollId regIdx'
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (Index regIdx')

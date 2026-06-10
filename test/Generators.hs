@@ -78,6 +78,8 @@ genInvalidRegCollAccessSpec = genRegCollAccessSpec isAccessingInvalidReg
   where
     isAccessingInvalidReg (RegCollAccessSpec _ regCount regIdx) = regIdx >= regCount
 
+-- Takes a name for a register collection, the number of registers in
+-- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
 quantumRegCollDecl = "creg" %+ string % squared int
 
 -- Takes a specification detailing a valid access
@@ -121,8 +123,8 @@ programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl 
     toProgWithEmptyRegCollDecl regCollName regIdx = formatToString (emptyRegCollDecl %+ "in" %+  braced hadamardApp) regCollName regCollName regIdx
     emptyRegCollDecl = "creg" %+ string % "[0]"
 
--- Generates pairs of programs that access invalid registers
--- and the errors received when evaluating them
+-- Generate a pair of programs that access invalid registers
+-- and the expected register access error received when running them
 programWithInvalidRegAccess :: Gen (Expr, TypeEvaluationError)
 
 programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)

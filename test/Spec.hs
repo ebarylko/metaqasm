@@ -94,13 +94,13 @@ prop_cannotDeclareEmptyRegColl program =
     extractRegCollName = drop 5 >>> takeWhile (/= '[')
 
 
--- Tests that a MetaQASM program that accesses a register
--- not present in a register collection is invalid
+-- Takes a  MetaQASM, an invalid register access error,
+-- and checks that running the program produces the same kind of error
 prop_cannotAccessRegOutsideOfRegColl :: (Expr,  TypeEvaluationError) -> IO ()
-prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
+prop_cannotAccessRegOutsideOfRegColl (program, regAccessErr) =
   calcTypeOf program `shouldBe` invalidRegAccessErr
   where
-    invalidRegAccessErr = Left $ TypeErr $ WithContext expectedErr (LineNumber 1)
+    invalidRegAccessErr = Left $ TypeErr $ WithContext regAccessErr (LineNumber 1)
 
 
 main :: IO ()

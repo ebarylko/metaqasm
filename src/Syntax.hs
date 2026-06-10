@@ -1,7 +1,7 @@
 module Syntax(Expression(..),
           WithContext(..),
           Identifier,
-          Index(..),
+          Index,
           Idx,
           Id,
           GateApp(..),
@@ -19,7 +19,10 @@ data WithContext a ctx = WithContext a ctx deriving (Eq, Show)
 
 type Id = WithContext Identifier LineNumber
 
-newtype Index = Index Int deriving (Eq, Show)
+-- Represents a nonnegative number
+newtype NonNeg = NonNeg Int deriving (Eq, Show, Ord)
+
+type Index = NonNeg
 
 type Idx = WithContext Index LineNumber
 
@@ -30,9 +33,6 @@ data Expression = Var Id  | RegisterAccess{registerName:: Id,  registerNumber::I
 
 -- This data type represents the application of gates to qubits.
 data GateApp = H Expression
-
--- Represents a nonnegative number
-newtype NonNeg = NonNeg Int deriving (Eq, Show)
 
 type NatNum = WithContext NonNeg LineNumber
 

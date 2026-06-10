@@ -14,9 +14,8 @@ import Syntax(Identifier,
               Expression(..),
               WithContext(..),
               Id,
-              Index(..),
+              Index,
               Idx,
-              Index(..),
               NonNeg(..),
               GateApp(..),
               Command(..),
@@ -74,7 +73,7 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
   & fmap (const Qbit)
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg (WithContext (Index regIdx') _) (RegisterGroup Quantum (WithContext (NonNeg numOfRegs) _)) = regIdx' < numOfRegs
+    isAccessingValidReg (WithContext regIdx' _) (RegisterGroup Quantum (WithContext numOfRegs _)) = regIdx' < numOfRegs
 
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum

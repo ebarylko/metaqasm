@@ -4,7 +4,6 @@ module Grammar(parseTokens) where
 import Lexer
 import Syntax(Expression(..),
               WithContext(..),
-              Index(..),
               Identifier,
               Idx,
               Id,
@@ -55,7 +54,7 @@ toVar :: Token -> Id
 toVar (Id varName lineNum) = WithContext varName lineNum
 
 toIdx :: Token -> Idx
-toIdx (Nat num lineNum) = WithContext (Index num) lineNum
+toIdx (Nat num lineNum) = WithContext (NonNeg num) lineNum
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

@@ -115,13 +115,9 @@ programWithQubitInScope =  genValidRegCollAccessSpec  & convertToMetaQasmProgram
     convertToMetaQasmProgram :: Gen RegCollAccessSpec -> Gen MetaQasmProgram
     convertToMetaQasmProgram = fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
 
-type SingleQubitUnitary = String
-
 -- Takes a single qubit gate and returns a function that formats
 -- the application of that gate to a register access.
 -- Ex: singleQubitGateApp "h" "regName" regIdx = "h(regName[regIdx])"
---singleQubitGateApp :: Format MetaQasmProgram SingleQubitUnitary -> Format MetaQasmProgram (String -> Int -> MetaQasmProgram)
-
 singleQubitGateApp gate = gate % parenthesised regCollAccess
 
 hadamardApp = singleQubitGateApp "h"

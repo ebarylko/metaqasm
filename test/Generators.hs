@@ -153,7 +153,7 @@ tGateApp = singleQubitGateApp "t"
 -- Generates programs containing the application of a t gate to a qubit
 programWithTGateApp :: Gen MetaQasmProgram
 
-programWithTGateApp = genValidRegCollAccessSpec & fmap toProgWithTGateApp
+programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec 
   where
     toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithTGateApp (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString (quantumRegCollDecl %+ "in" %+ braced tGateApp) regCollId numOfRegs' regCollId regIdx'

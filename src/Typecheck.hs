@@ -79,9 +79,6 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
 
-isQubit :: TermType -> Bool
-
-isQubit = (== Qbit)
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
@@ -99,6 +96,9 @@ verifyGateApp m (T regColl@(RegisterAccess _ _)) =
 verifyGateApp m (H (Var varName)) =
   findTypeWithinScope varName m
   & eitherFromPred isQubit (error "Have not handled the case where the variable is not a qubit")
+  where
+    isQubit :: TermType -> Bool
+    isQubit = (== Qbit)
 
 type Term = Vary '[Expression, GateApp, Command]
 

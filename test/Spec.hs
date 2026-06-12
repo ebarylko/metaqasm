@@ -22,7 +22,8 @@ import Generators(outOfScopeRegColl,
                   programWithQubitInScope,
                   programWithEmptyRegCollDecl,
                   programWithInvalidRegAccess,
-                  ProgramWithExpectedErr)
+                  ProgramWithExpectedErr,
+                  programWithTGateApp)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -96,13 +97,19 @@ prop_cannotDeclareEmptyRegColl program =
 
 
 -- Takes a MetaQASM program with an invalid register access, the
--- expected error when running the program, 
+-- expected error when running the program,
 -- and checks that running the program produces the same kind of error
 prop_cannotAccessRegOutsideOfRegColl :: ProgramWithExpectedErr -> IO ()
 prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
   calcTypeOf program `shouldBe` invalidRegAccessErr
   where
     invalidRegAccessErr = Left $ TypeErr $ WithContext expectedErr (LineNumber 1)
+
+-- Checks that a MetaQASM program which applies a t gate to a
+-- qubit is valid
+prop_canApplyTGateToQbit :: MetaQasmProgram -> IO ()
+
+prop_canApplyTGateToQbit prog = calcTypeOf prog `shouldBe` Right Unit
 
 
 main :: IO ()
@@ -126,3 +133,7 @@ main = hspec $ do
   describe "Accessing a register outside the bounds of a register collection" $ do
     prop "Results in an error noting that this is not permitted" $ do
       forAll programWithInvalidRegAccess prop_cannotAccessRegOutsideOfRegColl
+
+  describe "Applying a t gate to a qubit that is in scope" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithTGateApp prop_canApplyTGateToQbit

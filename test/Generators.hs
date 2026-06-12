@@ -4,7 +4,8 @@ module Generators(outOfScopeRegColl,
                   programWithQubitInScope,
                   MetaQasmProgram,
                   programWithEmptyRegCollDecl,
-                  programWithInvalidRegAccess)
+                  programWithInvalidRegAccess,
+                  ProgramWithExpectedErr)
   where
 
 import Test.QuickCheck
@@ -124,9 +125,13 @@ programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl 
     toProgWithEmptyRegCollDecl regCollName regIdx = formatToString (emptyRegCollDecl %+ "in" %+  braced hadamardApp) regCollName regCollName regIdx
     emptyRegCollDecl = "creg" %+ string % "[0]"
 
+-- Represents pairs of programs and the errors obtained when
+-- running them
+type ProgramWithExpectedErr = (MetaQasmProgram, TypeEvaluationError)
+
 -- Generate a pair of programs that access invalid registers
 -- and the expected register access error received when running them
-programWithInvalidRegAccess :: Gen (MetaQasmProgram, TypeEvaluationError)
+programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
 
 programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)
   where

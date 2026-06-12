@@ -21,7 +21,8 @@ import Generators(outOfScopeRegColl,
                   MetaQasmProgram,
                   programWithQubitInScope,
                   programWithEmptyRegCollDecl,
-                  programWithInvalidRegAccess)
+                  programWithInvalidRegAccess,
+                  ProgramWithExpectedErr)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -97,11 +98,11 @@ prop_cannotDeclareEmptyRegColl program =
 -- Takes a MetaQASM program with an invalid register access, the
 -- expected error when running the program, 
 -- and checks that running the program produces the same kind of error
-prop_cannotAccessRegOutsideOfRegColl :: (MetaQasmProgram,  TypeEvaluationError) -> IO ()
-prop_cannotAccessRegOutsideOfRegColl (program, regAccessErr) =
+prop_cannotAccessRegOutsideOfRegColl :: ProgramWithExpectedErr -> IO ()
+prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
   calcTypeOf program `shouldBe` invalidRegAccessErr
   where
-    invalidRegAccessErr = Left $ TypeErr $ WithContext regAccessErr (LineNumber 1)
+    invalidRegAccessErr = Left $ TypeErr $ WithContext expectedErr (LineNumber 1)
 
 
 main :: IO ()

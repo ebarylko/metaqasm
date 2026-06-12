@@ -91,6 +91,8 @@ quantumRegCollDecl = "creg" %+ string % squared int
 genQuantumRegDecl :: RegCollAccessSpec -> MetaQasmProgram
 genQuantumRegDecl (RegCollAccessSpec regCollId numOfRegs' _) = formatToString quantumRegCollDecl regCollId  numOfRegs'
 
+-- Formats the access of a register in a register collection,
+-- generating a string of the form 'regName[regIdx]'
 regCollAccess = string % squared int
 
 -- Takes a specification detailing a valid access

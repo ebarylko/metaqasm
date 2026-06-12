@@ -85,13 +85,14 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
+verifyGateAppOnRegAcc :: EvaluationContext -> Expression -> TypeCalculationResult
+verifyGateAppOnRegAcc m = verifyRegAccess m >>> (<$) Unit
+
 verifyGateApp m (H regColl@(RegisterAccess _ _)) =
-  verifyRegAccess m regColl
-  & (<$) Unit
+  verifyGateAppOnRegAcc m regColl
 
 verifyGateApp m (T regColl@(RegisterAccess _ _)) =
-  verifyRegAccess m regColl
-  & (<$) Unit
+  verifyGateAppOnRegAcc m regColl
 
 verifyGateApp m (H (Var varName)) =
   findTypeWithinScope varName m

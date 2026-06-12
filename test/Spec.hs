@@ -18,7 +18,7 @@ import Control.Monad ((>=>))
 import Formatting
 import Generators(outOfScopeRegColl,
                   outOfScopeExpr,
-                  Expr,
+                  MetaQasmProgram,
                   programWithQubitInScope,
                   programWithEmptyRegCollDecl,
                   programWithInvalidRegAccess)
@@ -65,7 +65,7 @@ prop_cannotAccessOutOfScopeRegColl regCollName  =
 
 -- Asserts that a hadamard gate cannot be applied to
 -- an out of scope expression
-prop_cannotApplyGateToOutOfScopeExpr :: Expr -> IO ()
+prop_cannotApplyGateToOutOfScopeExpr :: MetaQasmProgram -> IO ()
 
 prop_cannotApplyGateToOutOfScopeExpr expr =
   calcTypeOf hGateApp `shouldBe` variableNotInScopeErr
@@ -76,7 +76,7 @@ prop_cannotApplyGateToOutOfScopeExpr expr =
 
 -- Tests that applying the hadamard gate to a qubit
 -- that is in scope is a valid operation
-prop_canApplyHGateToQbit :: Expr -> IO ()
+prop_canApplyHGateToQbit :: MetaQasmProgram -> IO ()
 
 prop_canApplyHGateToQbit hGateApp =
   calcTypeOf hGateApp `shouldBe` Right Unit
@@ -84,7 +84,7 @@ prop_canApplyHGateToQbit hGateApp =
 
 -- Tests that declaring an empty quantum register
 -- collection is an invalid operation
-prop_cannotDeclareEmptyRegColl :: Expr -> IO ()
+prop_cannotDeclareEmptyRegColl :: MetaQasmProgram -> IO ()
 
 prop_cannotDeclareEmptyRegColl program =
   calcTypeOf program `shouldBe` emptyRegCollErr
@@ -94,9 +94,10 @@ prop_cannotDeclareEmptyRegColl program =
     extractRegCollName = drop 5 >>> takeWhile (/= '[')
 
 
--- Takes a  MetaQASM, an invalid register access error,
+-- Takes a MetaQASM program with an invalid register access, the
+-- expected error when running the program, 
 -- and checks that running the program produces the same kind of error
-prop_cannotAccessRegOutsideOfRegColl :: (Expr,  TypeEvaluationError) -> IO ()
+prop_cannotAccessRegOutsideOfRegColl :: (MetaQasmProgram,  TypeEvaluationError) -> IO ()
 prop_cannotAccessRegOutsideOfRegColl (program, regAccessErr) =
   calcTypeOf program `shouldBe` invalidRegAccessErr
   where

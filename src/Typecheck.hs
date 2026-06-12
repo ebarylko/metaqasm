@@ -90,7 +90,7 @@ verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
 verifyGateApp m (H regColl@(RegisterAccess _ _)) =
   verifyRegAccess m regColl
-  & eitherFromPred isQubit (error "Have not handled the case where the register access is invalid")
+  & eitherFromPred isQubit (error "Have not handled the case where the register access inside a hadamard application is invalid")
   & fmap (const Unit)
 
 verifyGateApp m (H (Var varName)) =

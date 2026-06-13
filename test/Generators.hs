@@ -91,7 +91,14 @@ regCollAccess = string % squared int
 
 -- Takes a formatter for a gate application and generates a formatter
 -- for applying a gate to a qubit that is in scope
-appGateoToInScopeQubit gate = quantumRegCollDecl %+ "in" %+ braced gate
+appGateToInScopeQubit gate = quantumRegCollDecl %+ "in" %+ braced gate
+
+type GateFormatter = String -> Int -> String -> Int -> MetaQasmProgram
+
+-- Takes an access specification, a formatter which uses the information in the specification, and
+-- generates a MetaQASM program based on the application of the formatter to the specification
+toProgWithGateApp :: RegCollAccessSpec -> Format MetaQasmProgram GateFormatter -> MetaQasmProgram
+toProgWithGateApp  (RegCollAccessSpec regCollId numOfRegs' regIdx') gateAppFormatter  = formatToString gateAppFormatter regCollId numOfRegs' regCollId regIdx'
 
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope
@@ -100,7 +107,7 @@ programWithQubitInScope :: Gen MetaQasmProgram
 programWithQubitInScope =  toProgWithHGateApp <$> genValidRegCollAccessSpec
   where
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithHGateApp = flip toProgWithGateApp (appGateoToInScopeQubit hadamardApp)
+    toProgWithHGateApp = flip toProgWithGateApp (appGateToInScopeQubit hadamardApp)
 
 -- Takes a single qubit gate and returns a function that formats
 -- the application of that gate to a register access.
@@ -124,12 +131,6 @@ programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl 
 type ProgramWithExpectedErr = (MetaQasmProgram, TypeEvaluationError)
 
 
-type GateFormatter = String -> Int -> String -> Int -> MetaQasmProgram
-
--- Takes an access specification, a formatter which uses the information in the specification, and
--- generates a MetaQASM program based on the application of the formatter to the specification
-toProgWithGateApp :: RegCollAccessSpec -> Format MetaQasmProgram GateFormatter -> MetaQasmProgram
-toProgWithGateApp  (RegCollAccessSpec regCollId numOfRegs' regIdx') gateAppFormatter  = formatToString gateAppFormatter regCollId numOfRegs' regCollId regIdx'
 
 -- Generate a pair of programs that access invalid registers
 -- and the expected register access error received when running them
@@ -138,7 +139,7 @@ programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
 programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithInvalidAccess = flip toProgWithGateApp (appGateoToInScopeQubit hadamardApp)
+    toProgWithInvalidAccess = flip toProgWithGateApp (appGateToInScopeQubit hadamardApp)
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
@@ -152,7 +153,7 @@ programWithTGateApp :: Gen MetaQasmProgram
 programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec 
   where
     toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithTGateApp = flip toProgWithGateApp (appGateoToInScopeQubit tGateApp)
+    toProgWithTGateApp = flip toProgWithGateApp (appGateToInScopeQubit tGateApp)
 
 -- Generates programs containing the application of a T dagger gate to a qubit
 programWithTDaggerGateApp :: Gen MetaQasmProgram

@@ -111,6 +111,12 @@ prop_canApplyTGateToQbit :: MetaQasmProgram -> IO ()
 
 prop_canApplyTGateToQbit prog = calcTypeOf prog `shouldBe` Right Unit
 
+-- Checks that a MetaQASM program which applies a t gate to a
+-- qubit is valid
+prop_canApplyTDaggerGateToQbit :: MetaQasmProgram -> IO ()
+
+prop_canApplyTDaggerGateToQbit prog = calcTypeOf prog `shouldBe` Right Unit
+
 
 main :: IO ()
 main = hspec $ do
@@ -137,3 +143,7 @@ main = hspec $ do
   describe "Applying a t gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
       forAll programWithTGateApp prop_canApplyTGateToQbit
+
+--  describe "Applying a t dagger gate to a qubit that is in scope" $ do
+--    prop "Is valid and has type unit" $ do
+--      forAll programWithTDaggerGateApp prop_canApplyTDaggerGateToQbit

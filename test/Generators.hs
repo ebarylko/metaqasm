@@ -150,11 +150,29 @@ programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWi
 
 tGateApp = singleQubitGateApp "t"
 
+type GateFormatter = String -> Int -> String -> Int -> MetaQasmProgram
+
+-- Takes an access specification, a formatter which uses the information in the specification, and
+-- generates a MetaQASM program based on the application of the formatter to the specification
+toProgWithGateApp :: RegCollAccessSpec -> Format MetaQasmProgram GateFormatter -> MetaQasmProgram
+toProgWithGateApp  (RegCollAccessSpec regCollId numOfRegs' regIdx') gateAppFormatter  = formatToString gateAppFormatter regCollId numOfRegs' regCollId regIdx'
+
 -- Generates programs containing the application of a t gate to a qubit
 programWithTGateApp :: Gen MetaQasmProgram
 
 programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec 
   where
     toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithTGateApp (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString (quantumRegCollDecl %+ "in" %+ braced tGateApp) regCollId numOfRegs' regCollId regIdx'
+    --toProgWithTGateApp (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString (quantumRegCollDecl %+ "in" %+ braced tGateApp) regCollId numOfRegs' regCollId regIdx'
+    toProgWithTGateApp = flip toProgWithGateApp (quantumRegCollDecl %+ "in" %+ braced tGateApp)
+
+-- Generates programs containing the application of a T dagger gate to a qubit
+programWithTDaggerGateApp :: Gen MetaQasmProgram
+
+tDaggerGateApp = singleQubitGateApp "tdg"
+
+programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSpec 
+  where
+    toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
+    toProgWithTDaggerGateApp (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString (quantumRegCollDecl %+ "in" %+ braced tDaggerGateApp) regCollId numOfRegs' regCollId regIdx'
 

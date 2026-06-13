@@ -161,5 +161,5 @@ tDaggerGateApp = singleQubitGateApp "tdg"
 programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSpec 
   where
     toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithTDaggerGateApp (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString (quantumRegCollDecl %+ "in" %+ braced tDaggerGateApp) regCollId numOfRegs' regCollId regIdx'
+    toProgWithTDaggerGateApp  = flip toProgWithGateApp (appGateToInScopeQubit tDaggerGateApp)
 

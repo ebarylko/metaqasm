@@ -23,7 +23,8 @@ import Generators(outOfScopeRegColl,
                   programWithEmptyRegCollDecl,
                   programWithInvalidRegAccess,
                   ProgramWithExpectedErr,
-                  programWithTGateApp)
+                  programWithTGateApp,
+                  programWithTDaggerGateApp)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -144,6 +145,6 @@ main = hspec $ do
     prop "Is valid and has type unit" $ do
       forAll programWithTGateApp prop_canApplyTGateToQbit
 
---  describe "Applying a t dagger gate to a qubit that is in scope" $ do
---    prop "Is valid and has type unit" $ do
---      forAll programWithTDaggerGateApp prop_canApplyTDaggerGateToQbit
+  describe "Applying a t dagger gate to a qubit that is in scope" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithTDaggerGateApp prop_canApplyTDaggerGateToQbit

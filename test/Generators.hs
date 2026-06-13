@@ -6,7 +6,8 @@ module Generators(outOfScopeRegColl,
                   programWithEmptyRegCollDecl,
                   programWithInvalidRegAccess,
                   ProgramWithExpectedErr,
-                  programWithTGateApp)
+                  programWithTGateApp,
+                  programWithTDaggerGateApp)
   where
 
 import Test.QuickCheck
@@ -130,8 +131,6 @@ programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl 
 -- running them
 type ProgramWithExpectedErr = (MetaQasmProgram, TypeEvaluationError)
 
-
-
 -- Generate a pair of programs that access invalid registers
 -- and the expected register access error received when running them
 programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
@@ -145,7 +144,6 @@ programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWi
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
 
 tGateApp = singleQubitGateApp "t"
-
 
 -- Generates programs containing the application of a t gate to a qubit
 programWithTGateApp :: Gen MetaQasmProgram

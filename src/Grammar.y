@@ -62,6 +62,7 @@ toGate :: Token -> SingleQubitUnitary
 -- gate corresponding to it
 toGate (Id "h" _) = H
 toGate (Id "t" _) = T
+toGate (Id "tdg" _) = Tdg
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

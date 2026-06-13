@@ -41,7 +41,7 @@ term : command {Vary.from $1} | gateApp {Vary.from $1 } | arg { Vary.from $1 }
 command : creg id '[' nat ']' in '{' command '}' {QRegDeclIn (toRegCollName $2) (toNat $4) $8} |
 gateApp {Gate $1}
 
-gateApp : id '(' arg ')' {H $3}
+gateApp : id '(' arg ')' {(toGate $1) $3}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
@@ -55,6 +55,13 @@ toVar (Id varName lineNum) = WithContext varName lineNum
 
 toIdx :: Token -> Idx
 toIdx (Nat num lineNum) = WithContext (NonNeg num) lineNum
+
+type SingleQubitUnitary = Expression -> GateApp
+toGate :: Token -> SingleQubitUnitary
+-- Takes a token representing a gate and returns the
+-- gate corresponding to it
+toGate (Id "h" _) = H
+toGate (Id "t" _) = T
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

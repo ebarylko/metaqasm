@@ -5,7 +5,8 @@ module Generators(outOfScopeRegColl,
                   MetaQasmProgram,
                   programWithEmptyRegCollDecl,
                   programWithInvalidRegAccess,
-                  ProgramWithExpectedErr)
+                  ProgramWithExpectedErr,
+                  programWithTGateApp)
   where
 
 import Test.QuickCheck
@@ -114,9 +115,13 @@ programWithQubitInScope =  genValidRegCollAccessSpec  & convertToMetaQasmProgram
     convertToMetaQasmProgram :: Gen RegCollAccessSpec -> Gen MetaQasmProgram
     convertToMetaQasmProgram = fmap ((&&&) genQuantumRegDecl genRegCollAccess >>> uncurry formatInScopeRegAccess)
 
--- Formats an application of a hadamard gate to a qubit, generating a
--- string of the form 'h(regColl[idx])'
-hadamardApp = "h" % parenthesised regCollAccess
+-- Takes a single qubit gate and returns a function that formats
+-- the application of that gate to a register access.
+-- Ex: singleQubitGateApp "h" "regName" regIdx = "h(regName[regIdx])"
+singleQubitGateApp gate = gate % parenthesised regCollAccess
+
+hadamardApp = singleQubitGateApp "h"
+
 
 -- Generates metaQASM code where an empty
 -- register collection is declared
@@ -143,4 +148,13 @@ programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWi
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
 
+tGateApp = singleQubitGateApp "t"
+
+-- Generates programs containing the application of a t gate to a qubit
+programWithTGateApp :: Gen MetaQasmProgram
+
+programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec 
+  where
+    toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
+    toProgWithTGateApp (RegCollAccessSpec regCollId numOfRegs' regIdx') = formatToString (quantumRegCollDecl %+ "in" %+ braced tGateApp) regCollId numOfRegs' regCollId regIdx'
 

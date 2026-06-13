@@ -70,7 +70,7 @@ verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
-  & fmap (const Qbit)
+  & (<$) Qbit
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
     isAccessingValidReg (WithContext regIdx' _) (RegisterGroup Quantum (WithContext numOfRegs _)) = regIdx' < numOfRegs
@@ -79,28 +79,34 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
 
-isQubit :: TermType -> Bool
-
-isQubit = (== Qbit)
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
+verifyGateAppOnRegAcc :: EvaluationContext -> Expression -> TypeCalculationResult
+verifyGateAppOnRegAcc m = verifyRegAccess m >>> (<$) Unit
+
 verifyGateApp m (H regColl@(RegisterAccess _ _)) =
-  verifyRegAccess m regColl
-  & fmap (const Unit)
+  verifyGateAppOnRegAcc m regColl
+
+verifyGateApp m (T regColl@(RegisterAccess _ _)) =
+  verifyGateAppOnRegAcc m regColl
 
 verifyGateApp m (H (Var varName)) =
   findTypeWithinScope varName m
   & eitherFromPred isQubit (error "Have not handled the case where the variable is not a qubit")
+  where
+    isQubit :: TermType -> Bool
+    isQubit = (== Qbit)
 
 type Term = Vary '[Expression, GateApp, Command]
 
 -- Verifies that executing a command produces a valid type.
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(H _)) = verifyGateApp m x
+verifyCommand m (Gate x@(T _)) = verifyGateApp m x
 
 verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr

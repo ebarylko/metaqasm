@@ -89,15 +89,18 @@ quantumRegCollDecl = "creg" %+ string % squared int
 -- generating a string of the form 'regName[regIdx]'
 regCollAccess = string % squared int
 
+-- Takes a formatter for a gate application and generates a formatter
+-- for applying a gate to a qubit that is in scope
+appGateoToInScopeQubit gate = quantumRegCollDecl %+ "in" %+ braced gate
+
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope
 programWithQubitInScope :: Gen MetaQasmProgram
 
-programWithQubitInScope =  toProgWithHGateApp <$> genValidRegCollAccessSpec 
+programWithQubitInScope =  toProgWithHGateApp <$> genValidRegCollAccessSpec
   where
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithHGateApp = flip toProgWithGateApp (quantumRegCollDecl %+ "in" %+ braced hadamardApp)
-
+    toProgWithHGateApp = flip toProgWithGateApp (appGateoToInScopeQubit hadamardApp)
 
 -- Takes a single qubit gate and returns a function that formats
 -- the application of that gate to a register access.
@@ -135,7 +138,7 @@ programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
 programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithInvalidAccess = flip toProgWithGateApp (quantumRegCollDecl %+ "in" %+ braced hadamardApp)
+    toProgWithInvalidAccess = flip toProgWithGateApp (appGateoToInScopeQubit hadamardApp)
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
@@ -149,7 +152,7 @@ programWithTGateApp :: Gen MetaQasmProgram
 programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec 
   where
     toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithTGateApp = flip toProgWithGateApp (quantumRegCollDecl %+ "in" %+ braced tGateApp)
+    toProgWithTGateApp = flip toProgWithGateApp (appGateoToInScopeQubit tGateApp)
 
 -- Generates programs containing the application of a T dagger gate to a qubit
 programWithTDaggerGateApp :: Gen MetaQasmProgram

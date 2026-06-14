@@ -33,7 +33,16 @@ toExpr = fromJust . Vary.into @Expression
 
 toCommand = fromJust . Vary.into @Command
 
+-- Takes text representing a MetaQASM command, the expected command, and
+-- checks that the expected command is obtained after parsing the text 
 shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe` expected
+
+-- Takes a gate, an expression, and returns a command that
+-- consists solely of the gate applied to the expression
+toGateWithinCommand :: GateFn -> Expression -> Command
+
+toGateWithinCommand gate = Gate . (gate $)
+
 
 spec :: Spec
 
@@ -44,7 +53,7 @@ spec = do
         (fmap toExpr . parseText) "varName" `shouldBe` (Right .  genVar "varName") (LineNumber 1)
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
-        "tdg(varName)" `shouldParseToCommand` (Right  . Gate . genGateApp Tdg) (genVar "varName" (LineNumber 1))
-        "h(varName)" `shouldParseToCommand` (Right  . Gate . genGateApp H) (genVar "varName" (LineNumber 1))
-        "t(varName)" `shouldParseToCommand` (Right  . Gate . genGateApp T) (genVar "varName" (LineNumber 1))
+        "tdg(varName)" `shouldParseToCommand` (Right  . toGateWithinCommand Tdg) (genVar "varName" (LineNumber 1))
+        "h(varName)" `shouldParseToCommand` (Right  . toGateWithinCommand H) (genVar "varName" (LineNumber 1))
+        "t(varName)" `shouldParseToCommand` (Right  . toGateWithinCommand T) (genVar "varName" (LineNumber 1))
 

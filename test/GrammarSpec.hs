@@ -36,8 +36,8 @@ toGateWithinCommand gate = Gate . (gate $)
 
 
 -- Takes text representing a MetaQASM command, the expected command, and
--- checks that the expected command is obtained after parsing the text 
-shouldParseToExpr text expected = (fmap toExpr . parseText) text `shouldBe` expected
+-- checks that the expected command is obtained after parsing the text
+shouldParseToExpr text expected = (fmap toExpr . parseText) text `shouldBe` Right expected
 
 spec :: Spec
 
@@ -45,7 +45,7 @@ spec = do
   describe "Parsing MetaQASM programs" $ do
     describe "Parsing variables" $ do
       it "Generates a variable with the context of where it was found" $ do
-        "varName" `shouldParseToExpr` (Right .  genVar "varName") (LineNumber 1)
+        "varName" `shouldParseToExpr` genVar "varName" (LineNumber 1)
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
         "tdg(varName)" `shouldParseToCommand` toGateWithinCommand Tdg (genVar "varName" (LineNumber 1))

@@ -6,7 +6,8 @@ import Grammar(parseText)
 import Syntax(Expression(..),
            WithContext(..),
            Identifier,
-           GateApp(..))
+           GateApp(..),
+           Command(..))
 import Lexer(LineNumber(..))
 import Typecheck(Term)
 import qualified Vary
@@ -18,22 +19,24 @@ genVar :: Identifier -> LineNumber -> Expression
 
 genVar varName lineNum =  Var $ WithContext varName lineNum
 
-type Gate = Expression -> GateApp
+type GateFn = Expression -> GateApp
 
 -- Takes an expression, the gate to apply to it, and  and generates the
 -- MetaQASM term corresponding to the application of the gate to the
 -- expression
-genGateApp :: Gate -> Expression -> GateApp
+genGateApp :: GateFn -> Expression -> GateApp
 
 genGateApp = ($)
 
 toExpr = fromJust . Vary.into @Expression
+
+toCommand = fromJust . Vary.into @Command
 
 spec = do
   describe "Parsing MetaQASM programs" $ do
     describe "Parsing variables" $ do
       it "Generates a variable with the context of where it was found" $ do
         (fmap toExpr . parseText) "varName" `shouldBe` (Right .  genVar "varName") (LineNumber 1)
---    describe "Parsing T dagger applications" $ do
---      it "Generates a term representing the application" $ do
---        parseText "tdg(varName)" `shouldBe` (Right  . genGateApp Tdg) (genVar "varName" (LineNumber 1))
+    describe "Parsing T dagger applications" $ do
+      it "Generates a term representing the application" $ do
+        (fmap toCommand . parseText) "tdg(varName)" `shouldBe` (Right  . Gate . genGateApp Tdg) (genVar "varName" (LineNumber 1))

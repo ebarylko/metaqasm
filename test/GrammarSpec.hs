@@ -12,7 +12,6 @@ import Lexer(LineNumber(..))
 import Typecheck(Term)
 import qualified Vary
 import Data.Maybe(fromJust)
-import Text.Printf (PrintfArg(parseFormat))
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -21,13 +20,6 @@ genVar :: Identifier -> LineNumber -> Expression
 genVar varName lineNum =  Var $ WithContext varName lineNum
 
 type GateFn = Expression -> GateApp
-
--- Takes an expression, the gate to apply to it, and  and generates the
--- MetaQASM term corresponding to the application of the gate to the
--- expression
-genGateApp :: GateFn -> Expression -> GateApp
-
-genGateApp = ($)
 
 toExpr = fromJust . Vary.into @Expression
 
@@ -40,7 +32,6 @@ shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe
 -- Takes a gate, an expression, and returns a command that
 -- consists solely of the gate applied to the expression
 toGateWithinCommand :: GateFn -> Expression -> Command
-
 toGateWithinCommand gate = Gate . (gate $)
 
 

@@ -1,6 +1,6 @@
 {
 {-# LANGUAGE GHC2024 #-}
-module Grammar(parseTokens) where
+module Grammar(parseTokens, parseText) where
 import Lexer
 import Syntax(Expression(..),
               WithContext(..),
@@ -13,6 +13,7 @@ import Syntax(Expression(..),
               Command(..))
 import qualified Vary
 import Typecheck(Term)
+import Control.Arrow((>>>))
 }
 
 %name parseTokens 
@@ -76,4 +77,8 @@ type ParseResult  = Either String
 
 parseError :: [Token] -> ParseResult a
 parseError toks = Left $ "The following cannot be parsed: " ++ show toks
+
+parseText :: String -> ParseResult Term
+
+parseText = alexScanTokens >>> parseTokens
 }

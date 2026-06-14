@@ -32,11 +32,16 @@ toExpr = fromJust . Vary.into @Expression
 
 toCommand = fromJust . Vary.into @Command
 
+spec :: Spec
+
 spec = do
   describe "Parsing MetaQASM programs" $ do
     describe "Parsing variables" $ do
       it "Generates a variable with the context of where it was found" $ do
         (fmap toExpr . parseText) "varName" `shouldBe` (Right .  genVar "varName") (LineNumber 1)
-    describe "Parsing T dagger applications" $ do
+    describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
         (fmap toCommand . parseText) "tdg(varName)" `shouldBe` (Right  . Gate . genGateApp Tdg) (genVar "varName" (LineNumber 1))
+        (fmap toCommand . parseText) "h(varName)" `shouldBe` (Right  . Gate . genGateApp H) (genVar "varName" (LineNumber 1))
+        (fmap toCommand . parseText) "t(varName)" `shouldBe` (Right  . Gate . genGateApp T) (genVar "varName" (LineNumber 1))
+

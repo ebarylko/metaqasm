@@ -12,6 +12,7 @@ import Lexer(LineNumber(..))
 import Typecheck(Term)
 import qualified Vary
 import Data.Maybe(fromJust)
+import Text.Printf (PrintfArg(parseFormat))
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -32,6 +33,8 @@ toExpr = fromJust . Vary.into @Expression
 
 toCommand = fromJust . Vary.into @Command
 
+shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe` expected
+
 spec :: Spec
 
 spec = do
@@ -41,7 +44,7 @@ spec = do
         (fmap toExpr . parseText) "varName" `shouldBe` (Right .  genVar "varName") (LineNumber 1)
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
-        (fmap toCommand . parseText) "tdg(varName)" `shouldBe` (Right  . Gate . genGateApp Tdg) (genVar "varName" (LineNumber 1))
-        (fmap toCommand . parseText) "h(varName)" `shouldBe` (Right  . Gate . genGateApp H) (genVar "varName" (LineNumber 1))
-        (fmap toCommand . parseText) "t(varName)" `shouldBe` (Right  . Gate . genGateApp T) (genVar "varName" (LineNumber 1))
+        "tdg(varName)" `shouldParseToCommand` (Right  . Gate . genGateApp Tdg) (genVar "varName" (LineNumber 1))
+        "h(varName)" `shouldParseToCommand` (Right  . Gate . genGateApp H) (genVar "varName" (LineNumber 1))
+        "t(varName)" `shouldParseToCommand` (Right  . Gate . genGateApp T) (genVar "varName" (LineNumber 1))
 

@@ -79,14 +79,6 @@ prop_cannotApplyGateToOutOfScopeExpr expr =
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) (LineNumber 1)
     extractVarName = takeWhile (/= '[')
 
--- Tests that applying the hadamard gate to a qubit
--- that is in scope is a valid operation
-prop_canApplyHGateToQbit :: MetaQasmProgram -> IO ()
-
-prop_canApplyHGateToQbit hGateApp =
-  calcTypeOf hGateApp `shouldBe` Right Unit
-
-
 -- Tests that declaring an empty quantum register
 -- collection is an invalid operation
 prop_cannotDeclareEmptyRegColl :: MetaQasmProgram -> IO ()
@@ -108,17 +100,10 @@ prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
   where
     invalidRegAccessErr = Left $ TypeErr $ WithContext expectedErr (LineNumber 1)
 
--- Checks that a MetaQASM program which applies a t gate to a
--- qubit is valid
-prop_canApplyTGateToQbit :: MetaQasmProgram -> IO ()
-
-prop_canApplyTGateToQbit prog = calcTypeOf prog `shouldBe` Right Unit
-
--- Checks that a MetaQASM program which applies a t gate to a
--- qubit is valid
-prop_canApplyTDaggerGateToQbit :: MetaQasmProgram -> IO ()
-
-prop_canApplyTDaggerGateToQbit prog = calcTypeOf prog `shouldBe` Right Unit
+-- Takes a MetaQasm program with a gate application to a qubit and confirms
+-- it has type unit
+prop_canApplyGateToQubit :: MetaQasmProgram -> IO ()
+prop_canApplyGateToQubit prog = calcTypeOf prog `shouldBe` Right Unit
 
 
 spec :: Spec
@@ -133,7 +118,7 @@ spec =  do
 
   describe "Applying a hadamard gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithQubitInScope prop_canApplyHGateToQbit
+      forAll programWithQubitInScope prop_canApplyGateToQubit
 
   describe "Declaring an empty quantum register collection" $ do
     prop "Results in an error noting that this is not permitted" $ do
@@ -145,8 +130,8 @@ spec =  do
 
   describe "Applying a t gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithTGateApp prop_canApplyTGateToQbit
+      forAll programWithTGateApp prop_canApplyGateToQubit
 
   describe "Applying a t dagger gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithTDaggerGateApp prop_canApplyTDaggerGateToQbit
+      forAll programWithTDaggerGateApp prop_canApplyGateToQubit

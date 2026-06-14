@@ -37,7 +37,7 @@ nat     { Nat num lineNum}
 %%
 
 term :: {Term}
-term : command {Vary.from $1} | gateApp {Vary.from $1 } | arg { Vary.from $1 }
+term : command {Vary.from $1}  | arg { Vary.from $1 }
 
 command : creg id '[' nat ']' in '{' command '}' {QRegDeclIn (toRegCollName $2) (toNat $4) $8} |
 gateApp {Gate $1}

@@ -8,7 +8,8 @@ module Generators(outOfScopeRegColl,
                  programWithInvalidRegAccess,
                  ProgramWithExpectedErr,
                  programWithTGateApp,
-                 programWithTDaggerGateApp
+                 programWithTDaggerGateApp,
+                 programWithCNotGateApp
                  )
   where
 
@@ -171,7 +172,7 @@ programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSp
 programWithCNotGateApp  = formatToString toCnotGateApp <$> genValidRegCollAccessSpec
   where
     toCnotGateApp :: RegAccessFormatter
-    toCnotGateApp = appGateToInScopeQubits  cNotGateApp
+    toCnotGateApp = appGateToInScopeQubits cNotGateApp
     cNotGateApp :: RegAccessFormatter
     cNotGateApp = "cx" % parenthesised (regCollAccess % ", " <> regCollAccess)
 

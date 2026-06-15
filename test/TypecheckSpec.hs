@@ -26,8 +26,8 @@ import Generators(outOfScopeRegColl,
                   programWithInvalidRegAccess,
                   ProgramWithExpectedErr,
                   programWithTGateApp,
-                  programWithTDaggerGateApp
-                 )
+                  programWithTDaggerGateApp,
+                  programWithCNotGateApp)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -106,8 +106,6 @@ prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
 prop_canApplyGate :: MetaQasmProgram -> IO ()
 prop_canApplyGate prog = calcTypeOf prog `shouldBe` Right Unit
 
-programWithCNotGateApp = error "must implement this"
-
 spec :: Spec
 spec =  do
   describe "Accessing elements from a collection of registers that is out of scope" $ do
@@ -138,6 +136,6 @@ spec =  do
     prop "Is valid and has type unit" $ do
       forAll programWithTDaggerGateApp prop_canApplyGate
 
---  describe "Applying a controlled-Not gate to two qubits" $ do
---    prop "Is valid and has type unit" $ do
---      forAll programWithCNotGateApp prop_canApplyGate
+  describe "Applying a controlled-Not gate to two qubits" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithCNotGateApp prop_canApplyGate

@@ -15,7 +15,7 @@ module Generators(outOfScopeRegColl,
 import Test.QuickCheck
 import Formatting
 import Syntax(Identifier, NonNeg(..))
-import Control.Arrow((&&&), (>>>))
+import Control.Arrow((&&&))
 import Test.QuickCheck.Instances.Tuple ((>**<))
 import Data.Function((&))
 import Typecheck(TypeEvaluationError(..))
@@ -85,24 +85,11 @@ genInvalidRegCollAccessSpec = genRegCollAccessSpec isAccessingInvalidReg
   where
     isAccessingInvalidReg (RegCollAccessSpec _ regCount regIdx) = regIdx >= regCount
 
--- Takes a name for a register collection, the number of registers in
--- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
-quantumRegCollDecl = "creg" %+ string % squared int
 
 -- Formats the access of a register in a register collection,
 -- generating a string of the form 'regName[regIdx]'
 regCollAccess = string % squared int
 
--- Takes a formatter for a gate application and generates a formatter
--- for applying a gate to a qubit that is in scope
-appGateToInScopeQubit gate = quantumRegCollDecl %+ "in" %+ braced gate
-
-type GateFormatter = String -> Int -> String -> Int -> MetaQasmProgram
-
--- Takes an access specification, a formatter which uses the information in the specification, and
--- generates a MetaQASM program based on the application of the formatter to the specification
-toProgWithGateApp :: RegCollAccessSpec -> Format MetaQasmProgram GateFormatter -> MetaQasmProgram
-toProgWithGateApp  (RegCollAccessSpec regCollId numOfRegs' regIdx') gateAppFormatter  = formatToString gateAppFormatter regCollId numOfRegs' regCollId regIdx'
 
 makeLenses ''RegCollAccessSpec
 
@@ -152,10 +139,10 @@ hadamardApp = singleQubitGateApp "h"
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 
-programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> outOfScopeRegColl <*> arbitrarySizedNatural
+programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> genInvalidRegCollAccessSpec
   where
-    toProgWithEmptyRegCollDecl regCollName regIdx = formatToString (emptyRegCollDecl %+ "in" %+  braced hadamardApp) regCollName regCollName regIdx
-    emptyRegCollDecl = "creg" %+ string % "[0]"
+    toProgWithEmptyRegCollDecl = toProgWithGateApp' (emptyRegCollDecl % " in " <>  braced hadamardApp') 
+    emptyRegCollDecl = "creg" %+ (viewed regCollName string) % "[0]"
 
 -- Represents pairs of programs and the errors obtained when
 -- running them

@@ -1,6 +1,6 @@
 {
 {-# LANGUAGE GHC2024 #-}
-module Grammar(parseTokens) where
+module Grammar(parseTokens, parseText) where
 import Lexer
 import Syntax(Expression(..),
               WithContext(..),
@@ -13,6 +13,7 @@ import Syntax(Expression(..),
               Command(..))
 import qualified Vary
 import Typecheck(Term)
+import Control.Arrow((>>>))
 }
 
 %name parseTokens 
@@ -36,7 +37,7 @@ nat     { Nat num lineNum}
 %%
 
 term :: {Term}
-term : command {Vary.from $1} | gateApp {Vary.from $1 } | arg { Vary.from $1 }
+term : command {Vary.from $1}  | arg { Vary.from $1 }
 
 command : creg id '[' nat ']' in '{' command '}' {QRegDeclIn (toRegCollName $2) (toNat $4) $8} |
 gateApp {Gate $1}
@@ -62,6 +63,7 @@ toGate :: Token -> SingleQubitUnitary
 -- gate corresponding to it
 toGate (Id "h" _) = H
 toGate (Id "t" _) = T
+toGate (Id "tdg" _) = Tdg
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name
@@ -75,4 +77,8 @@ type ParseResult  = Either String
 
 parseError :: [Token] -> ParseResult a
 parseError toks = Left $ "The following cannot be parsed: " ++ show toks
+
+parseText :: String -> ParseResult Term
+
+parseText = alexScanTokens >>> parseTokens
 }

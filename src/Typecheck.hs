@@ -88,6 +88,10 @@ verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 verifyGateAppOnRegAcc :: EvaluationContext -> Expression -> TypeCalculationResult
 verifyGateAppOnRegAcc m = verifyRegAccess m >>> (<$) Unit
 
+
+verifyGateApp m (Tdg regColl@(RegisterAccess _ _)) =
+  verifyGateAppOnRegAcc m regColl
+
 verifyGateApp m (H regColl@(RegisterAccess _ _)) =
   verifyGateAppOnRegAcc m regColl
 
@@ -107,6 +111,7 @@ type Term = Vary '[Expression, GateApp, Command]
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(H _)) = verifyGateApp m x
 verifyCommand m (Gate x@(T _)) = verifyGateApp m x
+verifyCommand m (Gate x@(Tdg _)) = verifyGateApp m x
 
 verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr

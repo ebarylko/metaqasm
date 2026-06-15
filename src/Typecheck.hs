@@ -88,6 +88,8 @@ verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 verifyGateAppOnRegAcc :: EvaluationContext -> Expression -> TypeCalculationResult
 verifyGateAppOnRegAcc m = verifyRegAccess m >>> (<$) Unit
 
+verifyGateApp m (ControlledNot fstQubit@(RegisterAccess _ _) sndQubit@(RegisterAccess _ _)) =
+  verifyGateAppOnRegAcc  m fstQubit *> verifyGateAppOnRegAcc  m sndQubit 
 
 verifyGateApp m (Tdg regColl@(RegisterAccess _ _)) =
   verifyGateAppOnRegAcc m regColl
@@ -112,6 +114,7 @@ verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(H _)) = verifyGateApp m x
 verifyCommand m (Gate x@(T _)) = verifyGateApp m x
 verifyCommand m (Gate x@(Tdg _)) = verifyGateApp m x
+verifyCommand m (Gate x@(ControlledNot _ _)) = verifyGateApp m x
 
 verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr

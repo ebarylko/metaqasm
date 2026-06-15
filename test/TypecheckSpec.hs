@@ -25,8 +25,8 @@ import Generators(outOfScopeRegColl,
                   programWithEmptyRegCollDecl,
                   programWithInvalidRegAccess,
                   ProgramWithExpectedErr,
-                --  programWithTGateApp,
-                --  programWithTDaggerGateApp
+                  programWithTGateApp,
+                  programWithTDaggerGateApp
                  )
 
 
@@ -129,15 +129,15 @@ spec =  do
   describe "Accessing a register outside the bounds of a register collection" $ do
     prop "Results in an error noting that this is not permitted" $ do
       forAll programWithInvalidRegAccess prop_cannotAccessRegOutsideOfRegColl
---
---  describe "Applying a t gate to a qubit that is in scope" $ do
---    prop "Is valid and has type unit" $ do
---      forAll programWithTGateApp prop_canApplyGate
---
---  describe "Applying a t dagger gate to a qubit that is in scope" $ do
---    prop "Is valid and has type unit" $ do
---      forAll programWithTDaggerGateApp prop_canApplyGate
---
+
+  describe "Applying a t gate to a qubit that is in scope" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithTGateApp prop_canApplyGate
+
+  describe "Applying a t dagger gate to a qubit that is in scope" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithTDaggerGateApp prop_canApplyGate
+
 --  describe "Applying a controlled-Not gate to two qubits" $ do
 --    prop "Is valid and has type unit" $ do
 --      forAll programWithCNotGateApp prop_canApplyGate

@@ -7,8 +7,8 @@ module Generators(outOfScopeRegColl,
                   programWithEmptyRegCollDecl,
                  programWithInvalidRegAccess,
                  ProgramWithExpectedErr,
-                --  programWithTGateApp,
-                --  programWithTDaggerGateApp
+                 programWithTGateApp,
+                 programWithTDaggerGateApp
                  )
   where
 
@@ -173,26 +173,26 @@ programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWi
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
 --
---tGateApp = singleQubitGateApp "t"
---
----- Generates programs containing the application of a t gate to a qubit
---programWithTGateApp :: Gen MetaQasmProgram
---
---programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec 
---  where
---    toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
---    toProgWithTGateApp = flip toProgWithGateApp (appGateToInScopeQubit tGateApp)
---
----- Generates programs containing the application of a T dagger gate to a qubit
---programWithTDaggerGateApp :: Gen MetaQasmProgram
---
---tDaggerGateApp = singleQubitGateApp "tdg"
---
---programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSpec 
---  where
---    toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
---    toProgWithTDaggerGateApp  = flip toProgWithGateApp (appGateToInScopeQubit tDaggerGateApp)
---
+tGateApp = singleQubitGateApp' "t"
+
+-- Generates programs containing the application of a t gate to a qubit
+programWithTGateApp :: Gen MetaQasmProgram
+
+programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec 
+  where
+    toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
+    toProgWithTGateApp = toProgWithGateApp' (appGateToInScopeQubits' tGateApp)
+
+-- Generates programs containing the application of a T dagger gate to a qubit
+programWithTDaggerGateApp :: Gen MetaQasmProgram
+
+tDaggerGateApp = singleQubitGateApp' "tdg"
+
+programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSpec 
+  where
+    toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
+    toProgWithTDaggerGateApp  = toProgWithGateApp' (appGateToInScopeQubits' tDaggerGateApp)
+
 --programWithCNotGateApp  = toProgWithCNotGateApp <$> genValidRegCollAccessSpec
 --  where
 --    toProgWithCNotGateApp :: RegCollAccessSpec -> MetaQasmProgram

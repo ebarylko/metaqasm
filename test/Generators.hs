@@ -88,26 +88,26 @@ genInvalidRegCollAccessSpec = genRegCollAccessSpec isAccessingInvalidReg
 
 -- This type represents all formatters that generate a MetaQasm program based off
 -- of a specification detailing how to access a register collection
-type RegAccessFromatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmProgram)
+type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmProgram)
 
 makeLenses ''RegCollAccessSpec
 
 -- Formats the access of a register in a register collection,
 -- generating a string of the form 'regName[regIdx]'
-regCollAccess :: RegAccessFromatter
+regCollAccess :: RegAccessFormatter
 regCollAccess = (viewed regCollName string) <> squared (viewed wantedRegIdx int)
 
 -- Takes a name for a register collection, the number of registers in
 -- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
-quantumRegCollDecl :: RegAccessFromatter
+quantumRegCollDecl :: RegAccessFormatter
 quantumRegCollDecl = "creg "  % (viewed regCollName string) <> squared (viewed numOfRegs int)
 
 -- Takes a formatter for a register access specification and generates a formatter
 -- for applying a gate to the accessed qubit/s
-appGateToInScopeQubits :: RegAccessFromatter -> RegAccessFromatter
+appGateToInScopeQubits :: RegAccessFormatter -> RegAccessFormatter
 appGateToInScopeQubits gate = quantumRegCollDecl % " in " <>  braced gate
 
-toProgWithGateApp :: RegAccessFromatter  -> RegCollAccessSpec -> MetaQasmProgram
+toProgWithGateApp :: RegAccessFormatter  -> RegCollAccessSpec -> MetaQasmProgram
 toProgWithGateApp = formatToString
 
 singleQubitGateApp' gate = gate % parenthesised regCollAccess
@@ -168,8 +168,10 @@ programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSp
     toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithTDaggerGateApp  = toProgWithGateApp (appGateToInScopeQubits tDaggerGateApp)
 
---programWithCNotGateApp  = toProgWithCNotGateApp <$> genValidRegCollAccessSpec
---  where
---    toProgWithCNotGateApp :: RegCollAccessSpec -> MetaQasmProgram
---    toProgWithCNotGateApp = error "a"
---
+programWithCNotGateApp  = formatToString toCnotGateApp <$> genValidRegCollAccessSpec
+  where
+    toCnotGateApp :: RegAccessFormatter
+    toCnotGateApp = appGateToInScopeQubits  cNotGateApp
+    cNotGateApp :: RegAccessFormatter
+    cNotGateApp = "cx" % parenthesised (regCollAccess % ", " <> regCollAccess)
+

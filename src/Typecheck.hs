@@ -89,7 +89,7 @@ verifyGateAppOnRegAcc :: EvaluationContext -> Expression -> TypeCalculationResul
 verifyGateAppOnRegAcc m = verifyRegAccess m >>> (<$) Unit
 
 verifyGateApp m (ControlledNot fstQubit@(RegisterAccess _ _) sndQubit@(RegisterAccess _ _)) =
-  verifyGateAppOnRegAcc  m fstQubit *> verifyGateAppOnRegAcc  m sndQubit 
+  verifyGateAppOnRegAcc m fstQubit *> verifyGateAppOnRegAcc m sndQubit 
 
 verifyGateApp m (Tdg regColl@(RegisterAccess _ _)) =
   verifyGateAppOnRegAcc m regColl

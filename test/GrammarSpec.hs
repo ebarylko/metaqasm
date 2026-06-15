@@ -9,9 +9,10 @@ import Syntax(Expression(..),
            GateApp(..),
            Command(..))
 import Lexer(LineNumber(..))
-import Typecheck(Term)
 import qualified Vary
 import Data.Maybe(fromJust)
+import Generators (MetaQasmProgram)
+import Typecheck(Term)
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -21,12 +22,15 @@ genVar varName lineNum =  Var $ WithContext varName lineNum
 
 type GateFn = Expression -> GateApp
 
+toExpr :: Term -> Expression
 toExpr = fromJust . Vary.into @Expression
 
+toCommand :: Term -> Command
 toCommand = fromJust . Vary.into @Command
 
 -- Takes text representing a MetaQASM command, the expected command, and
--- checks that the expected command is obtained after parsing the text 
+-- checks that the expected command is obtained after parsing the text
+shouldParseToCommand :: MetaQasmProgram -> Command -> Expectation
 shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe` Right expected
 
 -- Takes a gate, an expression, and returns a command that
@@ -35,8 +39,9 @@ toGateWithinCommand :: GateFn -> Expression -> Command
 toGateWithinCommand gate = Gate . (gate $)
 
 
--- Takes text representing a MetaQASM command, the expected command, and
--- checks that the expected command is obtained after parsing the text
+-- Takes a program representing a MetaQASM expression, the expected expression after
+-- parsing the program, and checks that the expected  expression is obtained after parsing the text
+shouldParseToExpr :: MetaQasmProgram -> Expression -> Expectation
 shouldParseToExpr text expected = (fmap toExpr . parseText) text `shouldBe` Right expected
 
 spec :: Spec

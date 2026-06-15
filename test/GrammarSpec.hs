@@ -51,4 +51,4 @@ spec = do
         "tdg(varName)" `shouldParseToCommand` toGateWithinCommand Tdg (genVar "varName" (LineNumber 1))
         "h(varName)" `shouldParseToCommand` toGateWithinCommand H (genVar "varName" (LineNumber 1))
         "t(varName)" `shouldParseToCommand` toGateWithinCommand T (genVar "varName" (LineNumber 1))
-
+        "cx(var1, var2)" `shouldParseToCommand` toGateWithinCommand (ControlledNot (genVar "var1" (LineNumber 1))) (genVar "var2" (LineNumber 1))

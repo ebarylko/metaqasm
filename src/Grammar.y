@@ -28,6 +28,7 @@ import Control.Arrow((>>>))
 '}'     { RCurlyBracket _}
 creg    {Creg}
 in      {In}
+','     {Comma}
 '('     { LParen _}
 ')'     { RParen _ }
 str     { Str s lineNum}
@@ -42,7 +43,7 @@ term : command {Vary.from $1}  | arg { Vary.from $1 }
 command : creg id '[' nat ']' in '{' command '}' {QRegDeclIn (toRegCollName $2) (toNat $4) $8} |
 gateApp {Gate $1}
 
-gateApp : id '(' arg ')' {(toGate $1) $3}
+gateApp : id '(' arg ')' {(toGate $1) $3} | id '(' arg ',' arg ')' {ControlledNot $3 $5}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }

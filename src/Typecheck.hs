@@ -68,14 +68,15 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
-
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
-verifyGateApp m (App gateName args) =
-  findGateType gateName m  >>= \expectedArgs -> traverse (verifyExpr m) args >>= \actualArgs -> verifyGateArgs expectedArgs actualArgs
+verifyGateApp m (App gateName args) = do
+  expectedArgs <- findGateType gateName m
+  actualArgs <- traverse (verifyExpr m) args
+  verifyGateArgs expectedArgs actualArgs
   where
     verifyGateArgs :: TermType -> [TermType] -> TypeCalculationResult
     verifyGateArgs (Circuit expectedArgs) actualArgs =  if expectedArgs == actualArgs then Right Unit else error "h"

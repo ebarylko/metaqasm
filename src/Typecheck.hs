@@ -2,7 +2,6 @@
 
 module Typecheck
     (determineType,
-      TermType(..),
       TypeEvaluationError(..),
       TypeErrAt,
       Term
@@ -12,14 +11,15 @@ import qualified Data.Map as M
 import Control.Arrow ((>>>))
 import Syntax(Identifier,
               Expression(..),
+              TermType(..),
               WithContext(..),
               Id,
               Index,
               Idx,
               NonNeg(..),
               GateApp(..),
-              Command(..),
-              NatNum)
+              RegisterType(..),
+              Command(..))
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
@@ -29,16 +29,6 @@ import Data.Function ((&))
 -- This data type represents the context under which to evaluate
 -- the type of a term
 type EvaluationContext = M.Map Identifier TermType
-
--- This data type represents that a register can contain either a classical or a quantum bit
-data RegisterType = Quantum | Classical deriving (Show, Eq)
-
-data TermType
-  = Bit
-  | Qbit
-  | RegisterGroup RegisterType NatNum
-  | Unit
-  deriving (Show, Eq)
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined

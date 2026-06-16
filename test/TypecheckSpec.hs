@@ -3,12 +3,13 @@ module TypecheckSpec(spec) where
 
 import Test.Hspec
 import Typecheck(TypeEvaluationError(..),
-                TermType(..),
                 determineType,
                 TypeErrAt,
                 Term)
 
-import Syntax(Identifier, WithContext(..))
+import Syntax(Identifier,
+              TermType(..),
+              WithContext(..))
 import Lexer(alexScanTokens, LineNumber(..))
 import Grammar(parseTokens)
 import Test.QuickCheck(forAll)

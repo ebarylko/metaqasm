@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 module Generators(outOfScopeRegColl,
                   outOfScopeExpr,
                   programWithQubitInScope,

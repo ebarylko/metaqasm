@@ -66,6 +66,7 @@ spec = do
       it "Generates a term representing the declaration and its application" $ do
         let expectedGateArgs = [GateArg "x" Qbit, GateArg "x" Qbit]
         let expectedGateBody = ControlledNot ( genVar "x" (LineNumber 1)) ( genVar "y" (LineNumber 1))
-        let expectedGateApp = Gate (App "f" [RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 0) (LineNumber 1)), RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 1) (LineNumber 1))] )
-        let expectedInnerExpr = QRegDeclIn "c" (WithContext (NonNeg 1) (LineNumber 1)) 
-        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {creg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedGateApp
+        let expectedGateApp = Gate (App "f" [RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 0) (LineNumber 1)),
+                                             RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 1) (LineNumber 1))] )
+        let expectedInnerExpr = QRegDeclIn "c" (WithContext (NonNeg 1) (LineNumber 1)) expectedGateApp
+        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {creg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr

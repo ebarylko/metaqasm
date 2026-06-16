@@ -46,7 +46,7 @@ term : command {Vary.from $1}  | arg { Vary.from $1 }
 
 command : creg id '[' nat ']' in '{' command '}' {QRegDeclIn (extractName $2) (toNat $4) $8}
 | gateApp {Gate $1}
-| id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {GateDecl (extractName $1) $3 $6 $10}
+| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {GateDecl (extractName $2) $4 $7 $11}
 
 gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}
 gateArgs : gateArg {[$1]}

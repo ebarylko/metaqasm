@@ -8,8 +8,10 @@
 │   ├── Syntax.hs - Describes the possible terms in the language
 │   └── Typecheck.hs - Controls how the type of a term in the language is determined
 └── test
-    ├── Generators.hs - Contains all the generators used in the tests (Spec.hs)
-    └── Spec.hs - Tests that the lexer, parser, and typechecker working in tandem can correctly evaluate metaQASM code
+    ├── Generators.hs - Has the generators for various types of MetaQASM programs
+    ├── GrammarSpec.hs - Tests that MetaQASM programs can be parsed correctly
+    ├── Spec.hs - Declares where the tests can be found
+    └── TypecheckSpec.hs - Tests that MetaQASM programs evaluate to a certain type
 ```
 
 # Running the tests locally

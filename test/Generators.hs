@@ -20,7 +20,6 @@ import Control.Arrow((&&&))
 import Test.QuickCheck.Instances.Tuple ((>**<))
 import Data.Function((&))
 import Typecheck(TypeEvaluationError(..))
-import Control.Lens (makeLenses)
 
 
 outOfScopeRegColl :: Gen String
@@ -91,17 +90,15 @@ genInvalidRegCollAccessSpec = genRegCollAccessSpec isAccessingInvalidReg
 -- of a specification detailing how to access a register collection
 type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmProgram)
 
-makeLenses ''RegCollAccessSpec
-
 -- Formats the access of a register in a register collection,
 -- generating a string of the form 'regName[regIdx]'
 regCollAccess :: RegAccessFormatter
-regCollAccess = (viewed regCollName string) <> squared (viewed wantedRegIdx int)
+regCollAccess = (accessed _regCollName string) <> squared (accessed _wantedRegIdx int)
 
 -- Takes a name for a register collection, the number of registers in
 -- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
 quantumRegCollDecl :: RegAccessFormatter
-quantumRegCollDecl = "creg "  % (viewed regCollName string) <> squared (viewed numOfRegs int)
+quantumRegCollDecl = "creg "  % (accessed _regCollName string) <> squared (accessed _numOfRegs int)
 
 -- Takes a formatter for a register access specification and generates a formatter
 -- for applying a gate to the accessed qubit/s
@@ -131,7 +128,7 @@ programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> genInvalidRegCollAccessSpec
   where
     toProgWithEmptyRegCollDecl = toProgWithGateApp (emptyRegCollDecl % " in " <>  braced hadamardApp) 
-    emptyRegCollDecl = "creg" %+ (viewed regCollName string) % "[0]"
+    emptyRegCollDecl = "creg" %+ (accessed _regCollName string) % "[0]"
 
 -- Represents pairs of programs and the errors obtained when
 -- running them

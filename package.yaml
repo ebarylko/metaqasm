@@ -57,4 +57,3 @@ tests:
     - QuickCheck
     - formatting
     - checkers
-    - lens

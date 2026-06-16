@@ -52,7 +52,7 @@ gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}
 gateArgs : gateArg {[$1]}
 | gateArg ',' gateArgs {$1 : $3}
 
-gateApp : id '(' args ')' {App (extractName $1) $3}
+gateApp : id '(' args ')' {App (toVar $1) $3}
 
 args : arg {[$1]} | arg ',' args {$1 : $3}
 
@@ -63,7 +63,6 @@ arg : id             {(Var . toVar) $1 }
 
 {
 
--- gateApp : id '(' arg ')' {(toGate $1) $3} | id '(' arg ',' arg ')' {ControlledNot $3 $5}
 -- Converts a token representing a variable name to its
 -- corresponding term in the grammar
 toVar :: Token -> Id

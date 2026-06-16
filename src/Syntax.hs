@@ -39,7 +39,7 @@ data GateApp = H Expression
   | T Expression
   | Tdg Expression
   | ControlledNot Expression Expression
-  | App{gateId :: Identifier, gateArgs :: [Expression]} deriving (Show, Eq)
+  | App{gateId :: Id, gateArgs :: [Expression]} deriving (Show, Eq)
 
 type NatNum = WithContext NonNeg LineNumber
 

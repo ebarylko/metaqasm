@@ -97,6 +97,15 @@ verifyGateApp m (H (Var varName)) =
     isQubit :: TermType -> Bool
     isQubit = (== Qbit)
 
+verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
+
+verifyExpr m x@(RegisterAccess _ _) = verifyRegAccess m x
+
+verifyExpr m (Var varName) = findTypeWithinScope varName m
+
+--verifyGateApp m (App gateName args) =
+--  traverse (verifyExpr m) args
+
 type Term = Vary '[Expression, GateApp, Command]
 
 -- Verifies that executing a command produces a valid type.
@@ -105,6 +114,7 @@ verifyCommand m (Gate x@(H _)) = verifyGateApp m x
 verifyCommand m (Gate x@(T _)) = verifyGateApp m x
 verifyCommand m (Gate x@(Tdg _)) = verifyGateApp m x
 verifyCommand m (Gate x@(ControlledNot _ _)) = verifyGateApp m x
+--verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
 
 verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr

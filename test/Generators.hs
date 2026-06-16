@@ -22,7 +22,7 @@ import Typecheck(TypeEvaluationError(..))
 
 
 outOfScopeRegColl :: Gen String
-outOfScopeRegColl = (:) <$> lowerCaseLetter <*> listOf alphaNumeric
+outOfScopeRegColl = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (not . (`elem` ["h", "cx", "t", "tdg"]))
   where
     lowerCaseLetter :: Gen Char
     lowerCaseLetter = elements ['a'..'z']

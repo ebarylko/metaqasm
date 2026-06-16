@@ -79,7 +79,7 @@ verifyGateAppOnRegAcc :: EvaluationContext -> Expression -> TypeCalculationResul
 verifyGateAppOnRegAcc m = verifyRegAccess m >>> (<$) Unit
 
 verifyGateApp m (ControlledNot fstQubit@(RegisterAccess _ _) sndQubit@(RegisterAccess _ _)) =
-  verifyGateAppOnRegAcc m fstQubit *> verifyGateAppOnRegAcc m sndQubit 
+  verifyGateAppOnRegAcc m fstQubit *> verifyGateAppOnRegAcc m sndQubit
 
 verifyGateApp m (Tdg regColl@(RegisterAccess _ _)) =
   verifyGateAppOnRegAcc m regColl
@@ -97,24 +97,37 @@ verifyGateApp m (H (Var varName)) =
     isQubit :: TermType -> Bool
     isQubit = (== Qbit)
 
+
+
+verifyGateApp m (App gateName args) =
+  findGateType gateName m  >>= \expectedArgs -> traverse (verifyExpr m) args >>= \actualArgs -> verifyGateArgs expectedArgs actualArgs
+  where
+    verifyGateArgs :: TermType -> [TermType] -> TypeCalculationResult
+    verifyGateArgs (Circuit expectedArgs) actualArgs =  if expectedArgs == actualArgs then Right Unit else error "h"
+
+    isCircuit :: TermType -> Bool
+    isCircuit (Circuit _) = True
+    isCircuit _ = False
+
+    findGateType :: Id -> EvaluationContext -> TypeCalculationResult
+    findGateType name  ctx = findTypeWithinScope name ctx & eitherFromPred isCircuit (error "Have not implemented this yet")
+
 verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
 
 verifyExpr m x@(RegisterAccess _ _) = verifyRegAccess m x
 
 verifyExpr m (Var varName) = findTypeWithinScope varName m
 
---verifyGateApp m (App gateName args) =
---  traverse (verifyExpr m) args
 
 type Term = Vary '[Expression, GateApp, Command]
 
 -- Verifies that executing a command produces a valid type.
-verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
-verifyCommand m (Gate x@(H _)) = verifyGateApp m x
-verifyCommand m (Gate x@(T _)) = verifyGateApp m x
-verifyCommand m (Gate x@(Tdg _)) = verifyGateApp m x
-verifyCommand m (Gate x@(ControlledNot _ _)) = verifyGateApp m x
---verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
+--verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
+--verifyCommand m (Gate x@(H _)) = verifyGateApp m x
+--verifyCommand m (Gate x@(T _)) = verifyGateApp m x
+--verifyCommand m (Gate x@(Tdg _)) = verifyGateApp m x
+--verifyCommand m (Gate x@(ControlledNot _ _)) = verifyGateApp m x
+verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
 
 verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr

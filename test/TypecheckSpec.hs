@@ -50,7 +50,11 @@ calcTypeOf = parseCode >=> calcType
     changeErrTo = first
     emptyCtx = M.empty
     parseCode =  alexScanTokens >>> parseTokens >>> changeErrTo ParseError
-    calcType = determineType emptyCtx >>> changeErrTo TypeErr
+    calcType = determineType initialCtx >>> changeErrTo TypeErr
+    initialCtx = M.fromList [("h", Circuit [Qbit]),
+                             ("t", Circuit [Qbit]),
+                             ("tdg", Circuit [Qbit]),
+                             ("cx", Circuit [Qbit, Qbit])]
 
 
 -- Takes the name of a variable not in scope, the line number it was found on,

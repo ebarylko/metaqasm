@@ -77,12 +77,12 @@ toIdx :: Token -> Idx
 toIdx (Nat num lineNum) = WithContext (NonNeg num) lineNum
 
 type SingleQubitUnitary = Expression -> GateApp
-toGate :: Token -> SingleQubitUnitary
--- Takes a token representing a gate and returns the
--- gate corresponding to it
-toGate (Id "h" _) = H
-toGate (Id "t" _) = T
-toGate (Id "tdg" _) = Tdg
+--toGate :: Token -> SingleQubitUnitary
+---- Takes a token representing a gate and returns the
+---- gate corresponding to it
+--toGate (Id "h" _) = H
+--toGate (Id "t" _) = T
+--toGate (Id "tdg" _) = Tdg
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

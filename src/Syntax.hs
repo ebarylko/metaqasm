@@ -35,7 +35,8 @@ type Idx = WithContext Index LineNumber
 data Expression = Var Id  | RegisterAccess{registerName:: Id,  registerNumber::Idx} deriving (Show, Eq)
 
 -- This data type represents the application of gates to qubits.
-data GateApp = H Expression
+data GateApp =
+  H Expression
   | T Expression
   | Tdg Expression
   | ControlledNot Expression Expression
@@ -51,6 +52,7 @@ data TermType
   | Qbit
   | RegisterGroup RegisterType NatNum
   | Unit
+  | Circuit{circuitArgs :: [TermType]}
   deriving (Show, Eq)
 
 data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, Eq)

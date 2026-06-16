@@ -26,6 +26,7 @@ tokens :-
   \)                                                        { readBracket RParen }
   creg                                                       {ignoreInputAndReturn Creg}
   in                                                       {ignoreInputAndReturn In}
+  \,                                                       {ignoreInputAndReturn Comma}
   \"[^\"]*\"                                                { lexString }
   [a-z]($digit|$alpha)*                                     { lexId }
   [1-9]$digit*|0                                            { lexNat }
@@ -46,6 +47,7 @@ data Token = LBracket LineNumber
   | Nat Int LineNumber
   | Creg
   | In
+  | Comma
   deriving (Eq,Show)
 
 -- Represents functions that takes line information,

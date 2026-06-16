@@ -26,7 +26,8 @@ import Generators(outOfScopeRegColl,
                   programWithInvalidRegAccess,
                   ProgramWithExpectedErr,
                   programWithTGateApp,
-                  programWithTDaggerGateApp)
+                  programWithTDaggerGateApp,
+                  programWithCNotGateApp)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -102,9 +103,8 @@ prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
 
 -- Takes a MetaQasm program with a gate application to a qubit and confirms
 -- it has type unit
-prop_canApplyGateToQubit :: MetaQasmProgram -> IO ()
-prop_canApplyGateToQubit prog = calcTypeOf prog `shouldBe` Right Unit
-
+prop_canApplyGate :: MetaQasmProgram -> IO ()
+prop_canApplyGate prog = calcTypeOf prog `shouldBe` Right Unit
 
 spec :: Spec
 spec =  do
@@ -118,7 +118,7 @@ spec =  do
 
   describe "Applying a hadamard gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithQubitInScope prop_canApplyGateToQubit
+      forAll programWithQubitInScope prop_canApplyGate
 
   describe "Declaring an empty quantum register collection" $ do
     prop "Results in an error noting that this is not permitted" $ do
@@ -130,8 +130,12 @@ spec =  do
 
   describe "Applying a t gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithTGateApp prop_canApplyGateToQubit
+      forAll programWithTGateApp prop_canApplyGate
 
   describe "Applying a t dagger gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithTDaggerGateApp prop_canApplyGateToQubit
+      forAll programWithTDaggerGateApp prop_canApplyGate
+
+  describe "Applying a controlled-Not gate to two qubits" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithCNotGateApp prop_canApplyGate

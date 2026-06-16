@@ -7,7 +7,10 @@ import Syntax(Expression(..),
            WithContext(..),
            Identifier,
            GateApp(..),
-           Command(..))
+           NonNeg(..),
+           Command(..),
+           GateArg(..),
+           TermType(..))
 import Lexer(LineNumber(..))
 import qualified Vary
 import Data.Maybe(fromJust)
@@ -59,6 +62,10 @@ spec = do
         "t(varName)" `shouldParseToCommand` toGateWithinCommand T (genVar "varName" (LineNumber 1))
         "cx(var1, var2)" `shouldParseToCommand` toGateWithinCommand (ControlledNot (genVar "var1" (LineNumber 1))) (genVar "var2" (LineNumber 1))
 
---    describe "Parsing gate declarations" $
---      it "Generates a term representing the declaration and its application" $ do
---        "gate f(x: Qbit) {h(x)} in {creg c[1] in {f(c[0])}}" `shouldParseToCommand` error "a"
+    describe "Parsing gate declarations" $
+      it "Generates a term representing the declaration and its application" $ do
+        let expectedGateArgs = [GateArg "x" Qbit, GateArg "x" Qbit]
+        let expectedGateBody = ControlledNot ( genVar "x" (LineNumber 1)) ( genVar "y" (LineNumber 1))
+        let expectedGateApp = Gate (App "f" [RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 0) (LineNumber 1)), RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 1) (LineNumber 1))] )
+        let expectedInnerExpr = QRegDeclIn "c" (WithContext (NonNeg 1) (LineNumber 1)) 
+        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {creg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedGateApp

@@ -36,8 +36,6 @@ shouldParseToCommand :: MetaQasmProgram -> Command -> Expectation
 shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe` Right expected
 
 
-type GateFn = Expression -> GateApp
-
 -- Takes the name of a gate, the parameters of the gate, and returns a command that
 -- consists solely of the gate applied to the parameters
 toGateWithinCommand :: String -> [Expression] -> Command
@@ -67,8 +65,11 @@ spec = do
     describe "Parsing gate declarations" $
       it "Generates a term representing the declaration and its application" $ do
         let expectedGateArgs = [GateArg "x" Qbit, GateArg "y" Qbit]
-        let expectedGateBody = ControlledNot ( genVar "x" (LineNumber 1)) ( genVar "y" (LineNumber 1))
-        let expectedGateApp = Gate (App "f" [RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 0) (LineNumber 1)),
-                                             RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 1) (LineNumber 1))] )
+        let expectedGateBody = App "cx" [genVar "x" (LineNumber 1),  genVar "y" (LineNumber 1)]
+        let regColl = WithContext "c" (LineNumber 1)
+        let fstQubit = WithContext (NonNeg 0) (LineNumber 1)
+        let sndQubit = WithContext (NonNeg 1) (LineNumber 1)
+        let expectedGateApp = Gate (App "f" [RegisterAccess regColl fstQubit,
+                                             RegisterAccess regColl sndQubit])
         let expectedInnerExpr = QRegDeclIn "c" (WithContext (NonNeg 2) (LineNumber 1)) expectedGateApp
         "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {creg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr

@@ -148,7 +148,7 @@ programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWi
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
---
+
 tGateApp = singleQubitGateApp' "t"
 
 -- Generates programs containing the application of a t gate to a qubit

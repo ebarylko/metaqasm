@@ -23,7 +23,6 @@ genVar :: Identifier -> LineNumber -> Expression
 
 genVar varName lineNum =  Var $ WithContext varName lineNum
 
-type GateFn = Expression -> GateApp
 
 toExpr :: Term -> Expression
 toExpr = fromJust . Vary.into @Expression
@@ -36,10 +35,13 @@ toCommand = fromJust . Vary.into @Command
 shouldParseToCommand :: MetaQasmProgram -> Command -> Expectation
 shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe` Right expected
 
--- Takes a gate, an expression, and returns a command that
--- consists solely of the gate applied to the expression
-toGateWithinCommand :: GateFn -> Expression -> Command
-toGateWithinCommand gate = Gate . (gate $)
+
+type GateFn = Expression -> GateApp
+
+-- Takes the name of a gate, the parameters of the gate, and returns a command that
+-- consists solely of the gate applied to the parameters
+toGateWithinCommand :: String -> [Expression] -> Command
+toGateWithinCommand gateName = Gate . App gateName
 
 
 -- Takes a program representing a MetaQASM expression, the expression that should
@@ -57,16 +59,16 @@ spec = do
         "varName" `shouldParseToExpr` genVar "varName" (LineNumber 1)
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
-        "tdg(varName)" `shouldParseToCommand` toGateWithinCommand Tdg (genVar "varName" (LineNumber 1))
-        "h(varName)" `shouldParseToCommand` toGateWithinCommand H (genVar "varName" (LineNumber 1))
-        "t(varName)" `shouldParseToCommand` toGateWithinCommand T (genVar "varName" (LineNumber 1))
-        "cx(var1, var2)" `shouldParseToCommand` toGateWithinCommand (ControlledNot (genVar "var1" (LineNumber 1))) (genVar "var2" (LineNumber 1))
+        "tdg(varName)" `shouldParseToCommand` toGateWithinCommand "tdg" [genVar "varName" (LineNumber 1)]
+        "h(varName)" `shouldParseToCommand` toGateWithinCommand "h" [genVar "varName" (LineNumber 1)]
+        "t(varName)" `shouldParseToCommand` toGateWithinCommand "t" [genVar "varName" (LineNumber 1)]
+        "cx(var1, var2)" `shouldParseToCommand` toGateWithinCommand "cx" [(genVar "var1" (LineNumber 1)), (genVar "var2" (LineNumber 1))]
 
     describe "Parsing gate declarations" $
       it "Generates a term representing the declaration and its application" $ do
-        let expectedGateArgs = [GateArg "x" Qbit, GateArg "x" Qbit]
+        let expectedGateArgs = [GateArg "x" Qbit, GateArg "y" Qbit]
         let expectedGateBody = ControlledNot ( genVar "x" (LineNumber 1)) ( genVar "y" (LineNumber 1))
         let expectedGateApp = Gate (App "f" [RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 0) (LineNumber 1)),
                                              RegisterAccess (WithContext "c" (LineNumber 1)) (WithContext (NonNeg 1) (LineNumber 1))] )
-        let expectedInnerExpr = QRegDeclIn "c" (WithContext (NonNeg 1) (LineNumber 1)) expectedGateApp
+        let expectedInnerExpr = QRegDeclIn "c" (WithContext (NonNeg 2) (LineNumber 1)) expectedGateApp
         "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {creg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr

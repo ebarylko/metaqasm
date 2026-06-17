@@ -15,11 +15,12 @@ module Generators(outOfScopeRegColl,
 import Test.QuickCheck
 import Formatting
 import Syntax(Identifier, NonNeg(..))
-import Control.Arrow((&&&))
+import Control.Arrow((&&&), (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<))
 import Data.Function((&))
 import Typecheck(TypeEvaluationError(..))
-
+import Control.Monad(replicateM)
+import Data.List(nub)
 
 outOfScopeRegColl :: Gen String
 outOfScopeRegColl = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (not . (`elem` ["h", "cx", "t", "tdg"]))
@@ -54,6 +55,7 @@ outOfScopeExpr = oneof [outOfScopeVarName, outOfScopeRegAccess]
 -- request can be invalid if the wanted register is outside of the bounds of the collection
 data RegCollAccessSpec = RegCollAccessSpec{_regCollName :: Identifier, _numOfRegs :: Int, _wantedRegIdx :: Int}
 
+
 -- Takes a predicate and returns a generator that only
 -- outputs access specifications that satisfy the predicate
 genRegCollAccessSpec :: (RegCollAccessSpec -> Bool) -> Gen RegCollAccessSpec
@@ -65,7 +67,6 @@ genRegCollAccessSpec predicate = ((>**<) outOfScopeRegColl posNum arbitrarySized
 
     uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
     uncurry3 f = \(x, y, z) -> f x y z
-
 
 -- This generates an instance of a valid register
 -- access spec where the wanted register is inside of the
@@ -172,3 +173,30 @@ programWithCNotGateApp  = formatToString toCnotGateApp <$> genValidRegCollAccess
     cNotGateApp :: RegAccessFormatter
     cNotGateApp = "cx" % parenthesised (regCollAccess % ", " <> regCollAccess)
 
+
+data TwoQubitGateDeclSpec = TwoQubitGateDeclSpec{_gateName :: String, _fstQubit :: String, _sndQubit :: String}
+
+twoQubitGateDeclSpec :: Gen TwoQubitGateDeclSpec
+
+twoQubitGateDeclSpec = replicateM 3 outOfScopeVarName `suchThat` allNamesAreUnique & fmap (\[x, y, z] -> TwoQubitGateDeclSpec x y z)
+  where
+    allNamesAreUnique :: [String] -> Bool
+    allNamesAreUnique = nub >>> length >>> (== 3)
+
+twoQubitGateDecl :: Gen MetaQasmProgram
+
+twoQubitGateDecl = formatToString toGateDecl <$> twoQubitGateDeclSpec
+  where
+    toGateDecl :: Format MetaQasmProgram (TwoQubitGateDeclSpec -> MetaQasmProgram)
+    toGateDecl = "gate " % gateName <> parenthesised gateArgs <> braced ("cx" % parenthesised cnotArgs)
+    gateName = accessed _gateName string
+    fstQubit = accessed _fstQubit qubitAnnotation
+    sndQubit = accessed _sndQubit qubitAnnotation
+    gateArgs = fstQubit % ", " <> sndQubit
+    cnotArgs = accessed _fstQubit string % ", " <> accessed _sndQubit string
+    qubitAnnotation = string %+ ": Qbit"
+
+
+programWithTwoQubitGateDeclAndApp :: Gen MetaQasmProgram
+
+programWithTwoQubitGateDeclAndApp = formatToString toProgWithGateDeclApp <$> 

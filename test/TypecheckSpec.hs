@@ -144,3 +144,7 @@ spec =  do
   describe "Applying a controlled-Not gate to two qubits" $ do
     prop "Is valid and has type unit" $ do
       forAll programWithCNotGateApp prop_canApplyGate
+
+--  describe "Declaring a two qubit gate and applying it to two qubits" $ do
+--    prop "Is valid and has type unit" $ do
+--      forAll programWithTwoQubitGateDeclAndApp prop_canApplyGate

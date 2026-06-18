@@ -104,8 +104,8 @@ quantumRegCollDecl = "creg "  % (accessed _regCollName string) <> squared (acces
 
 -- Takes a formatter for a register access specification and generates a formatter
 -- for applying a gate to the accessed qubit/s
-appGateToInScopeQubits :: RegAccessFormatter -> RegAccessFormatter
-appGateToInScopeQubits gate = quantumRegCollDecl % " in " <>  braced gate
+appGateToQubits :: RegAccessFormatter -> RegAccessFormatter
+appGateToQubits gate = quantumRegCollDecl % " in " <>  braced gate
 
 toProgWithGateApp :: RegAccessFormatter  -> RegCollAccessSpec -> MetaQasmProgram
 toProgWithGateApp = formatToString
@@ -123,7 +123,7 @@ programWithQubitInScope :: Gen MetaQasmProgram
 programWithQubitInScope =  toProgWithHGateApp <$> genValidRegCollAccessSpec
   where
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithHGateApp =  toProgWithGateApp (appGateToInScopeQubits hadamardApp)
+    toProgWithHGateApp =  toProgWithGateApp (appGateToQubits hadamardApp)
 
 -- Generates metaQASM code where an empty
 -- register collection is declared
@@ -145,7 +145,7 @@ programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
 programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithInvalidAccess = toProgWithGateApp (appGateToInScopeQubits hadamardApp)
+    toProgWithInvalidAccess = toProgWithGateApp (appGateToQubits hadamardApp)
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
@@ -159,7 +159,7 @@ programWithTGateApp :: Gen MetaQasmProgram
 programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec 
   where
     toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithTGateApp = toProgWithGateApp (appGateToInScopeQubits tGateApp)
+    toProgWithTGateApp = toProgWithGateApp (appGateToQubits tGateApp)
 
 -- Generates programs containing the application of a T dagger gate to a qubit
 programWithTDaggerGateApp :: Gen MetaQasmProgram
@@ -170,7 +170,7 @@ tDaggerGateApp = singleQubitGateApp' "tdg"
 programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSpec 
   where
     toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithTDaggerGateApp  = toProgWithGateApp (appGateToInScopeQubits tDaggerGateApp)
+    toProgWithTDaggerGateApp  = toProgWithGateApp (appGateToQubits tDaggerGateApp)
 
 
 
@@ -178,7 +178,7 @@ programWithCNotGateApp :: Gen MetaQasmProgram
 programWithCNotGateApp  = formatToString toCnotGateApp <$> genValidRegCollAccessSpec
   where
     toCnotGateApp :: RegAccessFormatter
-    toCnotGateApp = appGateToInScopeQubits cNotGateApp
+    toCnotGateApp = appGateToQubits cNotGateApp
     cNotGateApp :: RegAccessFormatter
     cNotGateApp = "cx" % parenthesised (regCollAccess % ", " <> regCollAccess)
 
@@ -229,6 +229,6 @@ programWithTwoQubitGateDeclAndApp =  toGateDeclAndApp <$> nonShadowingRegCollAcc
     toGateDeclAndApp :: TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
     toGateDeclAndApp args@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (formatGateDecl  % " in " <> formatGateApp (twoQubitGateApp gateName)) args
     formatGateDecl = accessed fst toGateDecl
-    formatGateApp gateFormatter = braced $ accessed snd $ appGateToInScopeQubits gateFormatter
+    formatGateApp  = braced . accessed snd . appGateToQubits
 
     twoQubitGateApp gate = now (fromString gate) %  parenthesised (regCollAccess % ", " <> regCollAccess)

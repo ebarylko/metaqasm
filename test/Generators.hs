@@ -8,7 +8,8 @@ module Generators(outOfScopeRegColl,
                  ProgramWithExpectedErr,
                  programWithTGateApp,
                  programWithTDaggerGateApp,
-                 programWithCNotGateApp
+                 programWithCNotGateApp,
+                 programWithTwoQubitGateDeclAndApp
                  )
   where
 
@@ -202,7 +203,8 @@ nonShadowingRegCollAccess = twoQubitGateDeclInfo >*< genValidRegCollAccessSpec `
     isNotBeingOverShadowedByRegAcc  ((TwoQubitGateDeclInfo gateName fstQubitName sndQubitName), (RegCollAccessSpec regCollName _ _)) = not $ regCollName `elem` [gateName, fstQubitName, sndQubitName]
 
 
-
+-- Generates a two qubit gate declaration given information about the name of
+-- the gate and its parameters
 toGateDecl :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram)
 toGateDecl = "gate " % gateName <> parenthesised gateArgs <> braced ("cx" % parenthesised cnotArgs)
   where

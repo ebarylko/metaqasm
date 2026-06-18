@@ -28,7 +28,8 @@ import Generators(outOfScopeRegColl,
                   ProgramWithExpectedErr,
                   programWithTGateApp,
                   programWithTDaggerGateApp,
-                  programWithCNotGateApp)
+                  programWithCNotGateApp,
+                  programWithTwoQubitGateDeclAndApp)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -145,6 +146,6 @@ spec =  do
     prop "Is valid and has type unit" $ do
       forAll programWithCNotGateApp prop_canApplyGate
 
---  describe "Declaring a two qubit gate and applying it to two qubits" $ do
---    prop "Is valid and has type unit" $ do
---      forAll programWithTwoQubitGateDeclAndApp prop_canApplyGate
+  describe "Declaring a two qubit gate and applying it to two qubits" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithTwoQubitGateDeclAndApp prop_canApplyGate

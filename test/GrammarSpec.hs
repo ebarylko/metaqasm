@@ -41,6 +41,14 @@ shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe
 toGateWithinCommand :: String -> LineNumber -> [Expression] -> Command
 toGateWithinCommand gateName line = Gate . App (WithContext gateName line)
 
+line1 :: LineNumber
+line1 = LineNumber 1
+
+onLine1 :: a -> WithContext a LineNumber
+onLine1 = flip WithContext line1
+
+regAccess :: Identifier -> Int -> Expression
+regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (onLine1 (NonNeg idx))
 
 -- Takes a program representing a MetaQASM expression, the expression that should
 -- be obtained after parsing the program, and checks that the expected expression
@@ -65,13 +73,11 @@ spec = do
     describe "Parsing gate declarations" $
       it "Generates a term representing the declaration and its application" $ do
         let expectedGateArgs = [GateArg "x" Qbit, GateArg "y" Qbit]
-        let cnot = WithContext "cx" (LineNumber 1)
+        let cnot = onLine1 "cx"
         let expectedGateBody = App cnot [genVar "x" (LineNumber 1),  genVar "y" (LineNumber 1)]
-        let regColl = WithContext "c" (LineNumber 1)
-        let fstQubit = WithContext (NonNeg 0) (LineNumber 1)
-        let sndQubit = WithContext (NonNeg 1) (LineNumber 1)
-        let fnName = WithContext "f" (LineNumber 1)
-        let expectedGateApp = Gate (App fnName [RegisterAccess regColl fstQubit,
-                                             RegisterAccess regColl sndQubit])
-        let expectedInnerExpr = QRegDeclIn "c" (WithContext (NonNeg 2) (LineNumber 1)) expectedGateApp
+        let fnName = onLine1 "f" 
+        let expectedGateApp = Gate (App fnName [regAccess "c" 0,
+                                                regAccess "c" 1])
+        let twoRegs = onLine1 (NonNeg 2)
+        let expectedInnerExpr = QRegDeclIn "c" twoRegs expectedGateApp
         "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {creg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr

@@ -237,20 +237,26 @@ fmtGateDeclAndApp gateDeclFormatter gateAppFormatter = fmtGateDecl % " in " <> f
 -- is declared and then applied to two in-scope qubits
 programWithTwoQubitGateDeclAndApp :: Gen MetaQasmProgram
 
-programWithTwoQubitGateDeclAndApp =  toGateDeclAndApp <$> nonShadowingRegCollAccess
-  where
-    toGateDeclAndApp :: TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
-    toGateDeclAndApp args@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp toGateDecl  (twoQubitGateApp gateName)) args
+-- Takes a formatter for a gate declaration, a formatter for a gate application, the information needed for both formatters, and generates a
+-- MetaQASM program based on both formatters and the info that declares an n-ary gate and applies it later on
+fmtGateDeclAndApp' :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram) -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
 
+fmtGateDeclAndApp' gateDeclFormatter gateAppFormatter info@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp gateDeclFormatter (gateAppFormatter gateName)) info
+
+programWithTwoQubitGateDeclAndApp =  fmtGateDeclAndApp' toGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
+  where
     twoQubitGateApp gate = toFormatter gate %  parenthesised (regCollAccess % ", " <> regCollAccess)
 
 -- Generates programs where a two qubit gate is applied to
 -- three qubits
 programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooManyParamsInGateApp = toInvalidGateApp <$> nonShadowingRegCollAccess
+programWithTooManyParamsInGateApp = fmtGateDeclAndApp' toGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
   where
-    toInvalidGateApp :: TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
-
-    toInvalidGateApp args@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp toGateDecl  (threeQubitGateApp gateName)) args
     threeQubitGateApp gate = toFormatter gate %  parenthesised (regCollAccess % ", " <> regCollAccess % ", " <> regCollAccess)
+
+-- Generates programs where a two qubit gate is applied to
+-- one qubit
+programWithTooFewParamsInGateApp :: Gen MetaQasmProgram
+
+programWithTooFewParamsInGateApp = fmtGateDeclAndApp' toGateDecl singleQubitGateApp' <$> nonShadowingRegCollAccess

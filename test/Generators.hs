@@ -225,9 +225,6 @@ toGateDecl = "gate " % gateName <> parenthesised gateArgs <> " " % braced ("cx" 
     cnotArgs = fstArg % ", " <> sndArg
     qubitAnnotation =  (%+ ": Qbit")
 
---fmtGateDecl = accessed fst toGateDecl
---fmtGateApp = braced . accessed snd . appGateToQubits
-
 -- Takes a formatter for a gate declaration and a formatter for a gate application and
 -- generates a formatter that combines the declaration and application of the gate
 fmtGateDeclAndApp :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
@@ -257,6 +254,3 @@ programWithTooManyParamsInGateApp = toInvalidGateApp <$> nonShadowingRegCollAcce
 
     toInvalidGateApp args@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp toGateDecl  (threeQubitGateApp gateName)) args
     threeQubitGateApp gate = toFormatter gate %  parenthesised (regCollAccess % ", " <> regCollAccess % ", " <> regCollAccess)
-
-
-

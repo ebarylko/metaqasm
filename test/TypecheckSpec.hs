@@ -3,12 +3,13 @@ module TypecheckSpec(spec) where
 
 import Test.Hspec
 import Typecheck(TypeEvaluationError(..),
-                TermType(..),
                 determineType,
                 TypeErrAt,
                 Term)
 
-import Syntax(Identifier, WithContext(..))
+import Syntax(Identifier,
+              TermType(..),
+              WithContext(..))
 import Lexer(alexScanTokens, LineNumber(..))
 import Grammar(parseTokens)
 import Test.QuickCheck(forAll)
@@ -27,7 +28,8 @@ import Generators(outOfScopeRegColl,
                   ProgramWithExpectedErr,
                   programWithTGateApp,
                   programWithTDaggerGateApp,
-                  programWithCNotGateApp)
+                  programWithCNotGateApp,
+                  programWithTwoQubitGateDeclAndApp)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -47,9 +49,12 @@ calcTypeOf = parseCode >=> calcType
   where
     changeErrTo :: (a -> b) -> Either a c -> Either b c
     changeErrTo = first
-    emptyCtx = M.empty
     parseCode =  alexScanTokens >>> parseTokens >>> changeErrTo ParseError
-    calcType = determineType emptyCtx >>> changeErrTo TypeErr
+    calcType = determineType initialCtx >>> changeErrTo TypeErr
+    initialCtx = M.fromList [("h", Circuit [Qbit]),
+                             ("t", Circuit [Qbit]),
+                             ("tdg", Circuit [Qbit]),
+                             ("cx", Circuit [Qbit, Qbit])]
 
 
 -- Takes the name of a variable not in scope, the line number it was found on,
@@ -139,3 +144,7 @@ spec =  do
   describe "Applying a controlled-Not gate to two qubits" $ do
     prop "Is valid and has type unit" $ do
       forAll programWithCNotGateApp prop_canApplyGate
+
+  describe "Declaring a two qubit gate and applying it to two qubits" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programWithTwoQubitGateDeclAndApp prop_canApplyGate

@@ -26,8 +26,10 @@ tokens :-
   \)                                                        { readBracket RParen }
   creg                                                       {ignoreInputAndReturn Creg}
   in                                                       {ignoreInputAndReturn In}
+  gate                                                     {ignoreInputAndReturn GateDec}
+  \:                                                       {ignoreInputAndReturn Colon}
   \,                                                       {ignoreInputAndReturn Comma}
-  \"[^\"]*\"                                                { lexString }
+  Qbit                                                     {genToken TypeAnnotation (const "Qbit") }
   [a-z]($digit|$alpha)*                                     { lexId }
   [1-9]$digit*|0                                            { lexNat }
 
@@ -42,12 +44,14 @@ data Token = LBracket LineNumber
   | LCurlyBracket LineNumber
   | LParen LineNumber
   | RParen LineNumber
-  | Str String LineNumber
   | Id String LineNumber
   | Nat Int LineNumber
   | Creg
   | In
   | Comma
+  | GateDec
+  | Colon
+  | TypeAnnotation String LineNumber
   deriving (Eq,Show)
 
 -- Represents functions that takes line information,
@@ -77,9 +81,6 @@ ignoreInputAndReturn tok _ _ = tok
 genToken :: (a -> LineNumber -> Token) -> (String -> a) -> TokenGenerator
 
 genToken tokFn f = \lineInfo text -> tokFn (f text) (getLineNumber lineInfo)
-
--- Takes an string and generates the corresponding token for it
-lexString = genToken Str (filter (/= '"'))
 
 -- Takes an id and generates the corresponding token for it
 lexId = genToken Id id

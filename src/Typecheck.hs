@@ -2,7 +2,6 @@
 
 module Typecheck
     (determineType,
-      TermType(..),
       TypeEvaluationError(..),
       TypeErrAt,
       Term
@@ -12,14 +11,16 @@ import qualified Data.Map as M
 import Control.Arrow ((>>>))
 import Syntax(Identifier,
               Expression(..),
+              TermType(..),
               WithContext(..),
               Id,
               Index,
+              GateArg(..),
               Idx,
               NonNeg(..),
               GateApp(..),
-              Command(..),
-              NatNum)
+              RegisterType(..),
+              Command(..))
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
@@ -29,16 +30,6 @@ import Data.Function ((&))
 -- This data type represents the context under which to evaluate
 -- the type of a term
 type EvaluationContext = M.Map Identifier TermType
-
--- This data type represents that a register can contain either a classical or a quantum bit
-data RegisterType = Quantum | Classical deriving (Show, Eq)
-
-data TermType
-  = Bit
-  | Qbit
-  | RegisterGroup RegisterType NatNum
-  | Unit
-  deriving (Show, Eq)
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
@@ -78,43 +69,52 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
-
-
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
-verifyGateAppOnRegAcc :: EvaluationContext -> Expression -> TypeCalculationResult
-verifyGateAppOnRegAcc m = verifyRegAccess m >>> (<$) Unit
-
-verifyGateApp m (ControlledNot fstQubit@(RegisterAccess _ _) sndQubit@(RegisterAccess _ _)) =
-  verifyGateAppOnRegAcc m fstQubit *> verifyGateAppOnRegAcc m sndQubit 
-
-verifyGateApp m (Tdg regColl@(RegisterAccess _ _)) =
-  verifyGateAppOnRegAcc m regColl
-
-verifyGateApp m (H regColl@(RegisterAccess _ _)) =
-  verifyGateAppOnRegAcc m regColl
-
-verifyGateApp m (T regColl@(RegisterAccess _ _)) =
-  verifyGateAppOnRegAcc m regColl
-
-verifyGateApp m (H (Var varName)) =
-  findTypeWithinScope varName m
-  & eitherFromPred isQubit (error "Have not handled the case where the variable is not a qubit")
+verifyGateApp m (App gateName args) = do
+  expectedArgs <- findGateType gateName m
+  actualArgs <- traverse (verifyExpr m) args
+  verifyGateArgs expectedArgs actualArgs
   where
-    isQubit :: TermType -> Bool
-    isQubit = (== Qbit)
+    verifyGateArgs :: TermType -> [TermType] -> TypeCalculationResult
+    verifyGateArgs (Circuit expectedArgs) actualArgs =  if expectedArgs == actualArgs then Right Unit else error "h"
+
+    isCircuit :: TermType -> Bool
+    isCircuit (Circuit _) = True
+    isCircuit _ = False
+
+    findGateType :: Id -> EvaluationContext -> TypeCalculationResult
+    findGateType name  ctx = findTypeWithinScope name ctx & eitherFromPred isCircuit (error "Have not implemented this yet")
+
+verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
+
+verifyExpr m x@(RegisterAccess _ _) = verifyRegAccess m x
+
+verifyExpr m (Var varName) = findTypeWithinScope varName m
+
 
 type Term = Vary '[Expression, GateApp, Command]
 
--- Verifies that executing a command produces a valid type.
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
-verifyCommand m (Gate x@(H _)) = verifyGateApp m x
-verifyCommand m (Gate x@(T _)) = verifyGateApp m x
-verifyCommand m (Gate x@(Tdg _)) = verifyGateApp m x
-verifyCommand m (Gate x@(ControlledNot _ _)) = verifyGateApp m x
+
+-- Verifies that applying a gate produces a valid type.
+verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
+
+-- Verifies that declaring a gate and then applying it is valid
+verifyCommand m (GateDecl{gateName, args, gateBody, innerExpr}) =
+  verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
+  where
+    gateCtx = foldr extendCtxWithGateParam m args
+
+    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
+    extendCtxWithGateParam (GateArg{name, argType}) = M.insert name argType
+
+    commandCtx = extendCtxWithCircuit gateName args m
+    extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
+    genCircuit = Circuit . map argType
 
 verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr

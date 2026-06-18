@@ -7,7 +7,10 @@ import Syntax(Expression(..),
            WithContext(..),
            Identifier,
            GateApp(..),
-           Command(..))
+           NonNeg(..),
+           Command(..),
+           GateArg(..),
+           TermType(..))
 import Lexer(LineNumber(..))
 import qualified Vary
 import Data.Maybe(fromJust)
@@ -20,7 +23,6 @@ genVar :: Identifier -> LineNumber -> Expression
 
 genVar varName lineNum =  Var $ WithContext varName lineNum
 
-type GateFn = Expression -> GateApp
 
 toExpr :: Term -> Expression
 toExpr = fromJust . Vary.into @Expression
@@ -33,11 +35,20 @@ toCommand = fromJust . Vary.into @Command
 shouldParseToCommand :: MetaQasmProgram -> Command -> Expectation
 shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe` Right expected
 
--- Takes a gate, an expression, and returns a command that
--- consists solely of the gate applied to the expression
-toGateWithinCommand :: GateFn -> Expression -> Command
-toGateWithinCommand gate = Gate . (gate $)
 
+-- Takes the name of a gate, the line it was applied on,the parameters of the gate,
+-- and returns a command that consists solely of the gate applied to the parameters
+toGateWithinCommand :: String -> LineNumber -> [Expression] -> Command
+toGateWithinCommand gateName line = Gate . App (WithContext gateName line)
+
+line1 :: LineNumber
+line1 = LineNumber 1
+
+onLine1 :: a -> WithContext a LineNumber
+onLine1 = flip WithContext line1
+
+regAccess :: Identifier -> Int -> Expression
+regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (onLine1 (NonNeg idx))
 
 -- Takes a program representing a MetaQASM expression, the expression that should
 -- be obtained after parsing the program, and checks that the expected expression
@@ -54,7 +65,19 @@ spec = do
         "varName" `shouldParseToExpr` genVar "varName" (LineNumber 1)
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
-        "tdg(varName)" `shouldParseToCommand` toGateWithinCommand Tdg (genVar "varName" (LineNumber 1))
-        "h(varName)" `shouldParseToCommand` toGateWithinCommand H (genVar "varName" (LineNumber 1))
-        "t(varName)" `shouldParseToCommand` toGateWithinCommand T (genVar "varName" (LineNumber 1))
-        "cx(var1, var2)" `shouldParseToCommand` toGateWithinCommand (ControlledNot (genVar "var1" (LineNumber 1))) (genVar "var2" (LineNumber 1))
+        "tdg(varName)" `shouldParseToCommand` (toGateWithinCommand "tdg" (LineNumber 1)) [genVar "varName" (LineNumber 1)]
+        "h(varName)" `shouldParseToCommand` (toGateWithinCommand "h" (LineNumber 1)) [genVar "varName" (LineNumber 1)]
+        "t(varName)" `shouldParseToCommand` (toGateWithinCommand "t" (LineNumber 1)) [genVar "varName" (LineNumber 1)]
+        "cx(var1, var2)" `shouldParseToCommand` (toGateWithinCommand "cx" (LineNumber 1)) [(genVar "var1" (LineNumber 1)), (genVar "var2" (LineNumber 1))]
+
+    describe "Parsing gate declarations" $
+      it "Generates a term representing the declaration and its application" $ do
+        let expectedGateArgs = [GateArg "x" Qbit, GateArg "y" Qbit]
+        let cnot = onLine1 "cx"
+        let expectedGateBody = App cnot [genVar "x" (LineNumber 1),  genVar "y" (LineNumber 1)]
+        let fnName = onLine1 "f" 
+        let expectedGateApp = Gate (App fnName [regAccess "c" 0,
+                                                regAccess "c" 1])
+        let twoRegs = onLine1 (NonNeg 2)
+        let expectedInnerExpr = QRegDeclIn "c" twoRegs expectedGateApp
+        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {creg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr

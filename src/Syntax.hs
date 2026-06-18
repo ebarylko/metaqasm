@@ -6,8 +6,11 @@ module Syntax(Expression(..),
           Id,
           GateApp(..),
           NatNum,
+          TermType(..),
+          RegisterType(..),
           NonNeg(..),
-          Command(..)) where
+          Command(..),
+          GateArg(..)) where
 
 import Lexer(LineNumber)
 
@@ -32,10 +35,26 @@ type Idx = WithContext Index LineNumber
 data Expression = Var Id  | RegisterAccess{registerName:: Id,  registerNumber::Idx} deriving (Show, Eq)
 
 -- This data type represents the application of gates to qubits.
-data GateApp = H Expression | T Expression | Tdg Expression | ControlledNot Expression Expression deriving (Show, Eq)
+data GateApp = App{gateId :: Id, gateArgs :: [Expression]} deriving (Show, Eq)
 
 type NatNum = WithContext NonNeg LineNumber
 
+-- This data type represents that a register can contain either a classical or a quantum bit
+data RegisterType = Quantum | Classical deriving (Show, Eq)
+
+data TermType
+  = Bit
+  | Qbit
+  | RegisterGroup RegisterType NatNum
+  | Unit
+  | Circuit{circuitArgs :: [TermType]}
+  deriving (Show, Eq)
+
+data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, Eq)
+
 -- This data type represents evaluating gate applications under a context
 -- where a quantum register collection is available.
-data Command = QRegDeclIn{regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command}  | Gate GateApp deriving (Show, Eq)
+data Command = QRegDeclIn{regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command}
+  | Gate GateApp
+  | GateDecl{gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command}
+   deriving (Show, Eq)

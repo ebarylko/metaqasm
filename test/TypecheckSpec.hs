@@ -9,7 +9,8 @@ import Typecheck(TypeEvaluationError(..),
 
 import Syntax(Identifier,
               TermType(..),
-              WithContext(..))
+              WithContext(..),
+              NonNeg(..))
 import Lexer(alexScanTokens, LineNumber(..))
 import Grammar(parseTokens)
 import Test.QuickCheck(forAll)
@@ -29,7 +30,8 @@ import Generators(outOfScopeRegColl,
                   programWithTGateApp,
                   programWithTDaggerGateApp,
                   programWithCNotGateApp,
-                  programWithTwoQubitGateDeclAndApp)
+                  programWithTwoQubitGateDeclAndApp,
+                  programWithTooManyParamsInGateApp)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -111,6 +113,15 @@ prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
 prop_canApplyGate :: MetaQasmProgram -> IO ()
 prop_canApplyGate prog = calcTypeOf prog `shouldBe` Right Unit
 
+-- Checks that a MetaQASM program that applies an two qubit gate
+-- to three qubits is invalid
+prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
+
+prop_cannotApplyGateToTooManyQubits prog =
+  calcTypeOf prog `shouldBe` tooManyArgsErr
+  where
+    tooManyArgsErr = Left $ TypeErr $ WithContext (ExpectedNParams (NonNeg 2) (NonNeg 3) ) (LineNumber 1)
+
 spec :: Spec
 spec =  do
   describe "Accessing elements from a collection of registers that is out of scope" $ do
@@ -148,3 +159,7 @@ spec =  do
   describe "Declaring a two qubit gate and applying it to two qubits" $ do
     prop "Is valid and has type unit" $ do
       forAll programWithTwoQubitGateDeclAndApp prop_canApplyGate
+
+  describe "Declaring a two qubit gate and applying it to three qubits" $ do
+    prop "Is invalid and generates an error noting this discrepancy" $ do
+      forAll programWithTooManyParamsInGateApp prop_canApplyGate

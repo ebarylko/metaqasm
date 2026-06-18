@@ -33,7 +33,10 @@ type EvaluationContext = M.Map Identifier TermType
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
-data TypeEvaluationError = VariableNotInScope Identifier | EmptyRegCollDecl Identifier | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index} deriving (Show, Eq)
+data TypeEvaluationError = VariableNotInScope Identifier
+  | EmptyRegCollDecl Identifier
+  | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
+  | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg} deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
 

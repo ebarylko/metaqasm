@@ -15,6 +15,7 @@ import Syntax(Identifier,
               WithContext(..),
               Id,
               Index,
+              GateArg(..),
               Idx,
               NonNeg(..),
               GateApp(..),
@@ -97,8 +98,22 @@ verifyExpr m (Var varName) = findTypeWithinScope varName m
 
 type Term = Vary '[Expression, GateApp, Command]
 
--- Verifies that executing a command produces a valid type.
+verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
+
+-- Verifies that applying a gate produces a valid type.
 verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
+
+-- Verifies that declaring a gate and then applying it is valid
+verifyCommand m (GateDecl{gateName, args, gateBody, innerExpr}) =
+  verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
+  where
+    gateCtx = foldr extendCtxWithGateParam m args
+    extendCtxWithGateParam (GateArg{name, argType}) = M.insert name argType
+
+    commandCtx = extendCtxWithCircuit gateName args m
+    extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
+    genCircuit = Circuit . map argType
+    
 
 verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr

@@ -49,7 +49,6 @@ calcTypeOf = parseCode >=> calcType
   where
     changeErrTo :: (a -> b) -> Either a c -> Either b c
     changeErrTo = first
-    emptyCtx = M.empty
     parseCode =  alexScanTokens >>> parseTokens >>> changeErrTo ParseError
     calcType = determineType initialCtx >>> changeErrTo TypeErr
     initialCtx = M.fromList [("h", Circuit [Qbit]),

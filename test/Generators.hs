@@ -24,8 +24,11 @@ import Control.Monad(replicateM)
 import Data.List(nub)
 import Data.Text.Lazy.Builder(fromString)
 
+builtInGates :: [String]
+builtInGates = ["h", "cx", "t", "tdg"]
+
 outOfScopeRegColl :: Gen String
-outOfScopeRegColl = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (not . (`elem` ["h", "cx", "t", "tdg"]))
+outOfScopeRegColl = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (not . (`elem` builtInGates))
   where
     lowerCaseLetter :: Gen Char
     lowerCaseLetter = elements ['a'..'z']

@@ -75,16 +75,19 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,
 -- the types of the actual arguments passed to the gate,
--- and checks the expected and actual types match.
+-- and checks if the expected and actual types match.
 -- Returns an error otherwise
 verifyGateArgs :: LineNumber -> TermType -> [TermType] -> TypeCalculationResult
 
 verifyGateArgs line (Circuit expectedArgs) actualArgs
-  | gateIsAppliedToTooManyArgs = Left $ WithContext  (ExpectedNParams ((NonNeg . length) expectedArgs) ((NonNeg . length) actualArgs)) line
+  | gateIsAppliedToTooManyArgs = Left $ WithContext  tooManyArgsErr line
   | expectedArgs == actualArgs = Right Unit
-  | otherwise = error "not implemented yet"
+  | otherwise = error "Not implemented yet"
   where
-    gateIsAppliedToTooManyArgs = length expectedArgs < length actualArgs 
+    gateIsAppliedToTooManyArgs = length expectedArgs < length actualArgs
+    calcNumOfArgs = NonNeg . length
+    tooManyArgsErr = ExpectedNParams (calcNumOfArgs expectedArgs) (calcNumOfArgs actualArgs)
+
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.

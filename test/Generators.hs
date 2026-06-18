@@ -245,7 +245,7 @@ programWithTwoQubitGateDeclAndApp =  toGateDeclAndApp <$> nonShadowingRegCollAcc
     twoQubitGateApp gate = toFormatter gate %  parenthesised (regCollAccess % ", " <> regCollAccess)
 
 -- Generates programs where a two qubit gate is applied to
--- three arguments
+-- three qubits
 programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
 programWithTooManyParamsInGateApp = toInvalidGateApp <$> nonShadowingRegCollAccess

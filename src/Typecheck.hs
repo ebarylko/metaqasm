@@ -33,7 +33,10 @@ type EvaluationContext = M.Map Identifier TermType
 
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
-data TypeEvaluationError = VariableNotInScope Identifier | EmptyRegCollDecl Identifier | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index} deriving (Show, Eq)
+data TypeEvaluationError = VariableNotInScope Identifier
+  | EmptyRegCollDecl Identifier
+  | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
+  | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg} deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
 
@@ -69,19 +72,33 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
+-- Takes the line where a gate was applied,
+-- the types of the expected arguments for a gate,
+-- the types of the actual arguments passed to the gate,
+-- and checks if the expected and actual types match.
+-- Returns an error otherwise
+verifyGateArgs :: LineNumber -> TermType -> [TermType] -> TypeCalculationResult
+
+verifyGateArgs line (Circuit expectedArgs) actualArgs
+  | gateIsAppliedToTooManyArgs = Left $ WithContext  tooManyArgsErr line
+  | expectedArgs == actualArgs = Right Unit
+  | otherwise = error "Not implemented yet"
+  where
+    gateIsAppliedToTooManyArgs = length expectedArgs < length actualArgs
+    calcNumOfArgs = NonNeg . length
+    tooManyArgsErr = ExpectedNParams (calcNumOfArgs expectedArgs) (calcNumOfArgs actualArgs)
+
+
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
-verifyGateApp m (App gateName args) = do
+verifyGateApp m (App gateName@(WithContext _ line) args) = do
   expectedArgs <- findGateType gateName m
   actualArgs <- traverse (verifyExpr m) args
-  verifyGateArgs expectedArgs actualArgs
+  verifyGateArgs line expectedArgs actualArgs
   where
-    verifyGateArgs :: TermType -> [TermType] -> TypeCalculationResult
-    verifyGateArgs (Circuit expectedArgs) actualArgs =  if expectedArgs == actualArgs then Right Unit else error "h"
-
     isCircuit :: TermType -> Bool
     isCircuit (Circuit _) = True
     isCircuit _ = False

@@ -75,7 +75,7 @@ spec = do
         let expectedGateArgs = [GateArg "x" Qbit, GateArg "y" Qbit]
         let cnot = onLine1 "cx"
         let expectedGateBody = App cnot [genVar "x" (LineNumber 1),  genVar "y" (LineNumber 1)]
-        let fnName = onLine1 "f" 
+        let fnName = onLine1 "f"
         let expectedGateApp = Gate (App fnName [regAccess "c" 0,
                                                 regAccess "c" 1])
         let twoRegs = onLine1 (NonNeg 2)

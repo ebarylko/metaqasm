@@ -110,8 +110,10 @@ appGateToQubits gate = quantumRegCollDecl % " in " <>  braced gate
 toProgWithGateApp :: RegAccessFormatter  -> RegCollAccessSpec -> MetaQasmProgram
 toProgWithGateApp = formatToString
 
+toFormatter = now . fromString
+
 singleQubitGateApp' :: String -> RegAccessFormatter
-singleQubitGateApp' gate = now (fromString gate) % parenthesised regCollAccess
+singleQubitGateApp' gate = toFormatter gate % parenthesised regCollAccess
 
 hadamardApp :: RegAccessFormatter
 hadamardApp = singleQubitGateApp' "h"
@@ -231,4 +233,4 @@ programWithTwoQubitGateDeclAndApp =  toGateDeclAndApp <$> nonShadowingRegCollAcc
     formatGateDecl = accessed fst toGateDecl
     formatGateApp  = braced . accessed snd . appGateToQubits
 
-    twoQubitGateApp gate = now (fromString gate) %  parenthesised (regCollAccess % ", " <> regCollAccess)
+    twoQubitGateApp gate = toFormatter gate %  parenthesised (regCollAccess % ", " <> regCollAccess)

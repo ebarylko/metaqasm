@@ -72,19 +72,30 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
+-- Takes the line where a gate was applied,
+-- the types of the expected arguments for a gate,
+-- the types of the actual arguments passed to the gate,
+-- and checks the expected and actual types match.
+-- Returns an error otherwise
+verifyGateArgs :: LineNumber -> TermType -> [TermType] -> TypeCalculationResult
+
+verifyGateArgs line (Circuit expectedArgs) actualArgs
+  | gateIsAppliedToTooManyArgs = Left $ WithContext  (ExpectedNParams ((NonNeg . length) expectedArgs) ((NonNeg . length) actualArgs)) line
+  | expectedArgs == actualArgs = Right Unit
+  | otherwise = error "not implemented yet"
+  where
+    gateIsAppliedToTooManyArgs = length expectedArgs < length actualArgs 
+
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
-verifyGateApp m (App gateName args) = do
+verifyGateApp m (App gateName@(WithContext _ line) args) = do
   expectedArgs <- findGateType gateName m
   actualArgs <- traverse (verifyExpr m) args
-  verifyGateArgs expectedArgs actualArgs
+  verifyGateArgs line expectedArgs actualArgs
   where
-    verifyGateArgs :: TermType -> [TermType] -> TypeCalculationResult
-    verifyGateArgs (Circuit expectedArgs) actualArgs =  if expectedArgs == actualArgs then Right Unit else error "h"
-
     isCircuit :: TermType -> Bool
     isCircuit (Circuit _) = True
     isCircuit _ = False

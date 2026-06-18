@@ -120,7 +120,7 @@ prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
 prop_cannotApplyGateToTooManyQubits prog =
   calcTypeOf prog `shouldBe` tooManyArgsErr
   where
-    tooManyArgsErr = Left $ TypeErr $ WithContext (ExpectedNParams (NonNeg 2) (NonNeg 3) ) (LineNumber 1)
+    tooManyArgsErr = Left $ TypeErr $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg 2, actualNumOfParams = NonNeg 3} (LineNumber 1)
 
 spec :: Spec
 spec =  do
@@ -162,4 +162,4 @@ spec =  do
 
   describe "Declaring a two qubit gate and applying it to three qubits" $ do
     prop "Is invalid and generates an error noting this discrepancy" $ do
-      forAll programWithTooManyParamsInGateApp prop_canApplyGate
+      forAll programWithTooManyParamsInGateApp prop_cannotApplyGateToTooManyQubits

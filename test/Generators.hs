@@ -116,11 +116,11 @@ toProgWithGateApp = formatToString
 
 toFormatter = now . fromString
 
-singleQubitGateApp' :: String -> RegAccessFormatter
-singleQubitGateApp' gate = toFormatter gate % parenthesised regCollAccess
+singleQubitGateApp :: String -> RegAccessFormatter
+singleQubitGateApp gate = toFormatter gate % parenthesised regCollAccess
 
 hadamardApp :: RegAccessFormatter
-hadamardApp = singleQubitGateApp' "h"
+hadamardApp = singleQubitGateApp "h"
 
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope
@@ -157,7 +157,7 @@ programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWi
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
 
 tGateApp :: RegAccessFormatter
-tGateApp = singleQubitGateApp' "t"
+tGateApp = singleQubitGateApp "t"
 
 -- Generates programs containing the application of a t gate to a qubit
 programWithTGateApp :: Gen MetaQasmProgram
@@ -171,7 +171,7 @@ programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec
 programWithTDaggerGateApp :: Gen MetaQasmProgram
 
 tDaggerGateApp :: RegAccessFormatter
-tDaggerGateApp = singleQubitGateApp' "tdg"
+tDaggerGateApp = singleQubitGateApp "tdg"
 
 programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSpec 
   where
@@ -238,13 +238,13 @@ fmtGateDeclAndApp gateDeclFormatter gateAppFormatter = fmtGateDecl % " in " <> f
 -- is declared and then applied to two in-scope qubits
 programWithTwoQubitGateDeclAndApp :: Gen MetaQasmProgram
 
--- Takes a formatter for a gate declaration, a formatter for a gate application, the information needed for both formatters, and generates a
--- MetaQASM program based on both formatters and the info that declares an n-ary gate and applies it later on
-fmtGateDeclAndApp' :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram) -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+-- Takes a formatter for a two qubit gate declaration, a formatter for the application of the gate, the information needed for both formatters,
+-- and generates a MetaQASM program based on the formatters and info that declares a two qubit gate and applies it later 
+toTwoQubitGateDeclAndApp :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram) -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
 
-fmtGateDeclAndApp' gateDeclFormatter gateAppFormatter info@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp gateDeclFormatter (gateAppFormatter gateName)) info
+toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp gateDeclFormatter (gateAppFormatter gateName)) info
 
-programWithTwoQubitGateDeclAndApp =  fmtGateDeclAndApp' toGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
+programWithTwoQubitGateDeclAndApp =  toTwoQubitGateDeclAndApp toGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
   where
     twoQubitGateApp gate = toFormatter gate %  parenthesised (regCollAccess % ", " <> regCollAccess)
 
@@ -252,7 +252,7 @@ programWithTwoQubitGateDeclAndApp =  fmtGateDeclAndApp' toGateDecl twoQubitGateA
 -- three qubits
 programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooManyParamsInGateApp = fmtGateDeclAndApp' toGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
+programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
   where
     threeQubitGateApp gate = toFormatter gate %  parenthesised (regCollAccess % ", " <> regCollAccess % ", " <> regCollAccess)
 
@@ -260,4 +260,4 @@ programWithTooManyParamsInGateApp = fmtGateDeclAndApp' toGateDecl threeQubitGate
 -- one qubit
 programWithTooFewParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooFewParamsInGateApp = fmtGateDeclAndApp' toGateDecl singleQubitGateApp' <$> nonShadowingRegCollAccess
+programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl singleQubitGateApp <$> nonShadowingRegCollAccess

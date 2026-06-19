@@ -10,7 +10,8 @@ module Generators(outOfScopeRegColl,
                  programWithTDaggerGateApp,
                  programWithCNotGateApp,
                  programWithTwoQubitGateDeclAndApp,
-                 programWithTooManyParamsInGateApp)
+                 programWithTooManyParamsInGateApp,
+                 programWithTooFewParamsInGateApp)
   where
 
 import Test.QuickCheck

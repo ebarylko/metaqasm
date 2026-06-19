@@ -31,7 +31,8 @@ import Generators(outOfScopeRegColl,
                   programWithTDaggerGateApp,
                   programWithCNotGateApp,
                   programWithTwoQubitGateDeclAndApp,
-                  programWithTooManyParamsInGateApp)
+                  programWithTooManyParamsInGateApp,
+                  programWithTooFewParamsInGateApp)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -113,7 +114,7 @@ prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
 prop_canApplyGate :: MetaQasmProgram -> IO ()
 prop_canApplyGate prog = calcTypeOf prog `shouldBe` Right Unit
 
--- Checks that a MetaQASM program that applies an two qubit gate
+-- Checks that a MetaQASM program that applies a two qubit gate
 -- to three qubits is invalid
 prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
 
@@ -121,6 +122,16 @@ prop_cannotApplyGateToTooManyQubits prog =
   calcTypeOf prog `shouldBe` tooManyArgsErr
   where
     tooManyArgsErr = Left $ TypeErr $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg 2, actualNumOfParams = NonNeg 3} (LineNumber 1)
+
+
+-- Checks that a MetaQASM program that applies a two qubit gate
+-- to one qubit is invalid
+prop_cannotApplyGateToTooFewQubits :: MetaQasmProgram -> IO ()
+
+prop_cannotApplyGateToTooFewQubits prog =
+  calcTypeOf prog `shouldBe` tooFewArgsErr
+  where
+    tooFewArgsErr = Left $ TypeErr $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg 2, actualNumOfParams = NonNeg 1} (LineNumber 1)
 
 spec :: Spec
 spec =  do
@@ -163,3 +174,7 @@ spec =  do
   describe "Declaring a two qubit gate and applying it to three qubits" $ do
     prop "Is invalid and generates an error noting this discrepancy" $ do
       forAll programWithTooManyParamsInGateApp prop_cannotApplyGateToTooManyQubits
+
+  describe "Declaring a two qubit gate and applying it to one qubit" $ do
+    prop "Is invalid and generates an error noting this discrepancy" $ do
+      forAll programWithTooFewParamsInGateApp prop_cannotApplyGateToTooFewQubits

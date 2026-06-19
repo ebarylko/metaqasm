@@ -114,6 +114,13 @@ prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
 prop_canApplyGate :: MetaQasmProgram -> IO ()
 prop_canApplyGate prog = calcTypeOf prog `shouldBe` Right Unit
 
+genExpectedNumOfArgsErr :: Int -> Int -> ProgramTypeEvaluationResult
+
+-- Takes the expected number of arguments to a gate, the actual number of arguments passed, and
+-- generates an error noting that the expected and actual number of arguments do not coincide
+genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
+  Left $ TypeErr $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg expectedNumOfArgs, actualNumOfParams = NonNeg actualNumOfArgs} (LineNumber 1)
+
 -- Checks that a MetaQASM program that applies a two qubit gate
 -- to three qubits is invalid
 prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
@@ -121,7 +128,7 @@ prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
 prop_cannotApplyGateToTooManyQubits prog =
   calcTypeOf prog `shouldBe` tooManyArgsErr
   where
-    tooManyArgsErr = Left $ TypeErr $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg 2, actualNumOfParams = NonNeg 3} (LineNumber 1)
+    tooManyArgsErr = genExpectedNumOfArgsErr 2 3
 
 
 -- Checks that a MetaQASM program that applies a two qubit gate
@@ -131,7 +138,7 @@ prop_cannotApplyGateToTooFewQubits :: MetaQasmProgram -> IO ()
 prop_cannotApplyGateToTooFewQubits prog =
   calcTypeOf prog `shouldBe` tooFewArgsErr
   where
-    tooFewArgsErr = Left $ TypeErr $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg 2, actualNumOfParams = NonNeg 1} (LineNumber 1)
+    tooFewArgsErr = genExpectedNumOfArgsErr 2 1
 
 spec :: Spec
 spec =  do

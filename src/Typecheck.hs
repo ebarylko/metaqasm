@@ -4,8 +4,8 @@ module Typecheck
     (determineType,
       TypeEvaluationError(..),
       TypeErrAt,
-      Term
-    ) where
+      Term)
+where
 
 import qualified Data.Map as M
 import Control.Arrow ((>>>))

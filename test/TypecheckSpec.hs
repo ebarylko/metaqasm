@@ -12,7 +12,7 @@ import Syntax(Identifier,
               WithContext(..),
               NonNeg(..))
 import Lexer(alexScanTokens, LineNumber(..))
-import Grammar(parseTokens)
+import Grammar(parseTokens, parseText)
 import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))
@@ -52,7 +52,7 @@ calcTypeOf = parseCode >=> calcType
   where
     changeErrTo :: (a -> b) -> Either a c -> Either b c
     changeErrTo = first
-    parseCode =  alexScanTokens >>> parseTokens >>> changeErrTo ParseError
+    parseCode =  parseText >>> changeErrTo ParseError
     calcType = determineType initialCtx >>> changeErrTo TypeErr
     initialCtx = M.fromList [("h", Circuit [Qbit]),
                              ("t", Circuit [Qbit]),

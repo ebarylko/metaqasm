@@ -239,7 +239,7 @@ fmtGateDeclAndApp gateDeclFormatter gateAppFormatter = fmtGateDecl % " in " <> f
 programWithTwoQubitGateDeclAndApp :: Gen MetaQasmProgram
 
 -- Takes a formatter for a two qubit gate declaration, a formatter for the application of the gate, the information needed for both formatters,
--- and generates a MetaQASM program based on the formatters and info that declares a two qubit gate and applies it later 
+-- and generates a MetaQASM program based on the formatters and info that declares a two qubit gate and applies it later
 toTwoQubitGateDeclAndApp :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram) -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
 
 toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp gateDeclFormatter (gateAppFormatter gateName)) info

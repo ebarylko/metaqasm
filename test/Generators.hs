@@ -101,10 +101,10 @@ type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmP
 regCollAccess :: RegAccessFormatter
 regCollAccess = (accessed _regCollName string) <> squared (accessed _wantedRegIdx int)
 
--- Takes a name for a register collection, the number of registers in
--- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
+-- Takes a name for a quantum register collection, the number of registers in
+-- the collection, and generates a string of the form 'qreg collName[numOfRegisters]'
 quantumRegCollDecl :: RegAccessFormatter
-quantumRegCollDecl = "creg "  % (accessed _regCollName string) <> squared (accessed _numOfRegs int)
+quantumRegCollDecl = "qreg "  % (accessed _regCollName string) <> squared (accessed _numOfRegs int)
 
 -- Takes a formatter for a register access specification and generates a formatter
 -- for applying a gate to the accessed qubit/s
@@ -138,7 +138,7 @@ programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> genInvalidRegCollAccessSpec
   where
     toProgWithEmptyRegCollDecl = toProgWithGateApp (emptyRegCollDecl % " in " <>  braced hadamardApp) 
-    emptyRegCollDecl = "creg" %+ (accessed _regCollName string) % "[0]"
+    emptyRegCollDecl = "qreg" %+ (accessed _regCollName string) % "[0]"
 
 -- Represents pairs of programs and the errors obtained when
 -- running them

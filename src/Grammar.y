@@ -28,7 +28,7 @@ import Control.Arrow((>>>))
 ']'     { RBracket _}
 '{'     { LCurlyBracket _}
 '}'     { RCurlyBracket _}
-creg    {Creg}
+qreg    {Qreg}
 in      {In}
 ','     {Comma}
 ':'     {Colon}
@@ -44,7 +44,7 @@ nat     { Nat num lineNum}
 term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
 
-command : creg id '[' nat ']' in '{' command '}' {QRegDeclIn (extractName $2) (toNat $4) $8}
+command : qreg id '[' nat ']' in '{' command '}' {QRegDeclIn (extractName $2) (toNat $4) $8}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {GateDecl (extractName $2) $4 $7 $11}
 

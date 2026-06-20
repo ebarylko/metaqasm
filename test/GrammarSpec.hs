@@ -63,9 +63,11 @@ spec = do
     describe "Parsing variables" $ do
       it "Generates a variable with the context of where it was found" $ do
         "varName" `shouldParseToExpr` genVar "varName" (LineNumber 1)
+
     describe "Parsing register accesses" $ do
       it "Generates a register access with the context of where a register collection was accessed" $ do
         "regColl[1]" `shouldParseToExpr` regAccess "regColl" 1
+
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
         "tdg(varName)" `shouldParseToCommand` (toGateWithinCommand "tdg" (LineNumber 1)) [genVar "varName" (LineNumber 1)]
@@ -83,4 +85,4 @@ spec = do
                                                 regAccess "c" 1])
         let twoRegs = onLine1 (NonNeg 2)
         let expectedInnerExpr = QRegDeclIn "c" twoRegs expectedGateApp
-        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {creg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr
+        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {qreg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr

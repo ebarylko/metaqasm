@@ -24,7 +24,7 @@ tokens :-
   \}                                                        { readBracket RCurlyBracket }
   \(                                                        { readBracket LParen }
   \)                                                        { readBracket RParen }
-  creg                                                       {ignoreInputAndReturn Creg}
+  qreg                                                       {ignoreInputAndReturn Qreg}
   in                                                       {ignoreInputAndReturn In}
   gate                                                     {ignoreInputAndReturn GateDec}
   \:                                                       {ignoreInputAndReturn Colon}
@@ -46,7 +46,7 @@ data Token = LBracket LineNumber
   | RParen LineNumber
   | Id String LineNumber
   | Nat Int LineNumber
-  | Creg
+  | Qreg
   | In
   | Comma
   | GateDec

@@ -102,10 +102,15 @@ type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmP
 regCollAccess :: RegAccessFormatter
 regCollAccess = (accessed _regCollName string) <> squared (accessed _wantedRegIdx int)
 
+-- Takes the type of collection being declared and
+-- generates strings of the form "regCollType regCollName[numOfRegs]"
+regCollDecl :: String -> RegAccessFormatter
+regCollDecl regCollType = toFormatter regCollType  %+  (accessed _regCollName string) <> squared (accessed _numOfRegs int)
+
 -- Takes a name for a quantum register collection, the number of registers in
 -- the collection, and generates a string of the form 'qreg collName[numOfRegisters]'
 quantumRegCollDecl :: RegAccessFormatter
-quantumRegCollDecl = "qreg "  % (accessed _regCollName string) <> squared (accessed _numOfRegs int)
+quantumRegCollDecl = regCollDecl "qreg"
 
 -- Takes a formatter for a register access specification and generates a formatter
 -- for applying a gate to the accessed qubit/s
@@ -277,11 +282,10 @@ qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec)
     regCollsHaveUniqueNames :: QubitMeasurementSpec -> Bool
     regCollsHaveUniqueNames  = uncurry  ((/=) `on` _regCollName)
 
-
 -- Takes a name for a classic register collection, the number of registers in
 -- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
 classicRegCollDecl :: RegAccessFormatter
-classicRegCollDecl = "creg "  % (accessed _regCollName string) <> squared (accessed _numOfRegs int)
+classicRegCollDecl = regCollDecl "creg"
 
 -- Generates programs where a qubit is measured and
 -- the measurement is stored in a bit

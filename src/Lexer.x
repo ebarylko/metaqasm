@@ -28,6 +28,8 @@ tokens :-
   creg                                                       {ignoreInputAndReturn Creg}
   in                                                       {ignoreInputAndReturn In}
   gate                                                     {ignoreInputAndReturn GateDec}
+  measure                                              {ignoreInputAndReturn QubitMeasurement}
+  "->"                                                   {ignoreInputAndReturn RightArrow}
   \:                                                       {ignoreInputAndReturn Colon}
   \,                                                       {ignoreInputAndReturn Comma}
   Qbit                                                     {genToken TypeAnnotation (const "Qbit") }
@@ -54,6 +56,8 @@ data Token = LBracket LineNumber
   | GateDec
   | Colon
   | TypeAnnotation String LineNumber
+  | QubitMeasurement
+  | RightArrow
   deriving (Eq,Show)
 
 -- Represents functions that takes line information,

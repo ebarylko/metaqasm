@@ -32,7 +32,8 @@ import Generators(outOfScopeRegColl,
                   programWithCNotGateApp,
                   programWithTwoQubitGateDeclAndApp,
                   programWithTooManyParamsInGateApp,
-                  programWithTooFewParamsInGateApp)
+                  programWithTooFewParamsInGateApp,
+                  programThatMeasuresAQubit)
 
 
 -- This represents the possible errors in a metaQasm program, being
@@ -140,6 +141,12 @@ prop_cannotApplyGateToTooFewQubits prog =
   where
     tooFewArgsErr = genExpectedNumOfArgsErr 2 1
 
+-- Checks that running a given MetaQASM program does not produce
+-- any errors
+prop_isValidProgram :: MetaQasmProgram -> IO ()
+
+prop_isValidProgram prog = calcTypeOf prog `shouldBe` Right Unit
+
 spec :: Spec
 spec =  do
   describe "Accessing elements from a collection of registers that is out of scope" $ do
@@ -185,3 +192,7 @@ spec =  do
   describe "Declaring a two qubit gate and applying it to one qubit" $ do
     prop "Is invalid and generates an error noting this discrepancy" $ do
       forAll programWithTooFewParamsInGateApp prop_cannotApplyGateToTooFewQubits
+
+  describe "Measuring a qubit and storing the result in a bit" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programThatMeasuresAQubit prop_isValidProgram

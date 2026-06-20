@@ -11,7 +11,8 @@ module Generators(outOfScopeRegColl,
                  programWithCNotGateApp,
                  programWithTwoQubitGateDeclAndApp,
                  programWithTooManyParamsInGateApp,
-                 programWithTooFewParamsInGateApp)
+                 programWithTooFewParamsInGateApp,
+                 programThatMeasuresAQubit)
   where
 
 import Test.QuickCheck
@@ -19,7 +20,7 @@ import Formatting
 import Syntax(Identifier, NonNeg(..))
 import Control.Arrow((&&&), (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<), (>*<))
-import Data.Function((&))
+import Data.Function((&), on)
 import Typecheck(TypeEvaluationError(..))
 import Control.Monad(replicateM)
 import Data.List(nub)
@@ -261,3 +262,34 @@ programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl threeQub
 programWithTooFewParamsInGateApp :: Gen MetaQasmProgram
 
 programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl singleQubitGateApp <$> nonShadowingRegCollAccess
+
+-- This type represents the information needed to create a MetaQASMProgram
+-- that measures a qubit and stores the measurement in a bit
+type QubitMeasurementSpec = (RegCollAccessSpec, RegCollAccessSpec)
+
+-- Generates pairs of specifications
+-- for valid qbit and bit accesses where
+-- the names of the accessed collections are unique
+qubitMeasurementSpec :: Gen QubitMeasurementSpec
+
+qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec) `suchThat` regCollsHaveUniqueNames
+  where
+    regCollsHaveUniqueNames :: QubitMeasurementSpec -> Bool
+    regCollsHaveUniqueNames  = uncurry  ((/=) `on` _regCollName)
+
+
+-- Takes a name for a classic register collection, the number of registers in
+-- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
+classicRegCollDecl :: RegAccessFormatter
+classicRegCollDecl = "creg "  % (accessed _regCollName string) <> squared (accessed _numOfRegs int)
+
+-- Generates programs where a qubit is measured and
+-- the measurement is stored in a bit
+programThatMeasuresAQubit :: Gen MetaQasmProgram
+
+programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
+  where
+    toQubitMeasurement :: QubitMeasurementSpec -> MetaQasmProgram
+
+    toQubitMeasurement = formatToString $ accessed fst classicRegCollDecl % " in " <> braced (accessed snd quantumRegCollDecl % " in " <> braced measureQubit)
+    measureQubit = "measure " % accessed snd regCollAccess <> " -> " % accessed fst regCollAccess

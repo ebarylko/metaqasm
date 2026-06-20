@@ -25,6 +25,8 @@ import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
 import Data.Function ((&))
+import Data.Functor(($>))
+import GHC.IO.Exception (unsupportedOperation)
 
 
 -- This data type represents the context under which to evaluate
@@ -64,10 +66,14 @@ verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
-  & (<$) Qbit
+  & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg (WithContext regIdx' _) (RegisterGroup Quantum (WithContext numOfRegs _)) = regIdx' < numOfRegs
+    isAccessingValidReg (WithContext regIdx' _) (RegisterGroup _ (WithContext numOfRegs _)) = regIdx' < numOfRegs
+
+    determineRegElemType :: TermType -> TermType
+    determineRegElemType (RegisterGroup Quantum _) = Qbit
+    determineRegElemType (RegisterGroup Classical _) = Bit
 
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
@@ -135,6 +141,8 @@ verifyCommand m (DeclGateIn{gateName, args, gateBody, innerExpr}) =
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType
 
+-- Checks that a non-empty register collection is being declared and used
+-- validly in the inner expression
 verifyCommand m (DeclRegCollIn collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
@@ -143,6 +151,12 @@ verifyCommand m (DeclRegCollIn collType regCollName numOfRegs@(WithContext num l
     isEmptyRegColl = num == NonNeg 0
     emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
 
+-- Verifies that a qubit is being measured and stored in a bit
+verifyCommand m (MeasureQubit toMeasure toStoreIn) =
+  verifyMeasuredQubit *> verifyStoredBit $> Unit
+  where
+    verifyMeasuredQubit = verifyExpr m toMeasure & eitherFromPred (== Qbit) (error "Handle the case where the measured expression is not a qubit")
+    verifyStoredBit = verifyExpr m toStoreIn & eitherFromPred (== Bit) (error "Handle the case where the expression to store the measured value in is not a bit")
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

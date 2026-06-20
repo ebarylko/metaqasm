@@ -85,12 +85,12 @@ spec = do
 
     describe "Parsing locally scoped register collection declarations" $ do
       it "Generates a term with the context of where the collections were declared and the inner expressions" $ do
-        "creg regColl[1] in {h(x)}" `shouldParseToCommand` RegDeclIn{collType = Classical,
+        "creg regColl[1] in {h(x)}" `shouldParseToCommand` DeclRegCollIn{collType = Classical,
                                                                      regCollName = "regColl",
                                                                      numOfRegs = index 1,
                                                                      innerExpr = toGateWithinCommand "h" (LineNumber 1) [var "x"]}
 
-        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` RegDeclIn{collType = Quantum,
+        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` DeclRegCollIn{collType = Quantum,
                                                                      regCollName = "regColl",
                                                                      numOfRegs = index 1,
                                                                      innerExpr = toGateWithinCommand "h" (LineNumber 1) [var "x"]}
@@ -111,5 +111,5 @@ spec = do
         let expectedGateApp = Gate (App fnName [regAccess "c" 0,
                                                 regAccess "c" 1])
         let twoRegs = onLine1 (NonNeg 2)
-        let expectedInnerExpr = RegDeclIn Quantum "c" twoRegs expectedGateApp
-        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {qreg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr
+        let expectedInnerExpr = DeclRegCollIn Quantum "c" twoRegs expectedGateApp
+        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {qreg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` DeclGateIn "f" expectedGateArgs expectedGateBody expectedInnerExpr

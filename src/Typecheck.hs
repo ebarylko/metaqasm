@@ -123,7 +123,7 @@ verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
 
 -- Verifies that declaring a gate and then applying it is valid
-verifyCommand m (GateDecl{gateName, args, gateBody, innerExpr}) =
+verifyCommand m (DeclGateIn{gateName, args, gateBody, innerExpr}) =
   verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
   where
     gateCtx = foldr extendCtxWithGateParam m args
@@ -135,7 +135,7 @@ verifyCommand m (GateDecl{gateName, args, gateBody, innerExpr}) =
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType
 
-verifyCommand m (RegDeclIn collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
+verifyCommand m (DeclRegCollIn collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where

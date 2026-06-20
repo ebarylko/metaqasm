@@ -54,7 +54,7 @@ data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, 
 
 -- This data type represents all possible commands a user can execute.
 data Command = Gate GateApp -- Apply a gate to one or more qubits
-  | GateDecl{gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command} -- Declare a gate and use it in a later expression
-  | RegDeclIn{collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command} -- Declare a register collection and use it in a later expression
+  | DeclGateIn {gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command} -- Declare a gate and use it in a later expression
+  | DeclRegCollIn {collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command} -- Declare a register collection and use it in a later expression
   | MeasureQubit{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
    deriving (Show, Eq)

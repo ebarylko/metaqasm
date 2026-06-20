@@ -63,6 +63,9 @@ spec = do
     describe "Parsing variables" $ do
       it "Generates a variable with the context of where it was found" $ do
         "varName" `shouldParseToExpr` genVar "varName" (LineNumber 1)
+    describe "Parsing register accesses" $ do
+      it "Generates a register access with the context of where a register collection was accessed" $ do
+        "regColl[1]" `shouldParseToExpr` regAccess "regColl" 1
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
         "tdg(varName)" `shouldParseToCommand` (toGateWithinCommand "tdg" (LineNumber 1)) [genVar "varName" (LineNumber 1)]

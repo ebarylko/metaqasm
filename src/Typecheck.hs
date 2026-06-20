@@ -135,11 +135,11 @@ verifyCommand m (GateDecl{gateName, args, gateBody, innerExpr}) =
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType
 
-verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
+verifyCommand m (RegDeclIn collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where
-    newContext = M.insert regCollName (RegisterGroup Quantum numOfRegs) m
+    newContext = M.insert regCollName (RegisterGroup collType numOfRegs) m
     isEmptyRegColl = num == NonNeg 0
     emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
 

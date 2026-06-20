@@ -4,8 +4,8 @@ module Typecheck
     (determineType,
       TypeEvaluationError(..),
       TypeErrAt,
-      Term
-    ) where
+      Term)
+where
 
 import qualified Data.Map as M
 import Control.Arrow ((>>>))
@@ -80,14 +80,16 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
 verifyGateArgs :: LineNumber -> TermType -> [TermType] -> TypeCalculationResult
 
 verifyGateArgs line (Circuit expectedArgs) actualArgs
-  | gateIsAppliedToTooManyArgs = Left $ WithContext  tooManyArgsErr line
+  | gateIsAppliedToTooManyArgs = unexpectedNumOfArgsErr
+  | gateIsAppliedToTooFewArgs = unexpectedNumOfArgsErr
   | expectedArgs == actualArgs = Right Unit
-  | otherwise = error "Not implemented yet"
+  | otherwise = error "Not implemented the case where one of the gate args does not have the expected type"
   where
-    gateIsAppliedToTooManyArgs = length expectedArgs < length actualArgs
-    calcNumOfArgs = NonNeg . length
-    tooManyArgsErr = ExpectedNParams (calcNumOfArgs expectedArgs) (calcNumOfArgs actualArgs)
-
+    numOfExpectedArgs = length expectedArgs
+    numOfActualArgs = length actualArgs
+    gateIsAppliedToTooManyArgs = numOfExpectedArgs < numOfActualArgs
+    gateIsAppliedToTooFewArgs = numOfExpectedArgs > numOfActualArgs
+    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedArgs, actualNumOfParams = NonNeg numOfActualArgs}  line
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
@@ -104,7 +106,7 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
     isCircuit _ = False
 
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
-    findGateType name  ctx = findTypeWithinScope name ctx & eitherFromPred isCircuit (error "Have not implemented this yet")
+    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit (error "Have not implemented this yet")
 
 verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
 

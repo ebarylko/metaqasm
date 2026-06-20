@@ -83,6 +83,11 @@ spec = do
                                                                      numOfRegs = index 1,
                                                                      innerExpr = toGateWithinCommand "h" (LineNumber 1) [var "x"]}
 
+        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` RegDeclIn{collType = Quantum,
+                                                                     regCollName = "regColl",
+                                                                     numOfRegs = index 1,
+                                                                     innerExpr = toGateWithinCommand "h" (LineNumber 1) [var "x"]}
+
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
         "tdg(varName)" `shouldParseToCommand` (toGateWithinCommand "tdg" (LineNumber 1)) [genVar "varName" (LineNumber 1)]
@@ -99,5 +104,5 @@ spec = do
         let expectedGateApp = Gate (App fnName [regAccess "c" 0,
                                                 regAccess "c" 1])
         let twoRegs = onLine1 (NonNeg 2)
-        let expectedInnerExpr = QRegDeclIn "c" twoRegs expectedGateApp
+        let expectedInnerExpr = RegDeclIn Quantum "c" twoRegs expectedGateApp
         "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {qreg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` GateDecl "f" expectedGateArgs expectedGateBody expectedInnerExpr

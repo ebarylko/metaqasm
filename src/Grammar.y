@@ -19,7 +19,7 @@ import Typecheck(Term)
 import Control.Arrow((>>>))
 }
 
-%name parseTokens 
+%name parseTokens
 %tokentype { Token }
 %error { parseError }
 %monad { ParseResult } { (>>=) } { return }
@@ -46,7 +46,7 @@ nat     { Nat num lineNum}
 term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
 
-command : qreg id '[' nat ']' in '{' command '}' {QRegDeclIn (extractName $2) (toNat $4) $8}
+command : qreg id '[' nat ']' in '{' command '}' {RegDeclIn Quantum (extractName $2) (toNat $4) $8}
 | creg id '[' nat ']' in '{' command '}' {RegDeclIn Classical (extractName $2) (toNat $4) $8}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {GateDecl (extractName $2) $4 $7 $11}

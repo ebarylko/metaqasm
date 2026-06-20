@@ -25,6 +25,7 @@ tokens :-
   \(                                                        { readBracket LParen }
   \)                                                        { readBracket RParen }
   qreg                                                       {ignoreInputAndReturn Qreg}
+  creg                                                       {ignoreInputAndReturn Creg}
   in                                                       {ignoreInputAndReturn In}
   gate                                                     {ignoreInputAndReturn GateDec}
   \:                                                       {ignoreInputAndReturn Colon}
@@ -47,6 +48,7 @@ data Token = LBracket LineNumber
   | Id String LineNumber
   | Nat Int LineNumber
   | Qreg
+  | Creg
   | In
   | Comma
   | GateDec

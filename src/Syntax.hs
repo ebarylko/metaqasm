@@ -57,4 +57,5 @@ data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, 
 data Command = QRegDeclIn{regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command}
   | Gate GateApp
   | GateDecl{gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command}
+  | RegDeclIn{collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command}
    deriving (Show, Eq)

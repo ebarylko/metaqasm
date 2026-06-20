@@ -8,6 +8,8 @@ import Syntax(Expression(..),
            Identifier,
            GateApp(..),
            NonNeg(..),
+           NatNum,
+           RegisterType(..),
            Command(..),
            GateArg(..),
            TermType(..))
@@ -50,6 +52,12 @@ onLine1 = flip WithContext line1
 regAccess :: Identifier -> Int -> Expression
 regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (onLine1 (NonNeg idx))
 
+index :: Int -> NatNum
+index = onLine1 . NonNeg
+
+var :: String -> Expression
+var = flip genVar (LineNumber 1)
+
 -- Takes a program representing a MetaQASM expression, the expression that should
 -- be obtained after parsing the program, and checks that the expected expression
 -- is equivalent to the parsed program
@@ -67,6 +75,13 @@ spec = do
     describe "Parsing register accesses" $ do
       it "Generates a register access with the context of where a register collection was accessed" $ do
         "regColl[1]" `shouldParseToExpr` regAccess "regColl" 1
+
+    describe "Parsing locally scoped register collection declarations" $ do
+      it "Generates a term with the context of where the collections were declared and the inner expressions" $ do
+        "creg regColl[1] in {h(x)}" `shouldParseToCommand` RegDeclIn{collType = Classical,
+                                                                     regCollName = "regColl",
+                                                                     numOfRegs = index 1,
+                                                                     innerExpr = toGateWithinCommand "h" (LineNumber 1) [var "x"]}
 
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do

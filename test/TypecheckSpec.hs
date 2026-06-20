@@ -11,8 +11,8 @@ import Syntax(Identifier,
               TermType(..),
               WithContext(..),
               NonNeg(..))
-import Lexer(alexScanTokens, LineNumber(..))
-import Grammar(parseTokens, parseText)
+import Lexer(LineNumber(..))
+import Grammar(parseText)
 import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))

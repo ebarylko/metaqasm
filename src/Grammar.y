@@ -7,6 +7,7 @@ import Syntax(Expression(..),
               Identifier,
               Idx,
               Id,
+              RegisterType(..),
               NatNum,
               NonNeg(..),
               GateApp(..),
@@ -29,6 +30,7 @@ import Control.Arrow((>>>))
 '{'     { LCurlyBracket _}
 '}'     { RCurlyBracket _}
 qreg    {Qreg}
+creg    {Creg}
 in      {In}
 ','     {Comma}
 ':'     {Colon}
@@ -45,6 +47,7 @@ term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
 
 command : qreg id '[' nat ']' in '{' command '}' {QRegDeclIn (extractName $2) (toNat $4) $8}
+| creg id '[' nat ']' in '{' command '}' {RegDeclIn Classical (extractName $2) (toNat $4) $8}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {GateDecl (extractName $2) $4 $7 $11}
 

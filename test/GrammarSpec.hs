@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module GrammarSpec(spec) where
 
 import Test.Hspec
@@ -65,6 +66,12 @@ var = Var . onLine1
 shouldParseToExpr :: MetaQasmProgram -> Expression -> Expectation
 shouldParseToExpr text expected = (fmap toExpr . parseText) text `shouldBe` Right expected
 
+regCollDecl :: RegisterType -> String -> Int -> Command -> Command
+regCollDecl collType regCollName regCount innerExpr = DeclRegCollIn{collType, regCollName, numOfRegs = index regCount, innerExpr }
+
+quantumRegCollDecl = regCollDecl Quantum
+classicalRegCollDecl = regCollDecl Classical
+
 spec :: Spec
 
 spec = do
@@ -83,15 +90,9 @@ spec = do
 
     describe "Parsing locally scoped register collection declarations" $ do
       it "Generates a term with the context of where the collections and inner expressions were declared" $ do
-        "creg regColl[1] in {h(x)}" `shouldParseToCommand` DeclRegCollIn{collType = Classical,
-                                                                     regCollName = "regColl",
-                                                                     numOfRegs = index 1,
-                                                                     innerExpr = gateOnLine1 "h" [var "x"]}
+        "creg regColl[1] in {h(x)}" `shouldParseToCommand` classicalRegCollDecl "regColl"  1 (gateOnLine1 "h" [var "x"])
 
-        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` DeclRegCollIn{collType = Quantum,
-                                                                     regCollName = "regColl",
-                                                                     numOfRegs = index 1,
-                                                                     innerExpr = gateOnLine1 "h"  [var "x"]}
+        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` quantumRegCollDecl "regColl"  1 (gateOnLine1 "h" [var "x"])
 
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
@@ -108,6 +109,5 @@ spec = do
         let fnName = onLine1 "f"
         let expectedGateApp = Gate (App fnName [regAccess "c" 0,
                                                 regAccess "c" 1])
-        let twoRegs = index 2
-        let expectedInnerExpr = DeclRegCollIn Quantum "c" twoRegs expectedGateApp
+        let expectedInnerExpr = quantumRegCollDecl "c" 2 expectedGateApp
         "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {qreg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` DeclGateIn "f" expectedGateArgs expectedGateBody expectedInnerExpr

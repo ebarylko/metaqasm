@@ -78,7 +78,7 @@ spec = do
   describe "Parsing MetaQASM programs" $ do
     describe "Parsing variables" $ do
       it "Generates a variable with the context of where it was found" $ do
-        "varName" `shouldParseToExpr` var "varName" 
+        "varName" `shouldParseToExpr` var "varName"
 
     describe "Parsing register accesses" $ do
       it "Generates a register access with the context of where a register collection was accessed" $ do
@@ -90,7 +90,7 @@ spec = do
 
     describe "Parsing locally scoped register collection declarations" $ do
       it "Generates a term with the context of where the collections and inner expressions were declared" $ do
-        "creg regColl[1] in {h(x)}" `shouldParseToCommand` classicalRegCollDecl "regColl"  1 (gateOnLine1 "h" [var "x"])
+        "creg regColl[1] in {h(x)}" `shouldParseToCommand` classicalRegCollDecl "regColl" 1 (gateOnLine1 "h" [var "x"])
 
         "qreg regColl[1] in {h(x)}" `shouldParseToCommand` quantumRegCollDecl "regColl"  1 (gateOnLine1 "h" [var "x"])
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module Generators(outOfScopeRegColl,
                   outOfScopeExpr,
                   programWithQubitInScope,
@@ -276,17 +277,17 @@ programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl singleQub
 
 -- This type represents the information needed to create a MetaQASMProgram
 -- that measures a qubit and stores the measurement in a bit
-type QubitMeasurementSpec = (RegCollAccessSpec, RegCollAccessSpec)
+data QubitMeasurementSpec = QubitMeasurementSpec{quantumRegCollInfo :: RegCollAccessSpec, classicRegCollInfo :: RegCollAccessSpec}
 
 -- Generates pairs of specifications
--- for valid qbit and bit accesses where
+-- for valid bit and qbit accesses where
 -- the names of the accessed collections are unique
 qubitMeasurementSpec :: Gen QubitMeasurementSpec
 
-qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec) `suchThat` regCollsHaveUniqueNames
+qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec) `suchThat` regCollsHaveUniqueNames & fmap (uncurry QubitMeasurementSpec)
   where
-    regCollsHaveUniqueNames :: QubitMeasurementSpec -> Bool
-    regCollsHaveUniqueNames  = uncurry  ((/=) `on` _regCollName)
+    regCollsHaveUniqueNames :: (RegCollAccessSpec, RegCollAccessSpec) -> Bool
+    regCollsHaveUniqueNames  =  uncurry ((/=) `on` _regCollName) 
 
 -- Takes a name for a classic register collection, the number of registers in
 -- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
@@ -301,6 +302,6 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
   where
     toQubitMeasurement :: QubitMeasurementSpec -> MetaQasmProgram
 
-    toQubitMeasurement = formatToString $ declAndThen (accessed fst classicRegCollDecl) $ declAndThen (accessed snd quantumRegCollDecl ) measureQubit
-    measureQubit = "measure" %+ accessed snd regCollAccess <> " ->" %+ accessed fst regCollAccess
+    toQubitMeasurement = formatToString $ declAndThen (accessed classicRegCollInfo classicRegCollDecl) $ declAndThen (accessed quantumRegCollInfo quantumRegCollDecl) measureQubit
+    measureQubit = "measure" %+ accessed quantumRegCollInfo regCollAccess <> " ->" %+ accessed classicRegCollInfo regCollAccess
 

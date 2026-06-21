@@ -26,7 +26,6 @@ import Vary (Vary)
 import qualified Vary
 import Data.Function ((&))
 import Data.Functor(($>))
-import GHC.IO.Exception (unsupportedOperation)
 
 
 -- This data type represents the context under which to evaluate

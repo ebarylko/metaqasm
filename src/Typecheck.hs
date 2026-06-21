@@ -114,8 +114,10 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
     findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit (error "Have not implemented this yet")
 
-verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
 
+-- Takes the current context, an expression, and calculates its type
+-- under the given context 
+verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
 verifyExpr m x@(RegisterAccess _ _) = verifyRegAccess m x
 
 verifyExpr m (Var varName) = findTypeWithinScope varName m

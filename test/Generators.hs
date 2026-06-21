@@ -302,5 +302,5 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
     toQubitMeasurement :: QubitMeasurementSpec -> MetaQasmProgram
 
     toQubitMeasurement = formatToString $ declAndThen (accessed fst classicRegCollDecl) $ declAndThen (accessed snd quantumRegCollDecl ) measureQubit
-    measureQubit = "measure " % accessed snd regCollAccess <> " -> " % accessed fst regCollAccess
+    measureQubit = "measure" %+ accessed snd regCollAccess <> " ->" %+ accessed fst regCollAccess
 

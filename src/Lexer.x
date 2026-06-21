@@ -12,7 +12,6 @@ tokens :-
 
   -- Whitespace
   $white+                                                   ;
-  $eol                                                      ;
 
   -- Comments
   \/\/.*                                                    ;

@@ -25,6 +25,7 @@ import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
 import Data.Function ((&))
+import Data.Functor(($>))
 
 
 -- This data type represents the context under which to evaluate
@@ -64,10 +65,14 @@ verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
-  & (<$) Qbit
+  & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg (WithContext regIdx' _) (RegisterGroup Quantum (WithContext numOfRegs _)) = regIdx' < numOfRegs
+    isAccessingValidReg (WithContext regIdx' _) (RegisterGroup _ (WithContext numOfRegs _)) = regIdx' < numOfRegs
+
+    determineRegElemType :: TermType -> TermType
+    determineRegElemType (RegisterGroup Quantum _) = Qbit
+    determineRegElemType (RegisterGroup Classical _) = Bit
 
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
@@ -108,8 +113,10 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
     findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit (error "Have not implemented this yet")
 
-verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
 
+-- Takes the current context, an expression, and calculates its type
+-- under the given context 
+verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
 verifyExpr m x@(RegisterAccess _ _) = verifyRegAccess m x
 
 verifyExpr m (Var varName) = findTypeWithinScope varName m
@@ -123,7 +130,7 @@ verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
 
 -- Verifies that declaring a gate and then applying it is valid
-verifyCommand m (GateDecl{gateName, args, gateBody, innerExpr}) =
+verifyCommand m (DeclGateIn{gateName, args, gateBody, innerExpr}) =
   verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
   where
     gateCtx = foldr extendCtxWithGateParam m args
@@ -135,14 +142,22 @@ verifyCommand m (GateDecl{gateName, args, gateBody, innerExpr}) =
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType
 
-verifyCommand m (QRegDeclIn regCollName numOfRegs@(WithContext num lineNum) innerExpr)
+-- Checks that a non-empty register collection is being declared and used
+-- validly in the inner expression
+verifyCommand m (DeclRegCollIn collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where
-    newContext = M.insert regCollName (RegisterGroup Quantum numOfRegs) m
+    newContext = M.insert regCollName (RegisterGroup collType numOfRegs) m
     isEmptyRegColl = num == NonNeg 0
     emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
 
+-- Verifies that a qubit is being measured and stored in a bit
+verifyCommand m (MeasureQubit toMeasure toStoreIn) =
+  verifyMeasuredQubit *> verifyStoredBit $> Unit
+  where
+    verifyMeasuredQubit = verifyExpr m toMeasure & eitherFromPred (== Qbit) (error "Handle the case where the measured expression is not a qubit")
+    verifyStoredBit = verifyExpr m toStoreIn & eitherFromPred (== Bit) (error "Handle the case where the expression to store the measured value in is not a bit")
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

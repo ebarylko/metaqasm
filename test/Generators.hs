@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module Generators(outOfScopeRegColl,
                   outOfScopeExpr,
                   programWithQubitInScope,
@@ -11,7 +12,8 @@ module Generators(outOfScopeRegColl,
                  programWithCNotGateApp,
                  programWithTwoQubitGateDeclAndApp,
                  programWithTooManyParamsInGateApp,
-                 programWithTooFewParamsInGateApp)
+                 programWithTooFewParamsInGateApp,
+                 programThatMeasuresAQubit)
   where
 
 import Test.QuickCheck
@@ -19,7 +21,7 @@ import Formatting
 import Syntax(Identifier, NonNeg(..))
 import Control.Arrow((&&&), (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<), (>*<))
-import Data.Function((&))
+import Data.Function((&), on)
 import Typecheck(TypeEvaluationError(..))
 import Control.Monad(replicateM)
 import Data.List(nub)
@@ -101,15 +103,30 @@ type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmP
 regCollAccess :: RegAccessFormatter
 regCollAccess = (accessed _regCollName string) <> squared (accessed _wantedRegIdx int)
 
--- Takes a name for a register collection, the number of registers in
--- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
+-- Takes the type of collection being declared and
+-- generates strings of the form "regCollType regCollName[numOfRegs]"
+regCollDecl :: String -> RegAccessFormatter
+regCollDecl regCollType = toFormatter regCollType  %+  (accessed _regCollName string) <> squared (accessed _numOfRegs int)
+
+-- Takes a name for a quantum register collection, the number of registers in
+-- the collection, and generates a string of the form 'qreg collName[numOfRegisters]'
 quantumRegCollDecl :: RegAccessFormatter
-quantumRegCollDecl = "creg "  % (accessed _regCollName string) <> squared (accessed _numOfRegs int)
+quantumRegCollDecl = regCollDecl "qreg"
+
+-- Takes a formatter for a declaration and a formatter for an expression
+-- evaluated under that declaration, and combines them into a formatter
+-- that generates:
+--   declaration in { expression }
+-- For example:
+--   qreg q[2] in { h(q[0]) }
+--   gate f(x: Qbit) { h(x) } in { f(q[0]) }
+scopedDecl :: Format MetaQasmProgram (a -> MetaQasmProgram) -> Format MetaQasmProgram (a -> MetaQasmProgram) -> Format MetaQasmProgram (a -> MetaQasmProgram)
+scopedDecl f g = f %+ "in " <> braced g
 
 -- Takes a formatter for a register access specification and generates a formatter
 -- for applying a gate to the accessed qubit/s
 appGateToQubits :: RegAccessFormatter -> RegAccessFormatter
-appGateToQubits gate = quantumRegCollDecl % " in " <>  braced gate
+appGateToQubits gate = scopedDecl quantumRegCollDecl  gate
 
 toProgWithGateApp :: RegAccessFormatter  -> RegCollAccessSpec -> MetaQasmProgram
 toProgWithGateApp = formatToString
@@ -137,8 +154,8 @@ programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 
 programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> genInvalidRegCollAccessSpec
   where
-    toProgWithEmptyRegCollDecl = toProgWithGateApp (emptyRegCollDecl % " in " <>  braced hadamardApp) 
-    emptyRegCollDecl = "creg" %+ (accessed _regCollName string) % "[0]"
+    toProgWithEmptyRegCollDecl = toProgWithGateApp (scopedDecl emptyRegCollDecl hadamardApp) 
+    emptyRegCollDecl = "qreg" %+ (accessed _regCollName string) % "[0]"
 
 -- Represents pairs of programs and the errors obtained when
 -- running them
@@ -217,7 +234,7 @@ nonShadowingRegCollAccess = twoQubitGateDeclInfo >*< genValidRegCollAccessSpec `
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
 toGateDecl :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram)
-toGateDecl = "gate " % gateName <> parenthesised gateArgs <> " " % braced ("cx" % parenthesised cnotArgs)
+toGateDecl = "gate" %+ gateName <> parenthesised gateArgs <> " " % braced ("cx" % parenthesised cnotArgs)
   where
     gateName = accessed _gateName string
     fstArg = accessed _fstQubit string
@@ -229,10 +246,10 @@ toGateDecl = "gate " % gateName <> parenthesised gateArgs <> " " % braced ("cx" 
 -- Takes a formatter for a gate declaration and a formatter for a gate application and
 -- generates a formatter that combines the declaration and application of the gate
 fmtGateDeclAndApp :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
-fmtGateDeclAndApp gateDeclFormatter gateAppFormatter = fmtGateDecl % " in " <> fmtGateApp
+fmtGateDeclAndApp gateDeclFormatter gateAppFormatter = scopedDecl fmtGateDecl  fmtGateApp
   where
     fmtGateDecl = accessed fst gateDeclFormatter
-    fmtGateApp = braced $ accessed snd $ appGateToQubits gateAppFormatter
+    fmtGateApp =  accessed snd $ appGateToQubits gateAppFormatter
 
 -- Generates a MetaQasm program where a two qubit gate
 -- is declared and then applied to two in-scope qubits
@@ -261,3 +278,33 @@ programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl threeQub
 programWithTooFewParamsInGateApp :: Gen MetaQasmProgram
 
 programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl singleQubitGateApp <$> nonShadowingRegCollAccess
+
+-- This type represents the information needed to create a MetaQASMProgram
+-- that measures a qubit and stores the measurement in a bit
+data QubitMeasurementSpec = QubitMeasurementSpec{quantumRegCollInfo :: RegCollAccessSpec, classicRegCollInfo :: RegCollAccessSpec}
+
+-- Generates pairs of specifications
+-- for valid bit and qbit accesses where
+-- the names of the accessed collections are unique
+qubitMeasurementSpec :: Gen QubitMeasurementSpec
+
+qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec) `suchThat` regCollsHaveUniqueNames & fmap (uncurry QubitMeasurementSpec)
+  where
+    regCollsHaveUniqueNames :: (RegCollAccessSpec, RegCollAccessSpec) -> Bool
+    regCollsHaveUniqueNames  =  uncurry ((/=) `on` _regCollName) 
+
+-- Takes a name for a classic register collection, the number of registers in
+-- the collection, and generates a string of the form 'creg collName[numOfRegisters]'
+classicRegCollDecl :: RegAccessFormatter
+classicRegCollDecl = regCollDecl "creg"
+
+-- Generates programs where a qubit is measured and
+-- the measurement is stored in a bit
+programThatMeasuresAQubit :: Gen MetaQasmProgram
+
+programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
+  where
+    toQubitMeasurement :: QubitMeasurementSpec -> MetaQasmProgram
+
+    toQubitMeasurement = formatToString $ scopedDecl (accessed classicRegCollInfo classicRegCollDecl) $ scopedDecl (accessed quantumRegCollInfo quantumRegCollDecl) measureQubit
+    measureQubit = "measure" %+ accessed quantumRegCollInfo regCollAccess <> " ->" %+ accessed classicRegCollInfo regCollAccess

@@ -12,7 +12,6 @@ tokens :-
 
   -- Whitespace
   $white+                                                   ;
-  $eol                                                      ;
 
   -- Comments
   \/\/.*                                                    ;
@@ -24,9 +23,12 @@ tokens :-
   \}                                                        { readBracket RCurlyBracket }
   \(                                                        { readBracket LParen }
   \)                                                        { readBracket RParen }
+  qreg                                                       {ignoreInputAndReturn Qreg}
   creg                                                       {ignoreInputAndReturn Creg}
   in                                                       {ignoreInputAndReturn In}
   gate                                                     {ignoreInputAndReturn GateDec}
+  measure                                              {ignoreInputAndReturn QubitMeasurement}
+  "->"                                                   {ignoreInputAndReturn RightArrow}
   \:                                                       {ignoreInputAndReturn Colon}
   \,                                                       {ignoreInputAndReturn Comma}
   Qbit                                                     {genToken TypeAnnotation (const "Qbit") }
@@ -46,12 +48,15 @@ data Token = LBracket LineNumber
   | RParen LineNumber
   | Id String LineNumber
   | Nat Int LineNumber
+  | Qreg
   | Creg
   | In
   | Comma
   | GateDec
   | Colon
   | TypeAnnotation String LineNumber
+  | QubitMeasurement
+  | RightArrow
   deriving (Eq,Show)
 
 -- Represents functions that takes line information,

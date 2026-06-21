@@ -7,6 +7,7 @@ import Syntax(Expression(..),
               Identifier,
               Idx,
               Id,
+              RegisterType(..),
               NatNum,
               NonNeg(..),
               GateApp(..),
@@ -18,7 +19,7 @@ import Typecheck(Term)
 import Control.Arrow((>>>))
 }
 
-%name parseTokens 
+%name parseTokens
 %tokentype { Token }
 %error { parseError }
 %monad { ParseResult } { (>>=) } { return }
@@ -28,6 +29,7 @@ import Control.Arrow((>>>))
 ']'     { RBracket _}
 '{'     { LCurlyBracket _}
 '}'     { RCurlyBracket _}
+qreg    {Qreg}
 creg    {Creg}
 in      {In}
 ','     {Comma}
@@ -38,15 +40,19 @@ gate    {GateDec}
 annotation     {TypeAnnotation typ lineNum}
 id      { Id name lineNum}
 nat     { Nat num lineNum}
+measure  {QubitMeasurement}
+"->"      {RightArrow}
 
 %%
 
 term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
 
-command : creg id '[' nat ']' in '{' command '}' {QRegDeclIn (extractName $2) (toNat $4) $8}
+command : qreg id '[' nat ']' in '{' command '}' {DeclRegCollIn Quantum (extractName $2) (toNat $4) $8}
+| creg id '[' nat ']' in '{' command '}' {DeclRegCollIn Classical (extractName $2) (toNat $4) $8}
 | gateApp {Gate $1}
-| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {GateDecl (extractName $2) $4 $7 $11}
+| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {DeclGateIn (extractName $2) $4 $7 $11}
+| measure arg "->" arg {MeasureQubit $2 $4}
 
 gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}
 gateArgs : gateArg {[$1]}

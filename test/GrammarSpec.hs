@@ -84,7 +84,7 @@ spec = do
         "measure q -> b" `shouldParseToCommand` MeasureQubit{toMeasure = var "q", toStoreIn = var "b"}
 
     describe "Parsing locally scoped register collection declarations" $ do
-      it "Generates a term with the context of where the collections were declared and the inner expressions" $ do
+      it "Generates a term with the context of where the collections and inner expressions were declared" $ do
         "creg regColl[1] in {h(x)}" `shouldParseToCommand` DeclRegCollIn{collType = Classical,
                                                                      regCollName = "regColl",
                                                                      numOfRegs = index 1,
@@ -110,6 +110,6 @@ spec = do
         let fnName = onLine1 "f"
         let expectedGateApp = Gate (App fnName [regAccess "c" 0,
                                                 regAccess "c" 1])
-        let twoRegs = onLine1 (NonNeg 2)
+        let twoRegs = index 2
         let expectedInnerExpr = DeclRegCollIn Quantum "c" twoRegs expectedGateApp
         "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {qreg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` DeclGateIn "f" expectedGateArgs expectedGateBody expectedInnerExpr

@@ -36,7 +36,7 @@ import Generators(outOfScopeRegColl,
                   programThatMeasuresAQubit,
                   programThatAppliesSingleQbitUnitaryToBit,
                  InvalidProgram)
-
+import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
 -- either an error that occurred when parsing the code or
@@ -122,7 +122,10 @@ genExpectedNumOfArgsErr :: Int -> Int -> ProgramTypeEvaluationResult
 -- Takes the expected number of arguments to a gate, the actual number of arguments passed, and
 -- generates an error noting that the expected and actual number of arguments do not coincide
 genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
-  Left $ TypeErr $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg expectedNumOfArgs, actualNumOfParams = NonNeg actualNumOfArgs} (LineNumber 1)
+  Left $ TypeErr $ WithContext (toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs) (LineNumber 1)
+  where
+    toUnexpectedNumOfArgsErr :: Int -> Int -> TypeEvaluationError
+    toUnexpectedNumOfArgsErr = ExpectedNParams `on` NonNeg
 
 -- Checks that a MetaQASM program that applies a two qubit gate
 -- to three qubits is invalid

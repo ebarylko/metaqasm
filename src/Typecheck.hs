@@ -135,8 +135,9 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
     isCircuit _ = False
 
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
-    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genMismatchErr
-    genMismatchErr = flip ExpectedAGate gateName  >>> flip WithContext line 
+    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genIsNotGateErr
+    genIsNotGateErr :: TermType -> TypeErrAt
+    genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
 
 -- Takes the current context, an expression, and calculates its type
 -- under the given context

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+
 module Generators(outOfScopeRegColl,
                   outOfScopeExpr,
                   programWithQubitInScope,
@@ -327,7 +328,7 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
 -- such an access
 toRegAccessOnLine1 :: RegCollAccessSpec -> Expression
 
-toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx} =
+toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
   RegisterAccess{registerName, registerNumber}
   where
     registerName = WithContext _regCollName line1
@@ -358,7 +359,7 @@ data InvalidRegCollApp = InvalidRegCollApp{invalidProg :: MetaQasmProgram, regCo
 -- collection being accessed
 toRegCollOnLine1 :: RegCollAccessSpec -> Id
 
-toRegCollOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx}  =  WithContext _regCollName (LineNumber 1)
+toRegCollOnLine1 RegCollAccessSpec{_regCollName}  =  WithContext _regCollName (LineNumber 1)
 
 -- Takes a description of a valid register access and
 -- generates the type of the register collection being

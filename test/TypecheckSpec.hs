@@ -171,8 +171,8 @@ prop_cannotApplyGateToBit (prog, misplacedBit) =
 
 -- Takes a MetaQASM program that applies a register collection
 -- to a qubit as if it were a gate, the name of the collection,
--- and tests that the program is invalid and generates an error
--- noting that the collection should have been a gate
+-- the type of the collection, and tests that the program is invalid
+-- and generates an error noting that the collection should have been a gate
 prop_cannotTreatRegCollAsGate :: InvalidRegCollApp -> IO ()
 
 prop_cannotTreatRegCollAsGate InvalidRegCollApp{invalidProg, regColl, collType} =

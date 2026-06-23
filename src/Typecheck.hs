@@ -26,7 +26,8 @@ import Vary (Vary)
 import qualified Vary
 import Data.Function ((&))
 import Data.Functor(($>))
-
+import Data.List(findIndex)
+import Data.Maybe(fromJust)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -79,24 +80,45 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
+findIdxOfFirstDiff :: Eq a => [a] -> [a] -> Int
+findIdxOfFirstDiff x = zipWith (/=) x >>> findIndex id >>> fromJust
+
+-- Takes a collection of arguments passed to a gate
+-- where one of them does not have the expected type,
+-- the expected and actual types of the arguments to the
+-- gate, and generates an error noting that the aforementioned
+-- argument has the wrong type
+findTypeMismatch :: [Expression] -> [TermType] -> [TermType] -> TypeEvaluationError
+
+findTypeMismatch actualArgs expectedArgTypes actualArgTypes =
+  TypeMismatch{expectedType, actualType, erroneousTerm}
+  where
+    mismatchIdx = findIdxOfFirstDiff actualArgTypes expectedArgTypes
+    expectedType = expectedArgTypes !! mismatchIdx
+    actualType = actualArgTypes !! mismatchIdx
+    erroneousTerm = actualArgs !! mismatchIdx
+
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,
 -- the types of the actual arguments passed to the gate,
 -- and checks if the expected and actual types match.
 -- Returns an error otherwise
-verifyGateArgs :: LineNumber -> TermType -> [TermType] -> TypeCalculationResult
+verifyGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult
 
-verifyGateArgs line (Circuit expectedArgs) actualArgs
+verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
   | gateIsAppliedToTooManyArgs = unexpectedNumOfArgsErr
   | gateIsAppliedToTooFewArgs = unexpectedNumOfArgsErr
-  | expectedArgs == actualArgs = Right Unit
-  | otherwise = error "Not implemented the case where one of the gate args does not have the expected type"
+  | expectedArgTypes == actualArgTypes  = Right Unit
+  | otherwise = unexpectedGateArgErr
   where
-    numOfExpectedArgs = length expectedArgs
-    numOfActualArgs = length actualArgs
-    gateIsAppliedToTooManyArgs = numOfExpectedArgs < numOfActualArgs
-    gateIsAppliedToTooFewArgs = numOfExpectedArgs > numOfActualArgs
-    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedArgs, actualNumOfParams = NonNeg numOfActualArgs}  line
+    numOfExpectedTypes = length expectedArgTypes
+    numOfActualTypes = length actualArgTypes
+    gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
+    gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
+    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes}  line
+
+    unexpectedGateArgErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
+
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
@@ -104,9 +126,9 @@ verifyGateArgs line (Circuit expectedArgs) actualArgs
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
 verifyGateApp m (App gateName@(WithContext _ line) args) = do
-  expectedArgs <- findGateType gateName m
-  actualArgs <- traverse (verifyExpr m) args
-  verifyGateArgs line expectedArgs actualArgs
+  expectedTypes <- findGateType gateName m
+  actualTypes <- traverse (verifyExpr m) args
+  verifyGateArgs line expectedTypes actualTypes args
   where
     isCircuit :: TermType -> Bool
     isCircuit (Circuit _) = True

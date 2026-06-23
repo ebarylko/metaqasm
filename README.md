@@ -1,3 +1,9 @@
+# Overview
+
+This repo implements the MetaQASM language described in this [paper](https://www.cs.sfu.ca/~meamy/Papers/metaqasm.pdf).
+The issues list all the remaining features to implement in the language. The following section details what each part of
+the repository does.
+
 # Repository breakdown
 
 ```

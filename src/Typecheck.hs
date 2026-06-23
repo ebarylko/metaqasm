@@ -1,5 +1,4 @@
 {-# LANGUAGE GHC2024 #-}
-
 module Typecheck
     (determineType,
       TypeEvaluationError(..),
@@ -40,6 +39,7 @@ data TypeEvaluationError = VariableNotInScope Identifier
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
+  | ExpectedAGate{actualType :: TermType, problemTerm :: Id}
   deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
@@ -117,7 +117,6 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
     unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes} line
-
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
@@ -136,7 +135,9 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
     isCircuit _ = False
 
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
-    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit (error "Have not implemented this yet")
+    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genIsNotGateErr
+    genIsNotGateErr :: TermType -> TypeErrAt
+    genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
 
 -- Takes the current context, an expression, and calculates its type
 -- under the given context

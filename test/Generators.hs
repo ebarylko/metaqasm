@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+
 module Generators(outOfScopeRegColl,
                   outOfScopeExpr,
                   programWithQubitInScope,
@@ -15,7 +16,9 @@ module Generators(outOfScopeRegColl,
                  programWithTooFewParamsInGateApp,
                  programThatMeasuresAQubit,
                  programThatAppliesSingleQbitUnitaryToBit,
-                 InvalidProgram)
+                 InvalidProgram,
+                 programThatTreatsRegCollsAsGates,
+                 InvalidRegCollApp(..))
   where
 
 import Test.QuickCheck
@@ -24,6 +27,9 @@ import Syntax(Identifier,
               NonNeg(..),
               Expression(..),
               WithContext(..),
+              TermType(..),
+              Id,
+              RegisterType(..),
               NonNeg(..))
 import Lexer(LineNumber(..))
 import Control.Arrow((&&&), (>>>))
@@ -33,6 +39,7 @@ import Typecheck(TypeEvaluationError(..))
 import Control.Monad(replicateM)
 import Data.List(nub)
 import Data.Text.Lazy.Builder(fromString)
+import Control.Applicative(liftA3)
 
 builtInGates :: [String]
 builtInGates = ["h", "cx", "t", "tdg"]
@@ -236,7 +243,7 @@ nonShadowingRegCollAccess :: Gen TwoQubitGateDeclAndAppInfo
 nonShadowingRegCollAccess = twoQubitGateDeclInfo >*< genValidRegCollAccessSpec `suchThat` isNotBeingOverShadowedByRegAcc
   where
     isNotBeingOverShadowedByRegAcc  :: (TwoQubitGateDeclInfo, RegCollAccessSpec) -> Bool
-    isNotBeingOverShadowedByRegAcc  (TwoQubitGateDeclInfo gateName fstQubitName sndQubitName, RegCollAccessSpec regCollName _ _) = not $ regCollName `elem` [gateName, fstQubitName, sndQubitName]
+    isNotBeingOverShadowedByRegAcc  (TwoQubitGateDeclInfo gateName fstQubitName sndQubitName, RegCollAccessSpec regCollName _ _) = regCollName `notElem` [gateName, fstQubitName, sndQubitName]
 
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
@@ -321,7 +328,7 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
 -- such an access
 toRegAccessOnLine1 :: RegCollAccessSpec -> Expression
 
-toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx} =
+toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
   RegisterAccess{registerName, registerNumber}
   where
     registerName = WithContext _regCollName line1
@@ -340,3 +347,41 @@ programThatAppliesSingleQbitUnitaryToBit :: Gen InvalidProgram
 programThatAppliesSingleQbitUnitaryToBit  = (&&&) (formatToString invalidGateApp) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
   where
     invalidGateApp = scopedDecl classicRegCollDecl hadamardApp
+
+-- This data type represents invalid MetaQASM programs
+-- that treat register collections as if they were gates.
+-- It contains the erroneous program, the name of the
+-- register collection, and the type of the collection
+data InvalidRegCollApp = InvalidRegCollApp{invalidProg :: MetaQasmProgram, regColl :: Id, collType :: TermType} deriving (Show)
+
+-- Takes a description of a valid register access and
+-- generates the MetaQASM term corresponding to the
+-- collection being accessed
+toRegCollOnLine1 :: RegCollAccessSpec -> Id
+
+toRegCollOnLine1 RegCollAccessSpec{_regCollName}  =  WithContext _regCollName (LineNumber 1)
+
+-- Takes the type of the accessed element, a
+-- description of a valid register access and
+-- generates the type of the register collection being
+-- accessed
+toRegCollType :: RegisterType -> RegCollAccessSpec -> TermType
+
+toRegCollType collType accessInfo =
+  RegisterGroup collType $ WithContext registerCount (LineNumber 1)
+  where
+    registerCount = (NonNeg . _numOfRegs) accessInfo
+
+toQuantRegColl :: RegCollAccessSpec -> TermType
+toQuantRegColl = toRegCollType Quantum
+
+-- Generates information about invalid MetaQASM programs
+-- that treats register collections as gates. This information
+-- includes said program, the name of the collection, and
+-- the type of the collection
+programThatTreatsRegCollsAsGates :: Gen InvalidRegCollApp
+
+programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString invalidRegCollApp) toRegCollOnLine1 toQuantRegColl <$> genValidRegCollAccessSpec
+  where
+    invalidRegCollApp = scopedDecl quantumRegCollDecl regCollApp
+    regCollApp = accessed _regCollName string  <> parenthesised regCollAccess

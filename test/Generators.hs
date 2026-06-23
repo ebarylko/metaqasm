@@ -236,7 +236,7 @@ nonShadowingRegCollAccess :: Gen TwoQubitGateDeclAndAppInfo
 nonShadowingRegCollAccess = twoQubitGateDeclInfo >*< genValidRegCollAccessSpec `suchThat` isNotBeingOverShadowedByRegAcc
   where
     isNotBeingOverShadowedByRegAcc  :: (TwoQubitGateDeclInfo, RegCollAccessSpec) -> Bool
-    isNotBeingOverShadowedByRegAcc  (TwoQubitGateDeclInfo gateName fstQubitName sndQubitName, RegCollAccessSpec regCollName _ _) = not $ regCollName `elem` [gateName, fstQubitName, sndQubitName]
+    isNotBeingOverShadowedByRegAcc  (TwoQubitGateDeclInfo gateName fstQubitName sndQubitName, RegCollAccessSpec regCollName _ _) = regCollName `notElem` [gateName, fstQubitName, sndQubitName]
 
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
@@ -340,3 +340,13 @@ programThatAppliesSingleQbitUnitaryToBit :: Gen InvalidProgram
 programThatAppliesSingleQbitUnitaryToBit  = (&&&) (formatToString invalidGateApp) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
   where
     invalidGateApp = scopedDecl classicRegCollDecl hadamardApp
+
+
+-- Generates pairs of invalid programs that treat
+-- register collection as gates and applies them to qubits
+-- along with the name of the collection
+programThatTreatsQubitsAsGates :: Gen InvalidProgram
+
+programThatTreatsQubitsAsGates  = (&&&) (formatToString invalidGateApp) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
+  where
+    invalidGateApp = scopedDecl quantumRegCollDecl hadamardApp

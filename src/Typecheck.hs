@@ -94,8 +94,7 @@ findTypeMismatch actualArgs expectedArgTypes actualArgTypes =
   TypeMismatch{expectedType, actualType, erroneousTerm}
   where
     mismatchIdx = findIdxOfFirstDiff actualArgTypes expectedArgTypes
-    expectedType = expectedArgTypes !! mismatchIdx
-    actualType = actualArgTypes !! mismatchIdx
+    [expectedType,  actualType] = map (!! mismatchIdx) [expectedArgTypes, actualArgTypes]
     erroneousTerm = actualArgs !! mismatchIdx
 
 -- Takes the line where a gate was applied,

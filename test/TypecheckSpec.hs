@@ -10,8 +10,7 @@ import Typecheck(TypeEvaluationError(..),
 import Syntax(Identifier,
               TermType(..),
               WithContext(..),
-              NonNeg(..),
-              Expression(..))
+              NonNeg(..))
 import Lexer(LineNumber(..))
 import Grammar(parseText)
 import Test.QuickCheck(forAll)
@@ -162,10 +161,7 @@ prop_cannotApplyGateToBit :: InvalidProgram -> IO ()
 prop_cannotApplyGateToBit (prog, misplacedBit) =
   calcTypeOf prog `shouldBe` typeMismatchErr
   where
-    --typeMismatchErr = Left $ TypeErr $ WithContext TypeMismatch{expectedType = Qbit, actualType = Bit, erroneousTerm = misplacedBit} (LineNumber 1)
     typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch Qbit Bit misplacedBit) (LineNumber 1)
-   -- toMismatchErr :: TermType -> TermType -> Expression -> TypeEvaluationError
-   -- toMismatchErr expectedType actualType erroneousTerm = TypeMismatch expectedType actualType erroneousTerm 
 
 spec :: Spec
 spec =  do

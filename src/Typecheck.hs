@@ -186,13 +186,15 @@ verifyCommand m (MeasureQubit toMeasure toStoreIn) =
     genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
     genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{expectedType, erroneousTerm, actualType} (getLineNum erroneousTerm)
 
--- Takes an expression and returns the line at where the
--- expression was found
-getLineNum :: Expression -> LineNumber
-getLineNum (Var varName) = extractLineNum varName
-getLineNum RegisterAccess{registerName} = extractLineNum registerName
-extractLineNum :: Id -> LineNumber
-extractLineNum (WithContext _ line) = line
+    -- Takes an expression and returns the line at where the
+    -- expression was found
+    getLineNum :: Expression -> LineNumber
+    getLineNum (Var varName) = extractLineNum varName
+    getLineNum RegisterAccess{registerName} = extractLineNum registerName
+    extractLineNum :: Id -> LineNumber
+    extractLineNum (WithContext _ line) = line
+
+
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

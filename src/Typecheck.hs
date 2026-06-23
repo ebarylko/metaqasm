@@ -110,15 +110,15 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
   | gateIsAppliedToTooManyArgs = unexpectedNumOfArgsErr
   | gateIsAppliedToTooFewArgs = unexpectedNumOfArgsErr
   | expectedArgTypes == actualArgTypes  = Right Unit
-  | otherwise = unexpectedGateArgErr
+  | otherwise = gateArgMismatchErr
   where
     numOfExpectedTypes = length expectedArgTypes
     numOfActualTypes = length actualArgTypes
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
-    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes}  line
+    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes} line
 
-    unexpectedGateArgErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
+    gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
 -- Takes the current context, the application of a gate, and
@@ -138,9 +138,8 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
     findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit (error "Have not implemented this yet")
 
-
 -- Takes the current context, an expression, and calculates its type
--- under the given context 
+-- under the given context
 verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
 verifyExpr m x@(RegisterAccess _ _) = verifyRegAccess m x
 

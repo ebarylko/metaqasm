@@ -361,26 +361,27 @@ toRegCollOnLine1 :: RegCollAccessSpec -> Id
 
 toRegCollOnLine1 RegCollAccessSpec{_regCollName}  =  WithContext _regCollName (LineNumber 1)
 
--- Takes a description of a valid register access and
+-- Takes the type of the accessed element, a
+-- description of a valid register access and
 -- generates the type of the register collection being
 -- accessed
 toRegCollType :: RegisterType -> RegCollAccessSpec -> TermType
 
-toRegCollType collType access =
+toRegCollType collType accessInfo =
   RegisterGroup collType $ WithContext registerCount (LineNumber 1)
   where
-    registerCount = (NonNeg . _numOfRegs) access
+    registerCount = (NonNeg . _numOfRegs) accessInfo
 
+toQuantRegColl :: RegCollAccessSpec -> TermType
 toQuantRegColl = toRegCollType Quantum
 
 -- Generates information about invalid MetaQASM programs
 -- that treats register collections as gates. This information
--- includes the name of the collection along with its type
+-- includes said program, the name of the collection, and
+-- the type of the collection
 programThatTreatsRegCollsAsGates :: Gen InvalidRegCollApp
 
-programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString invalidGateApp) toRegCollOnLine1 toQuantRegColl <$> genValidRegCollAccessSpec
+programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString invalidRegCollApp) toRegCollOnLine1 toQuantRegColl <$> genValidRegCollAccessSpec
   where
-    invalidGateApp = scopedDecl quantumRegCollDecl regCollApp
+    invalidRegCollApp = scopedDecl quantumRegCollDecl regCollApp
     regCollApp = accessed _regCollName string  <> parenthesised regCollAccess
-
-

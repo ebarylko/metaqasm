@@ -1,5 +1,4 @@
 {-# LANGUAGE GHC2024 #-}
-
 module Typecheck
     (determineType,
       TypeEvaluationError(..),
@@ -118,7 +117,6 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
     unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes} line
-
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 

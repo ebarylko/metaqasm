@@ -38,7 +38,7 @@ builtInGates :: [String]
 builtInGates = ["h", "cx", "t", "tdg"]
 
 outOfScopeRegColl :: Gen String
-outOfScopeRegColl = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (not . (`elem` builtInGates))
+outOfScopeRegColl = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (`notElem` builtInGates)
   where
     lowerCaseLetter :: Gen Char
     lowerCaseLetter = elements ['a'..'z']

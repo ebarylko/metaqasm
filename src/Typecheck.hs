@@ -80,6 +80,8 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
+-- Takes two lists of the same length where they differ elementwise and
+-- returns the index of the first elementwise difference between both lists
 findIdxOfFirstDiff :: Eq a => [a] -> [a] -> Int
 findIdxOfFirstDiff x = zipWith (/=) x >>> findIndex id >>> fromJust
 
@@ -94,14 +96,14 @@ findTypeMismatch actualArgs expectedArgTypes actualArgTypes =
   TypeMismatch{expectedType, actualType, erroneousTerm}
   where
     mismatchIdx = findIdxOfFirstDiff actualArgTypes expectedArgTypes
-    [expectedType,  actualType] = map (!! mismatchIdx) [expectedArgTypes, actualArgTypes]
+    [expectedType, actualType] = map (!! mismatchIdx) [expectedArgTypes, actualArgTypes]
     erroneousTerm = actualArgs !! mismatchIdx
 
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,
 -- the types of the actual arguments passed to the gate,
--- and checks if the expected and actual types match.
--- Returns an error otherwise
+-- the arguments passed to the gate, and checks if the
+-- expected and actual types match. Returns an error otherwise
 verifyGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult
 
 verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args

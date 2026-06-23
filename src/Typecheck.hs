@@ -37,7 +37,9 @@ type EvaluationContext = M.Map Identifier TermType
 data TypeEvaluationError = VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
-  | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg} deriving (Show, Eq)
+  | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg}
+  | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
+  deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
 

@@ -40,7 +40,7 @@ data TypeEvaluationError = VariableNotInScope Identifier
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
-  | ExpectedAGate{actualType :: TermType, problemTerm :: Expression}
+  | ExpectedAGate{actualType :: TermType, problemTerm :: Id}
   deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
@@ -137,7 +137,8 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
     isCircuit _ = False
 
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
-    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit (error "Have not implemented this yet")
+    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genMismatchErr
+    genMismatchErr = flip ExpectedAGate gateName  >>> flip WithContext line 
 
 -- Takes the current context, an expression, and calculates its type
 -- under the given context

@@ -12,7 +12,7 @@ import Typecheck(TypeEvaluationError(..),
 import Syntax(Identifier,
               TermType(..),
               WithContext(..),
-              NonNeg(..), Command (regCollName))
+              NonNeg(..))
 import Lexer(LineNumber(..))
 import Grammar(parseText)
 import Test.QuickCheck(forAll)

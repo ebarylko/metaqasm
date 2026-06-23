@@ -27,6 +27,7 @@ import Syntax(Identifier,
               Expression(..),
               WithContext(..),
               TermType(..),
+              Id,
               RegisterType(..),
               NonNeg(..))
 import Lexer(LineNumber(..))
@@ -350,14 +351,14 @@ programThatAppliesSingleQbitUnitaryToBit  = (&&&) (formatToString invalidGateApp
 -- that treat register collections as if they were gates.
 -- It contains the erroneous program, the name of the
 -- register collection, and the type of the collection
-data InvalidRegCollApp = InvalidRegCollApp{invalidProg :: MetaQasmProgram, regColl :: Expression, collType :: TermType} deriving (Show)
+data InvalidRegCollApp = InvalidRegCollApp{invalidProg :: MetaQasmProgram, regColl :: Id, collType :: TermType} deriving (Show)
 
 -- Takes a description of a valid register access and
 -- generates the MetaQASM term corresponding to the
 -- collection being accessed
-toRegCollOnLine1 :: RegCollAccessSpec -> Expression
+toRegCollOnLine1 :: RegCollAccessSpec -> Id
 
-toRegCollOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx}  = Var $ WithContext _regCollName (LineNumber 1)
+toRegCollOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx}  =  WithContext _regCollName (LineNumber 1)
 
 -- Takes a description of a valid register access and
 -- generates the type of the register collection being

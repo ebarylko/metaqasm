@@ -33,8 +33,10 @@ import Generators(outOfScopeRegColl,
                   programWithTwoQubitGateDeclAndApp,
                   programWithTooManyParamsInGateApp,
                   programWithTooFewParamsInGateApp,
-                  programThatMeasuresAQubit)
-
+                  programThatMeasuresAQubit,
+                  programThatAppliesSingleQbitUnitaryToBit,
+                 InvalidProgram)
+import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
 -- either an error that occurred when parsing the code or
@@ -120,7 +122,10 @@ genExpectedNumOfArgsErr :: Int -> Int -> ProgramTypeEvaluationResult
 -- Takes the expected number of arguments to a gate, the actual number of arguments passed, and
 -- generates an error noting that the expected and actual number of arguments do not coincide
 genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
-  Left $ TypeErr $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg expectedNumOfArgs, actualNumOfParams = NonNeg actualNumOfArgs} (LineNumber 1)
+  Left $ TypeErr $ WithContext (toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs) (LineNumber 1)
+  where
+    toUnexpectedNumOfArgsErr :: Int -> Int -> TypeEvaluationError
+    toUnexpectedNumOfArgsErr = ExpectedNParams `on` NonNeg
 
 -- Checks that a MetaQASM program that applies a two qubit gate
 -- to three qubits is invalid
@@ -146,6 +151,19 @@ prop_cannotApplyGateToTooFewQubits prog =
 prop_isValidProgram :: MetaQasmProgram -> IO ()
 
 prop_isValidProgram prog = calcTypeOf prog `shouldBe` Right Unit
+
+-- Takes a MetaQASM program that applies a single qubit
+-- gate to a bit, the bit being evaluated in the program,
+-- and checks that the program is invalid and generates an error
+-- noting that the bit should have been a qubit
+prop_cannotApplyGateToBit :: InvalidProgram -> IO ()
+
+prop_cannotApplyGateToBit (prog, misplacedBit) =
+  calcTypeOf prog `shouldBe` typeMismatchErr
+  where
+    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedBit) (LineNumber 1)
+    expectedType = Qbit
+    actualType = Bit
 
 spec :: Spec
 spec =  do
@@ -196,3 +214,7 @@ spec =  do
   describe "Measuring a qubit and storing the result in a bit" $ do
     prop "Is valid and has type unit" $ do
       forAll programThatMeasuresAQubit prop_isValidProgram
+
+  describe "Applying a single qubit gate to a bit" $ do
+    prop "Is invalid and results in an error noting this mismatch" $ do
+      forAll programThatAppliesSingleQbitUnitaryToBit prop_cannotApplyGateToBit

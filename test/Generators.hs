@@ -316,6 +316,9 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
     toQubitMeasurement = formatToString $ scopedDecl (accessed classicRegCollInfo classicRegCollDecl) $ scopedDecl (accessed quantumRegCollInfo quantumRegCollDecl) measureQubit
     measureQubit = "measure" %+ accessed quantumRegCollInfo regCollAccess <> " ->" %+ accessed classicRegCollInfo regCollAccess
 
+-- Takes a specification for a valid register access
+-- and generates a MetaQASM term corresponding to
+-- such an access
 toRegAccessOnLine1 :: RegCollAccessSpec -> Expression
 
 toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx} =
@@ -325,13 +328,13 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx} =
     registerNumber = WithContext (NonNeg _wantedRegIdx) line1
     line1 = LineNumber 1
 
--- Represents pairs of invalid programs and the
+-- Represents pairs of invalid programs and an
 -- expression within the program that causes it to
 -- be invalid
 type InvalidProgram = (MetaQasmProgram, Expression)
 
 -- Generates pairs of invalid programs that apply a single
--- qubit unitary to a bit and the unfortunately placed bit
+-- qubit unitary to a bit and the misplaced bit
 programThatAppliesSingleQbitUnitaryToBit :: Gen InvalidProgram
 
 programThatAppliesSingleQbitUnitaryToBit  = (&&&) (formatToString invalidGateApp) toRegAccessOnLine1 <$> genValidRegCollAccessSpec

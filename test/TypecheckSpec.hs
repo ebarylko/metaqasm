@@ -161,7 +161,9 @@ prop_cannotApplyGateToBit :: InvalidProgram -> IO ()
 prop_cannotApplyGateToBit (prog, misplacedBit) =
   calcTypeOf prog `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch Qbit Bit misplacedBit) (LineNumber 1)
+    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedBit) (LineNumber 1)
+    expectedType = Qbit
+    actualType = Bit
 
 spec :: Spec
 spec =  do

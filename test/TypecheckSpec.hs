@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
+
 module TypecheckSpec(spec) where
 
 import Test.Hspec
@@ -10,7 +12,7 @@ import Typecheck(TypeEvaluationError(..),
 import Syntax(Identifier,
               TermType(..),
               WithContext(..),
-              NonNeg(..))
+              NonNeg(..), Command (regCollName))
 import Lexer(LineNumber(..))
 import Grammar(parseText)
 import Test.QuickCheck(forAll)
@@ -36,7 +38,8 @@ import Generators(outOfScopeRegColl,
                   programThatMeasuresAQubit,
                   programThatAppliesSingleQbitUnitaryToBit,
                  InvalidProgram,
-                 programThatTreatsRegCollsAsGates)
+                 programThatTreatsRegCollsAsGates,
+                 InvalidRegCollApp(..))
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -170,13 +173,12 @@ prop_cannotApplyGateToBit (prog, misplacedBit) =
 -- to a qubit as if it were a gate, the name of the collection,
 -- and tests that the program is invalid and generates an error
 -- noting that the collection should have been a gate
-prop_cannotTreatRegCollAsGate :: InvalidProgram -> IO ()
+prop_cannotTreatRegCollAsGate :: InvalidRegCollApp -> IO ()
 
-prop_cannotTreatRegCollAsGate (prog, collName) =
-  calcTypeOf prog `shouldBe` typeMismatchErr
+prop_cannotTreatRegCollAsGate InvalidRegCollApp{invalidProg, regColl, collType} =
+  calcTypeOf invalidProg `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (ExpectedAGate actualType collName) (LineNumber 1)
-    actualType = Bit
+    typeMismatchErr = Left $ TypeErr $ WithContext (ExpectedAGate collType regColl) (LineNumber 1)
 
 spec :: Spec
 spec =  do

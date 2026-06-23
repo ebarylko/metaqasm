@@ -16,7 +16,8 @@ module Generators(outOfScopeRegColl,
                  programThatMeasuresAQubit,
                  programThatAppliesSingleQbitUnitaryToBit,
                  InvalidProgram,
-                 programThatTreatsRegCollsAsGates)
+                 programThatTreatsRegCollsAsGates,
+                 InvalidRegCollApp(..))
   where
 
 import Test.QuickCheck
@@ -25,6 +26,8 @@ import Syntax(Identifier,
               NonNeg(..),
               Expression(..),
               WithContext(..),
+              TermType(..),
+              RegisterType(..),
               NonNeg(..))
 import Lexer(LineNumber(..))
 import Control.Arrow((&&&), (>>>))
@@ -34,6 +37,7 @@ import Typecheck(TypeEvaluationError(..))
 import Control.Monad(replicateM)
 import Data.List(nub)
 import Data.Text.Lazy.Builder(fromString)
+import Control.Applicative(liftA3)
 
 builtInGates :: [String]
 builtInGates = ["h", "cx", "t", "tdg"]
@@ -342,6 +346,12 @@ programThatAppliesSingleQbitUnitaryToBit  = (&&&) (formatToString invalidGateApp
   where
     invalidGateApp = scopedDecl classicRegCollDecl hadamardApp
 
+-- This data type represents invalid MetaQASM programs
+-- that treat register collections as if they were gates.
+-- It contains the erroneous program, the name of the
+-- register collection, and the type of the collection
+data InvalidRegCollApp = InvalidRegCollApp{invalidProg :: MetaQasmProgram, regColl :: Expression, collType :: TermType} deriving (Show)
+
 -- Takes a description of a valid register access and
 -- generates the MetaQASM term corresponding to the
 -- collection being accessed
@@ -349,12 +359,26 @@ toRegCollOnLine1 :: RegCollAccessSpec -> Expression
 
 toRegCollOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx}  = Var $ WithContext _regCollName (LineNumber 1)
 
--- Generates pairs of invalid programs that treats
--- register collections as gates and applies them to qubits
--- along with the name of the collection
-programThatTreatsRegCollsAsGates :: Gen InvalidProgram
+-- Takes a description of a valid register access and
+-- generates the type of the register collection being
+-- accessed
+toRegCollType :: RegisterType -> RegCollAccessSpec -> TermType
 
-programThatTreatsRegCollsAsGates  = (&&&) (formatToString invalidGateApp) toRegCollOnLine1 <$> genValidRegCollAccessSpec
+toRegCollType collType access =
+  RegisterGroup collType $ WithContext registerCount (LineNumber 1)
+  where
+    registerCount = (NonNeg . _numOfRegs) access
+
+toQuantRegColl = toRegCollType Quantum
+
+-- Generates information about invalid MetaQASM programs
+-- that treats register collections as gates. This information
+-- includes the name of the collection along with its type
+programThatTreatsRegCollsAsGates :: Gen InvalidRegCollApp
+
+programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString invalidGateApp) toRegCollOnLine1 toQuantRegColl <$> genValidRegCollAccessSpec
   where
     invalidGateApp = scopedDecl quantumRegCollDecl regCollApp
     regCollApp = accessed _regCollName string  <> parenthesised regCollAccess
+
+

@@ -39,7 +39,8 @@ import Generators(outOfScopeRegColl,
                   programThatAppliesSingleQbitUnitaryToBit,
                  InvalidProgram,
                  programThatTreatsRegCollsAsGates,
-                 InvalidRegCollApp(..))
+                 InvalidRegCollApp(..),
+                 programThatMeasuresABit)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -180,6 +181,19 @@ prop_cannotTreatRegCollAsGate InvalidRegCollApp{invalidProg, regColl, collType} 
   where
     typeMismatchErr = Left $ TypeErr $ WithContext (ExpectedAGate collType regColl) (LineNumber 1)
 
+-- Takes a program that mistakingly measures a bit
+-- and checks that an error is generated stating that
+-- a qubit should have been measured
+prop_cannotMeasureBit :: InvalidProgram -> IO ()
+
+prop_cannotMeasureBit (prog, misplacedBit) =
+  calcTypeOf prog `shouldBe` mismatchErr
+  where
+    mismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedBit) (LineNumber 1)
+    expectedType = Qbit
+    actualType = Bit
+
+
 spec :: Spec
 spec =  do
   describe "Accessing elements from a collection of registers that is out of scope" $ do
@@ -237,3 +251,7 @@ spec =  do
   describe "Treating a register collection as if it were a gate" $ do
     prop "Is invalid and results in an error noting this mismatch" $ do
       forAll programThatTreatsRegCollsAsGates prop_cannotTreatRegCollAsGate
+
+  describe "Trying to measure a bit" $ do
+    prop "Is invalid and results in an error noting that a qubit should have been used instead" $ do
+      forAll programThatMeasuresABit prop_cannotMeasureBit

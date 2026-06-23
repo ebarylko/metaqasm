@@ -18,7 +18,8 @@ module Generators(outOfScopeRegColl,
                  programThatAppliesSingleQbitUnitaryToBit,
                  InvalidProgram,
                  programThatTreatsRegCollsAsGates,
-                 InvalidRegCollApp(..))
+                 InvalidRegCollApp(..),
+                 programThatMeasuresABit)
   where
 
 import Test.QuickCheck
@@ -385,3 +386,12 @@ programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString inv
   where
     invalidRegCollApp = scopedDecl quantumRegCollDecl regCollApp
     regCollApp = accessed _regCollName string  <> parenthesised regCollAccess
+
+-- Generates an erroneous program that
+-- measures a bit instead of a qubit
+programThatMeasuresABit :: Gen InvalidProgram
+programThatMeasuresABit = (&&&) (formatToString invalidMeasurement) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
+  where
+    invalidMeasurement = scopedDecl classicRegCollDecl measureBit
+    measureBit = "measure" %+ regCollAccess %+ "-> " <> regCollAccess
+

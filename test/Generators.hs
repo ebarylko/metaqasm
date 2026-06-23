@@ -15,7 +15,8 @@ module Generators(outOfScopeRegColl,
                  programWithTooFewParamsInGateApp,
                  programThatMeasuresAQubit,
                  programThatAppliesSingleQbitUnitaryToBit,
-                 InvalidProgram)
+                 InvalidProgram,
+                 programThatTreatsRegCollsAsGates)
   where
 
 import Test.QuickCheck
@@ -341,12 +342,19 @@ programThatAppliesSingleQbitUnitaryToBit  = (&&&) (formatToString invalidGateApp
   where
     invalidGateApp = scopedDecl classicRegCollDecl hadamardApp
 
+-- Takes a description of a valid register access and
+-- generates the MetaQASM term corresponding to the
+-- collection being accessed
+toRegCollOnLine1 :: RegCollAccessSpec -> Expression
 
--- Generates pairs of invalid programs that treat
--- register collection as gates and applies them to qubits
+toRegCollOnLine1 RegCollAccessSpec{_regCollName, _numOfRegs, _wantedRegIdx}  = Var $ WithContext _regCollName (LineNumber 1)
+
+-- Generates pairs of invalid programs that treats
+-- register collections as gates and applies them to qubits
 -- along with the name of the collection
-programThatTreatsQubitsAsGates :: Gen InvalidProgram
+programThatTreatsRegCollsAsGates :: Gen InvalidProgram
 
-programThatTreatsQubitsAsGates  = (&&&) (formatToString invalidGateApp) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
+programThatTreatsRegCollsAsGates  = (&&&) (formatToString invalidGateApp) toRegCollOnLine1 <$> genValidRegCollAccessSpec
   where
-    invalidGateApp = scopedDecl quantumRegCollDecl hadamardApp
+    invalidGateApp = scopedDecl quantumRegCollDecl regCollApp
+    regCollApp = accessed _regCollName string  <> parenthesised regCollAccess

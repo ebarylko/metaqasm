@@ -40,6 +40,7 @@ data TypeEvaluationError = VariableNotInScope Identifier
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
+  | ExpectedAGate{actualType :: TermType, problemTerm :: Expression}
   deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber

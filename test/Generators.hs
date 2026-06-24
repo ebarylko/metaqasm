@@ -313,6 +313,8 @@ qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec)
 classicRegCollDecl :: RegAccessFormatter
 classicRegCollDecl = regCollDecl "creg"
 
+
+
 -- Generates programs where a qubit is measured and
 -- the measurement is stored in a bit
 programThatMeasuresAQubit :: Gen MetaQasmProgram

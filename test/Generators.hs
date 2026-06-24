@@ -19,7 +19,8 @@ module Generators(outOfScopeRegColl,
                  InvalidProgram,
                  programThatTreatsRegCollsAsGates,
                  InvalidRegCollApp(..),
-                 programThatMeasuresABit)
+                 programThatMeasuresABit,
+                 programThatStoresQubitMeasurementInAQubit)
   where
 
 import Test.QuickCheck
@@ -397,3 +398,11 @@ programThatMeasuresABit = (&&&) (formatToString invalidMeasurement) toRegAccessO
     invalidMeasurement = scopedDecl classicRegCollDecl measureBit
     measureBit = "measure" %+ regCollAccess %+ "-> " <> regCollAccess
 
+-- Generates MetaQASM programs that store the result of
+-- measuring a qubit inside of another qubit
+programThatStoresQubitMeasurementInAQubit :: Gen InvalidProgram
+
+programThatStoresQubitMeasurementInAQubit = (&&&) (formatToString invalidMeasurement) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
+  where
+    invalidMeasurement = scopedDecl quantumRegCollDecl measureBit
+    measureBit = "measure" %+ regCollAccess %+ "-> " <> regCollAccess

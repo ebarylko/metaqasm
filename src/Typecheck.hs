@@ -183,7 +183,7 @@ verifyCommand m (MeasureQubit toMeasure toStoreIn) =
   verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
     verifyMeasuredQubit = verifyExpr m toMeasure & eitherFromPred (== Qbit) (genMismatchErr Qbit toMeasure)
-    verifyStoredBit = verifyExpr m toStoreIn & eitherFromPred (== Bit) (error "Handle the case where the expression to store the measured value in is not a bit")
+    verifyStoredBit = verifyExpr m toStoreIn & eitherFromPred (== Bit) (genMismatchErr Bit toMeasure)
     genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
     genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
 

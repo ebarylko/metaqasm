@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module TypecheckSpec(spec) where
 
@@ -163,7 +164,7 @@ prop_isValidProgram prog = calcTypeOf prog `shouldBe` Right Unit
 -- and generates an error noting that the collection should have been a gate
 prop_cannotTreatRegCollAsGate :: InvalidRegCollApp -> IO ()
 
-prop_cannotTreatRegCollAsGate InvalidRegCollApp{invalidProg, regColl, collType} =
+prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
   calcTypeOf invalidProg `shouldBe` typeMismatchErr
   where
     typeMismatchErr = Left $ TypeErr $ WithContext (ExpectedAGate collType regColl) (LineNumber 1)

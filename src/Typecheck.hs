@@ -1,4 +1,5 @@
 {-# LANGUAGE GHC2024 #-}
+{-# LANGUAGE RecordWildCards #-}
 module Typecheck
     (determineType,
       TypeEvaluationError(..),
@@ -184,7 +185,7 @@ verifyCommand m (MeasureQubit toMeasure toStoreIn) =
     verifyMeasuredQubit = verifyExpr m toMeasure & eitherFromPred (== Qbit) (genMismatchErr Qbit toMeasure)
     verifyStoredBit = verifyExpr m toStoreIn & eitherFromPred (== Bit) (error "Handle the case where the expression to store the measured value in is not a bit")
     genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
-    genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{expectedType, erroneousTerm, actualType} (getLineNum erroneousTerm)
+    genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
 
     -- Takes an expression and returns the line at where the
     -- expression was found

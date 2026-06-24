@@ -1,4 +1,5 @@
 {-# LANGUAGE GHC2024 #-}
+{-# LANGUAGE RecordWildCards #-}
 module Typecheck
     (determineType,
       TypeEvaluationError(..),
@@ -155,7 +156,7 @@ verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
 
 -- Verifies that declaring a gate and then applying it is valid
-verifyCommand m (DeclGateIn{gateName, args, gateBody, innerExpr}) =
+verifyCommand m (DeclGateIn{..}) =
   verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
   where
     gateCtx = foldr extendCtxWithGateParam m args
@@ -181,8 +182,20 @@ verifyCommand m (DeclRegCollIn collType regCollName numOfRegs@(WithContext num l
 verifyCommand m (MeasureQubit toMeasure toStoreIn) =
   verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
-    verifyMeasuredQubit = verifyExpr m toMeasure & eitherFromPred (== Qbit) (error "Handle the case where the measured expression is not a qubit")
+    verifyMeasuredQubit = verifyExpr m toMeasure & eitherFromPred (== Qbit) (genMismatchErr Qbit toMeasure)
     verifyStoredBit = verifyExpr m toStoreIn & eitherFromPred (== Bit) (error "Handle the case where the expression to store the measured value in is not a bit")
+    genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
+    genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
+
+    -- Takes an expression and returns the line at where the
+    -- expression was found
+    getLineNum :: Expression -> LineNumber
+    getLineNum (Var varName) = extractLineNum varName
+    getLineNum RegisterAccess{registerName} = extractLineNum registerName
+    extractLineNum :: Id -> LineNumber
+    extractLineNum (WithContext _ line) = line
+
+
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

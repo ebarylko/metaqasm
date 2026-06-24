@@ -256,6 +256,6 @@ spec =  do
     prop "Is invalid and results in an error noting that a qubit should have been used instead" $ do
       forAll programThatMeasuresABit prop_cannotSubstituteBitForQubit
 
-  describe "Trying to store a qubit measurement inside another  qubit" $ do
+  describe "Trying to store a qubit measurement inside another qubit" $ do
     prop "Is invalid and results in an error noting that measurements can only be stored in a bit" $ do
       forAll programThatStoresQubitMeasurementInAQubit prop_cannotSubstituteQubitForBit

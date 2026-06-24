@@ -34,7 +34,8 @@ import Syntax(Identifier,
               RegisterType(..),
               NonNeg(..))
 import Lexer(LineNumber(..))
-import Control.Arrow((&&&), (>>>))
+import Control.Arrow((&&&),
+                     (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<), (>*<))
 import Data.Function((&), on)
 import Typecheck(TypeEvaluationError(..))
@@ -314,7 +315,15 @@ qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec)
 classicRegCollDecl :: RegAccessFormatter
 classicRegCollDecl = regCollDecl "creg"
 
+-- This data type represents any formatter that can generate a MetaQASM program
+type MetaQasmProgramFormatter a = Format MetaQasmProgram (a -> MetaQasmProgram)
 
+-- Takes two formatters and returns a formatter that generates a MetaQASM program
+-- that measures what the first formatter formatted and stores it in what the second
+-- formatter formatted
+formatMeasurement :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a 
+
+formatMeasurement f g = "measure"  %+ f %+ "-> " <> g
 
 -- Generates programs where a qubit is measured and
 -- the measurement is stored in a bit
@@ -325,7 +334,7 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
     toQubitMeasurement :: QubitMeasurementSpec -> MetaQasmProgram
 
     toQubitMeasurement = formatToString $ scopedDecl (accessed classicRegCollInfo classicRegCollDecl) $ scopedDecl (accessed quantumRegCollInfo quantumRegCollDecl) measureQubit
-    measureQubit = "measure" %+ accessed quantumRegCollInfo regCollAccess <> " ->" %+ accessed classicRegCollInfo regCollAccess
+    measureQubit = formatMeasurement (accessed quantumRegCollInfo regCollAccess) (accessed classicRegCollInfo regCollAccess)
 
 -- Takes a specification for a valid register access
 -- and generates a MetaQASM term corresponding to
@@ -396,7 +405,7 @@ programThatMeasuresABit :: Gen InvalidProgram
 programThatMeasuresABit = (&&&) (formatToString invalidMeasurement) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
   where
     invalidMeasurement = scopedDecl classicRegCollDecl measureBit
-    measureBit = "measure" %+ regCollAccess %+ "-> " <> regCollAccess
+    measureBit = formatMeasurement regCollAccess regCollAccess
 
 -- Generates MetaQASM programs that store the result of
 -- measuring a qubit inside of another qubit
@@ -404,5 +413,5 @@ programThatStoresQubitMeasurementInAQubit :: Gen InvalidProgram
 
 programThatStoresQubitMeasurementInAQubit = (&&&) (formatToString invalidMeasurement) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
   where
-    invalidMeasurement = scopedDecl quantumRegCollDecl measureBit
-    measureBit = "measure" %+ regCollAccess %+ "-> " <> regCollAccess
+    invalidMeasurement = scopedDecl quantumRegCollDecl storeMeasurementInQbit
+    storeMeasurementInQbit = formatMeasurement regCollAccess regCollAccess

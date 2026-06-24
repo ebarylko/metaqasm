@@ -353,9 +353,10 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
 -- be invalid
 type InvalidProgram = (MetaQasmProgram, Expression)
 
--- Given a formatter that generates an invalid MetaQASM program,
--- generates pairs of invalid programs and the subexpression
--- responsible for making the program fail
+-- Given a formatter that generates MetaQASM program that
+-- are invalid due to a misplaced bit/qubit, generates pairs
+-- of invalid programs and the subexpression responsible for
+-- making the program fail
 genInvalidProgram :: RegAccessFormatter -> Gen InvalidProgram
 
 genInvalidProgram invalidProgFmtter = (&&&) (formatToString invalidProgFmtter) toRegAccessOnLine1 <$> genValidRegCollAccessSpec

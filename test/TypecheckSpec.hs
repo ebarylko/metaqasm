@@ -182,7 +182,7 @@ prop_cannotSubstituteBitForQubit (prog, misplacedBit) =
     expectedType = Qbit
     actualType = Bit
 
--- Takes a MetaQASM that applies an operation for bits on a
+-- Takes a MetaQASM program that applies an operation for bits on a
 -- qubit and checks that an error is generated noting this
 -- inconsistency
 prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()

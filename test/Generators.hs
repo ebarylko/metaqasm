@@ -321,7 +321,9 @@ type MetaQasmProgramFormatter a = Format MetaQasmProgram (a -> MetaQasmProgram)
 -- Takes two formatters and returns a formatter that measures the value
 -- produced by the first formatter and stores the result in the value
 -- produced by the second formatter.
-formatMeasurement :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a 
+-- Ex: if the first formatter produces "x" and the second produces "y",
+-- what is generated is "measure x -> y"
+formatMeasurement :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
 
 formatMeasurement f g = "measure"  %+ f %+ "-> " <> g
 
@@ -353,9 +355,9 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
 -- be invalid
 type InvalidProgram = (MetaQasmProgram, Expression)
 
--- Given a formatter that generates MetaQASM program that
+-- Given a formatter that generates MetaQASM programs that
 -- are invalid due to a misplaced bit/qubit, generates pairs
--- of invalid programs and the subexpression responsible for
+-- of invalid programs and the bit/qubit responsible for
 -- making the program fail
 genInvalidProgram :: RegAccessFormatter -> Gen InvalidProgram
 

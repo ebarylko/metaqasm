@@ -19,7 +19,8 @@ module Generators(outOfScopeRegColl,
                  InvalidProgram,
                  programThatTreatsRegCollsAsGates,
                  InvalidRegCollApp(..),
-                 programThatMeasuresABit)
+                 programThatMeasuresABit,
+                 programThatStoresQubitMeasurementInAQubit)
   where
 
 import Test.QuickCheck
@@ -33,7 +34,8 @@ import Syntax(Identifier,
               RegisterType(..),
               NonNeg(..))
 import Lexer(LineNumber(..))
-import Control.Arrow((&&&), (>>>))
+import Control.Arrow((&&&),
+                     (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<), (>*<))
 import Data.Function((&), on)
 import Typecheck(TypeEvaluationError(..))
@@ -313,7 +315,17 @@ qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec)
 classicRegCollDecl :: RegAccessFormatter
 classicRegCollDecl = regCollDecl "creg"
 
+-- This data type represents any formatter that can generate a MetaQASM program
+type MetaQasmProgramFormatter a = Format MetaQasmProgram (a -> MetaQasmProgram)
 
+-- Takes two formatters and returns a formatter that measures the value
+-- produced by the first formatter and stores the result in the value
+-- produced by the second formatter.
+-- Ex: if the first formatter produces "x" and the second produces "y",
+-- what is generated is "measure x -> y"
+formatMeasurement :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
+
+formatMeasurement f g = "measure"  %+ f %+ "-> " <> g
 
 -- Generates programs where a qubit is measured and
 -- the measurement is stored in a bit
@@ -324,7 +336,7 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
     toQubitMeasurement :: QubitMeasurementSpec -> MetaQasmProgram
 
     toQubitMeasurement = formatToString $ scopedDecl (accessed classicRegCollInfo classicRegCollDecl) $ scopedDecl (accessed quantumRegCollInfo quantumRegCollDecl) measureQubit
-    measureQubit = "measure" %+ accessed quantumRegCollInfo regCollAccess <> " ->" %+ accessed classicRegCollInfo regCollAccess
+    measureQubit = formatMeasurement (accessed quantumRegCollInfo regCollAccess) (accessed classicRegCollInfo regCollAccess)
 
 -- Takes a specification for a valid register access
 -- and generates a MetaQASM term corresponding to
@@ -343,11 +355,19 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
 -- be invalid
 type InvalidProgram = (MetaQasmProgram, Expression)
 
+-- Given a formatter that generates MetaQASM programs that
+-- are invalid due to a misplaced bit/qubit, generates pairs
+-- of invalid programs and the bit/qubit responsible for
+-- making the program fail
+genInvalidProgram :: RegAccessFormatter -> Gen InvalidProgram
+
+genInvalidProgram invalidProgFmtter = (&&&) (formatToString invalidProgFmtter) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
+
 -- Generates pairs of invalid programs that apply a single
 -- qubit unitary to a bit and the misplaced bit
 programThatAppliesSingleQbitUnitaryToBit :: Gen InvalidProgram
 
-programThatAppliesSingleQbitUnitaryToBit  = (&&&) (formatToString invalidGateApp) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
+programThatAppliesSingleQbitUnitaryToBit  = genInvalidProgram invalidGateApp
   where
     invalidGateApp = scopedDecl classicRegCollDecl hadamardApp
 
@@ -392,8 +412,17 @@ programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString inv
 -- Generates an erroneous program that
 -- measures a bit instead of a qubit
 programThatMeasuresABit :: Gen InvalidProgram
-programThatMeasuresABit = (&&&) (formatToString invalidMeasurement) toRegAccessOnLine1 <$> genValidRegCollAccessSpec
+
+programThatMeasuresABit = genInvalidProgram invalidMeasurement
   where
     invalidMeasurement = scopedDecl classicRegCollDecl measureBit
-    measureBit = "measure" %+ regCollAccess %+ "-> " <> regCollAccess
+    measureBit = formatMeasurement regCollAccess regCollAccess
 
+-- Generates MetaQASM programs that store the result of
+-- measuring a qubit inside of another qubit
+programThatStoresQubitMeasurementInAQubit :: Gen InvalidProgram
+
+programThatStoresQubitMeasurementInAQubit = genInvalidProgram invalidMeasurement
+  where
+    invalidMeasurement = scopedDecl quantumRegCollDecl storeMeasurementInQbit
+    storeMeasurementInQbit = formatMeasurement regCollAccess regCollAccess

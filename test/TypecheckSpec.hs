@@ -41,7 +41,8 @@ import Generators(outOfScopeRegColl,
                  InvalidProgram,
                  programThatTreatsRegCollsAsGates,
                  InvalidRegCollApp(..),
-                 programThatMeasuresABit)
+                 programThatMeasuresABit,
+                 programThatStoresQubitMeasurementInAQubit)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -181,6 +182,18 @@ prop_cannotSubstituteBitForQubit (prog, misplacedBit) =
     expectedType = Qbit
     actualType = Bit
 
+-- Takes a MetaQASM program that applies an operation for bits on a
+-- qubit and checks that an error is generated noting this
+-- inconsistency
+prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()
+prop_cannotSubstituteQubitForBit (prog, misplacedQbit) =
+  calcTypeOf prog `shouldBe` typeMismatchErr
+  where
+    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedQbit) (LineNumber 1)
+    expectedType = Bit
+    actualType = Qbit
+
+
 spec :: Spec
 spec =  do
   describe "Accessing elements from a collection of registers that is out of scope" $ do
@@ -242,3 +255,7 @@ spec =  do
   describe "Trying to measure a bit" $ do
     prop "Is invalid and results in an error noting that a qubit should have been used instead" $ do
       forAll programThatMeasuresABit prop_cannotSubstituteBitForQubit
+
+  describe "Trying to store a qubit measurement inside another qubit" $ do
+    prop "Is invalid and results in an error noting that measurements can only be stored in a bit" $ do
+      forAll programThatStoresQubitMeasurementInAQubit prop_cannotSubstituteQubitForBit

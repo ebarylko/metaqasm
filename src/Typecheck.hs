@@ -182,8 +182,11 @@ verifyCommand m (DeclRegCollIn collType regCollName numOfRegs@(WithContext num l
 verifyCommand m (MeasureQubit toMeasure toStoreIn) =
   verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
-    verifyMeasuredQubit = verifyExpr m toMeasure & eitherFromPred (== Qbit) (genMismatchErr Qbit toMeasure)
-    verifyStoredBit = verifyExpr m toStoreIn & eitherFromPred (== Bit) (error "Handle the case where the expression to store the measured value in is not a bit")
+    verifyMeasurementComponent :: Expression -> TermType -> TypeCalculationResult
+    verifyMeasurementComponent measurementComponent expectedComponentType = verifyExpr m measurementComponent & eitherFromPred (== expectedComponentType) (genMismatchErr expectedComponentType measurementComponent)
+
+    verifyMeasuredQubit = verifyMeasurementComponent toMeasure Qbit
+    verifyStoredBit = verifyMeasurementComponent toStoreIn Bit
     genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
     genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
 

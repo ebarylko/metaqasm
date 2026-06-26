@@ -477,12 +477,13 @@ singleParamGateApp gateNameFormatter gateArgFormatter = gateNameFormatter <> par
 -- and a bit and stores the qubit measurement in the bit
 scopedGateThatPerformsMeasurement :: Gen MetaQasmProgram
 
-scopedGateThatPerformsMeasurement = formatToString scopedBody <$> gateThatMeasuresQubitInfo
+scopedGateThatPerformsMeasurement = formatToString scopedGate <$> gateThatMeasuresQubitInfo
   where
     gateDecl' = gateDecl (qubitAnnotation' %. fstParam) (bitAnnotation' %. sndParam) (hadamardApp' fstParam)
-    scopedBody = scopedDecl  qregCollDecl $ scopedDecl cregCollDecl  $ scopedDecl (accessed _gateInfo gateDecl') gateApp
+    scopedGate = scopedDecl  qregCollDecl $ scopedDecl cregCollDecl  $ scopedDecl (accessed _gateInfo gateDecl') gateApp
     qregCollDecl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl
     cregCollDecl = accessed (classicRegCollInfo . _measurementComponents) classicRegCollDecl
-    --gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) (accessed _gateInfo fstParam)  (accessed _gateInfo sndParam)
-    gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) (accessed (quantumRegCollInfo . _measurementComponents) regCollAccess) (accessed (classicRegCollInfo . _measurementComponents) regCollAccess)
+    gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) qubit bit
+    qubit = accessed (quantumRegCollInfo . _measurementComponents) regCollAccess
+    bit = accessed (classicRegCollInfo . _measurementComponents) regCollAccess
 

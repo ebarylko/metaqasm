@@ -101,13 +101,23 @@ spec = do
         "t(varName)" `shouldParseToCommand` (gateOnLine1 "t" ) [var "varName"]
         "cx(var1, var2)" `shouldParseToCommand` (gateOnLine1 "cx") [var "var1", var "var2"]
 
-    describe "Parsing gate declarations" $
-      it "Generates a term representing the declaration and its application" $ do
-        let expectedGateArgs = [GateArg "x" Qbit, GateArg "y" Qbit]
-        let cnot = onLine1 "cx"
-        let expectedGateBody = App cnot [var "x" , var "y"]
-        let fnName = onLine1 "f"
-        let expectedGateApp = Gate (App fnName [regAccess "c" 0,
-                                                regAccess "c" 1])
-        let expectedInnerExpr = quantumRegCollDecl "c" 2 expectedGateApp
-        "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {qreg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` DeclGateIn "f" expectedGateArgs expectedGateBody expectedInnerExpr
+    describe "Parsing scoped gate declarations" $ do
+      describe "Parsing declarations with qubit arguments" $  do
+        it "Generates a term representing the declaration and its application" $ do
+          let expectedGateArgs = [GateArg "x" Qbit, GateArg "y" Qbit]
+          let cnot = onLine1 "cx"
+          let expectedGateBody = App cnot [var "x" , var "y"]
+          let fnName = onLine1 "f"
+          let expectedGateApp = Gate (App fnName [regAccess "c" 0,
+                                                  regAccess "c" 1])
+          let expectedInnerExpr = quantumRegCollDecl "c" 2 expectedGateApp
+          "gate f(x: Qbit, y: Qbit) {cx(x, y)} in {qreg c[2] in {f(c[0], c[1])}}" `shouldParseToCommand` DeclGateIn "f" expectedGateArgs expectedGateBody expectedInnerExpr
+
+      describe "Parsing declarations with bit arguments" $ do
+        it "Generates a MetaQASM term representing the declaration and subsequent application" $ do
+          let expectedGateArgs = [GateArg "y" Bit]
+          let gateBody = App (onLine1 "h") [var "y"]
+          let gate = onLine1 "f"
+          let gateApp = Gate (App gate [var "a"])
+          "gate f(y: Bit) {h(y)} in {f(a)}" `shouldParseToCommand` DeclGateIn "f" expectedGateArgs gateBody gateApp
+

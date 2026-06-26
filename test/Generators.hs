@@ -259,15 +259,7 @@ nonShadowingRegCollAccess = twoQubitGateDeclInfo >*< genValidRegCollAccessSpec `
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
 toGateDecl :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram)
---toGateDecl = "gate" %+ gateName <> parenthesised gateArgs <> " " % braced ("cx" % parenthesised cnotArgs)
 toGateDecl = gateDecl (qubitAnnotation' %. fstParam) (qubitAnnotation' %. sndParam) (twoParamGateApp (fconst "cx") fstParam sndParam)
---  where
---    gateName = accessed _gateName string
---    fstArg = accessed _fstQubit string
---    sndArg = accessed _sndQubit string
---    gateArgs = qubitAnnotation fstArg % ", " <>  qubitAnnotation sndArg
---    cnotArgs = fstArg % ", " <> sndArg
---    qubitAnnotation =  (%+ ": Qbit")
 
 -- Takes a formatter for a gate declaration and a formatter for a gate application and
 -- generates a formatter that combines the declaration and application of the gate

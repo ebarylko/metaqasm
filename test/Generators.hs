@@ -241,12 +241,12 @@ twoQubitGateDeclInfo = replicateM 3 outOfScopeVarName `suchThat` allNamesAreUniq
 type TwoQubitGateDeclAndAppInfo = (TwoQubitGateDeclInfo, RegCollAccessSpec)
 
 -- Generates pairs of gate declaration and register collection access specifications such that
--- the accessed register does not use the same name as the declared gate or its parameters
+-- the accessed register collection does not use the same name as the declared gate
 nonShadowingRegCollAccess :: Gen TwoQubitGateDeclAndAppInfo
 nonShadowingRegCollAccess = twoQubitGateDeclInfo >*< genValidRegCollAccessSpec `suchThat` isNotBeingOverShadowedByRegAcc
   where
     isNotBeingOverShadowedByRegAcc  :: (TwoQubitGateDeclInfo, RegCollAccessSpec) -> Bool
-    isNotBeingOverShadowedByRegAcc  (TwoQubitGateDeclInfo gateName fstQubitName sndQubitName, RegCollAccessSpec regCollName _ _) = regCollName `notElem` [gateName, fstQubitName, sndQubitName]
+    isNotBeingOverShadowedByRegAcc  (TwoQubitGateDeclInfo gateName _ _, RegCollAccessSpec regCollName _ _) = regCollName /= gateName
 
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
@@ -426,3 +426,15 @@ programThatStoresQubitMeasurementInAQubit = genInvalidProgram invalidMeasurement
   where
     invalidMeasurement = scopedDecl quantumRegCollDecl storeMeasurementInQbit
     storeMeasurementInQbit = formatMeasurement regCollAccess regCollAccess
+
+---- Generates a declaration for a gate that takes a qubit
+---- and a bit and stores the qubit measurement in the bit
+--gateThatPerformsMeasurement :: Gen MetaQasmProgram
+
+
+
+---- Generates MetaQASM programs which apply a gate that measures
+---- its first parameter and stores it in the second parameter to a qubit and bit. 
+--programThatAppliesGateWhichPerformsMeasurement :: Gen MetaQasmProgram
+--
+--programThatAppliesGateWhichPerformsMeasurement =  undefined 

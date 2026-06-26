@@ -112,6 +112,7 @@ genInvalidRegCollAccessSpec = genRegCollAccessSpec isAccessingInvalidReg
     isAccessingInvalidReg (RegCollAccessSpec _ regCount regIdx) = regIdx >= regCount
 
 
+
 -- This type represents all formatters that generate a MetaQasm program based off
 -- of a specification detailing how to access a register collection
 type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmProgram)
@@ -131,6 +132,9 @@ regCollDecl regCollType = toFormatter regCollType  %+  (accessed _regCollName st
 quantumRegCollDecl :: RegAccessFormatter
 quantumRegCollDecl = regCollDecl "qreg"
 
+-- This data type represents any formatter that can generate a MetaQASM program
+type MetaQasmProgramFormatter a = Format MetaQasmProgram (a -> MetaQasmProgram)
+
 -- Takes a formatter for a declaration and a formatter for an expression
 -- evaluated under that declaration, and combines them into a formatter
 -- that generates:
@@ -138,7 +142,7 @@ quantumRegCollDecl = regCollDecl "qreg"
 -- For example:
 --   qreg q[2] in { h(q[0]) }
 --   gate f(x: Qbit) { h(x) } in { f(q[0]) }
-scopedDecl :: Format MetaQasmProgram (a -> MetaQasmProgram) -> Format MetaQasmProgram (a -> MetaQasmProgram) -> Format MetaQasmProgram (a -> MetaQasmProgram)
+scopedDecl :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 scopedDecl f g = f %+ "in " <> braced g
 
 -- Takes a formatter for a register access specification and generates a formatter
@@ -326,8 +330,6 @@ qubitMeasurementSpec = (genValidRegCollAccessSpec >*< genValidRegCollAccessSpec)
 classicRegCollDecl :: RegAccessFormatter
 classicRegCollDecl = regCollDecl "creg"
 
--- This data type represents any formatter that can generate a MetaQASM program
-type MetaQasmProgramFormatter a = Format MetaQasmProgram (a -> MetaQasmProgram)
 
 -- Takes two formatters and returns a formatter that measures the value
 -- produced by the first formatter and stores the result in the value

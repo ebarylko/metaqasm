@@ -20,7 +20,8 @@ module Generators(outOfScopeRegColl,
                  programThatTreatsRegCollsAsGates,
                  InvalidRegCollApp(..),
                  programThatMeasuresABit,
-                 programThatStoresQubitMeasurementInAQubit)
+                 programThatStoresQubitMeasurementInAQubit,
+                 scopedGateThatPerformsMeasurement)
   where
 
 import Test.QuickCheck
@@ -438,10 +439,10 @@ gateThatMeasuresQubitInfo = uncurry GateThatMeasuresQubitInfo <$> (twoQubitGateD
     gateDoesNotOvershadowRegColls :: (TwoQubitGateDeclInfo, QubitMeasurementSpec) -> Bool
     gateDoesNotOvershadowRegColls (declSpec, measurementInfo) = (_gateName declSpec) /= (_regCollName . quantumRegCollInfo) measurementInfo
 
-qubitAnnotation :: MetaQasmProgramFormatter String
-
-qubitAnnotation = string %+ ": Qbit"
-bitAnnotation = string %+ ": Bit"
+--qubitAnnotation :: MetaQasmProgramFormatter String
+--
+--qubitAnnotation = string %+ ": Qbit"
+--bitAnnotation = string %+ ": Bit"
 
 qubitAnnotation' = later (<> ": Qbit")
 bitAnnotation' = later (<> ": Bit")
@@ -452,7 +453,7 @@ fstParam :: MetaQasmProgramFormatter TwoQubitGateDeclInfo
 
 fstParam = accessed _fstQubit string
 
-sndParam :: MetaQasmProgramFormatter TwoQubitGateDeclInfo
+sndParam :: MetaQasmProgramFormatter  TwoQubitGateDeclInfo
 sndParam = accessed _sndQubit string
 
 -- Takes two formatters for the types of the arguments to the gate, a formatter for the gate body, and
@@ -461,16 +462,24 @@ sndParam = accessed _sndQubit string
 gateDecl :: MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo
 gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  = "gate" %+ (accessed _gateName string) <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter) <> " " % braced gateBodyFormatter
 
+hadamardApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+
+hadamardApp' qubitFormatter = "h" % parenthesised qubitFormatter
+
+twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+
+twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter)
+
 -- Generates a declaration for a gate that takes a qubit
 -- and a bit and stores the qubit measurement in the bit
 scopedGateThatPerformsMeasurement :: Gen MetaQasmProgram
 
-scopedGateThatPerformsMeasurement = undefined <$> gateThatMeasuresQubitInfo
+scopedGateThatPerformsMeasurement = formatToString scopedBody <$> gateThatMeasuresQubitInfo
   where
-    decl = gateDecl (qubitAnnotation' %. fstParam) (bitAnnotation' %. sndParam) (formatMeasurement fstParam sndParam)
+    gateDecl' = gateDecl (qubitAnnotation' %. fstParam) (bitAnnotation' %. sndParam) (hadamardApp' fstParam)
+    scopedBody = scopedDecl  qregCollDecl $ scopedDecl cregCollDecl  $ scopedDecl (accessed _gateInfo gateDecl') gateApp
+    qregCollDecl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl
+    cregCollDecl = accessed (classicRegCollInfo . _measurementComponents) classicRegCollDecl
+    gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) (accessed _gateInfo fstParam)  (accessed _gateInfo sndParam)
+    --gateApp = accessed (_gateName . _gateInfo) string <> parenthesised (accessed _gateInfo fstParam <> "," %+ accessed _gateInfo sndParam)
 
----- Generates MetaQASM programs which apply a gate that measures
----- its first parameter and stores it in the second parameter to a qubit and bit. 
---programThatAppliesGateWhichPerformsMeasurement :: Gen MetaQasmProgram
---
---programThatAppliesGateWhichPerformsMeasurement =  undefined 

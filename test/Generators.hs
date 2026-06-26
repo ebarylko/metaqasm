@@ -151,11 +151,18 @@ toProgWithGateApp = formatToString
 
 toFormatter = now . fromString
 
-singleQubitGateApp :: String -> RegAccessFormatter
-singleQubitGateApp gate = toFormatter gate % parenthesised regCollAccess
+singleQubitGateApp :: String -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+singleQubitGateApp gateName gateArg = toFormatter gateName % parenthesised gateArg
 
-hadamardApp :: RegAccessFormatter
+--singleQubitGateApp :: String -> RegAccessFormatter
+--singleQubitGateApp gate = toFormatter gate % parenthesised regCollAccess
+
+hadamardApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 hadamardApp = singleQubitGateApp "h"
+
+hadamardApp' :: RegAccessFormatter
+hadamardApp' = singleQubitGateApp "h" regCollAccess
+
 
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope
@@ -164,7 +171,7 @@ programWithQubitInScope :: Gen MetaQasmProgram
 programWithQubitInScope =  toProgWithHGateApp <$> genValidRegCollAccessSpec
   where
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithHGateApp =  toProgWithGateApp (appGateToQubits hadamardApp)
+    toProgWithHGateApp =  toProgWithGateApp (appGateToQubits hadamardApp')
 
 -- Generates metaQASM code where an empty
 -- register collection is declared
@@ -172,7 +179,7 @@ programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 
 programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> genInvalidRegCollAccessSpec
   where
-    toProgWithEmptyRegCollDecl = toProgWithGateApp (scopedDecl emptyRegCollDecl hadamardApp) 
+    toProgWithEmptyRegCollDecl = toProgWithGateApp (scopedDecl emptyRegCollDecl hadamardApp') 
     emptyRegCollDecl = "qreg" %+ (accessed _regCollName string) % "[0]"
 
 -- Represents pairs of programs and the errors obtained when
@@ -186,13 +193,13 @@ programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
 programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> MetaQasmProgram
-    toProgWithInvalidAccess = toProgWithGateApp (appGateToQubits hadamardApp)
+    toProgWithInvalidAccess = toProgWithGateApp (appGateToQubits hadamardApp')
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
 
 tGateApp :: RegAccessFormatter
-tGateApp = singleQubitGateApp "t"
+tGateApp = singleQubitGateApp "t" regCollAccess
 
 -- Generates programs containing the application of a t gate to a qubit
 programWithTGateApp :: Gen MetaQasmProgram
@@ -206,7 +213,7 @@ programWithTGateApp = toProgWithTGateApp <$> genValidRegCollAccessSpec
 programWithTDaggerGateApp :: Gen MetaQasmProgram
 
 tDaggerGateApp :: RegAccessFormatter
-tDaggerGateApp = singleQubitGateApp "tdg"
+tDaggerGateApp = singleQubitGateApp "tdg" regCollAccess
 
 programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSpec 
   where
@@ -252,14 +259,15 @@ nonShadowingRegCollAccess = twoQubitGateDeclInfo >*< genValidRegCollAccessSpec `
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
 toGateDecl :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram)
-toGateDecl = "gate" %+ gateName <> parenthesised gateArgs <> " " % braced ("cx" % parenthesised cnotArgs)
-  where
-    gateName = accessed _gateName string
-    fstArg = accessed _fstQubit string
-    sndArg = accessed _sndQubit string
-    gateArgs = qubitAnnotation fstArg % ", " <>  qubitAnnotation sndArg
-    cnotArgs = fstArg % ", " <> sndArg
-    qubitAnnotation =  (%+ ": Qbit")
+--toGateDecl = "gate" %+ gateName <> parenthesised gateArgs <> " " % braced ("cx" % parenthesised cnotArgs)
+toGateDecl = gateDecl (qubitAnnotation' %. fstParam) (qubitAnnotation' %. sndParam) (twoParamGateApp (fconst "cx") fstParam sndParam)
+--  where
+--    gateName = accessed _gateName string
+--    fstArg = accessed _fstQubit string
+--    sndArg = accessed _sndQubit string
+--    gateArgs = qubitAnnotation fstArg % ", " <>  qubitAnnotation sndArg
+--    cnotArgs = fstArg % ", " <> sndArg
+--    qubitAnnotation =  (%+ ": Qbit")
 
 -- Takes a formatter for a gate declaration and a formatter for a gate application and
 -- generates a formatter that combines the declaration and application of the gate
@@ -295,7 +303,7 @@ programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl threeQub
 -- one qubit
 programWithTooFewParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl singleQubitGateApp <$> nonShadowingRegCollAccess
+programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl (flip singleQubitGateApp regCollAccess) <$> nonShadowingRegCollAccess
 
 -- This type represents the information needed to create a MetaQASMProgram
 -- that measures a qubit and stores the measurement in a bit
@@ -370,7 +378,7 @@ programThatAppliesSingleQbitUnitaryToBit :: Gen InvalidProgram
 
 programThatAppliesSingleQbitUnitaryToBit  = genInvalidProgram invalidGateApp
   where
-    invalidGateApp = scopedDecl classicRegCollDecl hadamardApp
+    invalidGateApp = scopedDecl classicRegCollDecl hadamardApp'
 
 -- This data type represents invalid MetaQASM programs
 -- that treat register collections as if they were gates.
@@ -439,15 +447,8 @@ gateThatMeasuresQubitInfo = uncurry GateThatMeasuresQubitInfo <$> (twoQubitGateD
     gateDoesNotOvershadowRegColls :: (TwoQubitGateDeclInfo, QubitMeasurementSpec) -> Bool
     gateDoesNotOvershadowRegColls (declSpec, measurementInfo) = (_gateName declSpec) /= (_regCollName . quantumRegCollInfo) measurementInfo
 
---qubitAnnotation :: MetaQasmProgramFormatter String
---
---qubitAnnotation = string %+ ": Qbit"
---bitAnnotation = string %+ ": Bit"
-
 qubitAnnotation' = later (<> ": Qbit")
 bitAnnotation' = later (<> ": Bit")
-
-
 
 fstParam :: MetaQasmProgramFormatter TwoQubitGateDeclInfo
 
@@ -462,10 +463,6 @@ sndParam = accessed _sndQubit string
 gateDecl :: MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo
 gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  = "gate" %+ (accessed _gateName string) <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter) <> " " % braced gateBodyFormatter
 
-hadamardApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-
-hadamardApp' qubitFormatter = "h" % parenthesised qubitFormatter
-
 twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
 twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter)
@@ -479,7 +476,7 @@ scopedGateThatPerformsMeasurement :: Gen MetaQasmProgram
 
 scopedGateThatPerformsMeasurement = formatToString scopedGate <$> gateThatMeasuresQubitInfo
   where
-    gateDecl' = gateDecl (qubitAnnotation' %. fstParam) (bitAnnotation' %. sndParam) (hadamardApp' fstParam)
+    gateDecl' = gateDecl (qubitAnnotation' %. fstParam) (bitAnnotation' %. sndParam) (hadamardApp fstParam)
     scopedGate = scopedDecl  qregCollDecl $ scopedDecl cregCollDecl  $ scopedDecl (accessed _gateInfo gateDecl') gateApp
     qregCollDecl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl
     cregCollDecl = accessed (classicRegCollInfo . _measurementComponents) classicRegCollDecl

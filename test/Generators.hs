@@ -154,9 +154,6 @@ toFormatter = now . fromString
 singleQubitGateApp :: String -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 singleQubitGateApp gateName gateArg = toFormatter gateName % parenthesised gateArg
 
---singleQubitGateApp :: String -> RegAccessFormatter
---singleQubitGateApp gate = toFormatter gate % parenthesised regCollAccess
-
 hadamardApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 hadamardApp = singleQubitGateApp "h"
 
@@ -220,7 +217,9 @@ programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> genValidRegCollAccessSp
     toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithTDaggerGateApp  = toProgWithGateApp (appGateToQubits tDaggerGateApp)
 
+cnot :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 cnot = twoParamGateApp (fconst "cx")
+
 
 programWithCNotGateApp :: Gen MetaQasmProgram
 programWithCNotGateApp  = formatToString toCnotGateApp <$> genValidRegCollAccessSpec
@@ -266,7 +265,7 @@ sndParam = accessed _sndQubit string
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
 toGateDecl :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram)
-toGateDecl = gateDecl (qubitAnnotation' %. fstParam) (qubitAnnotation' %. sndParam) (twoParamGateApp (fconst "cx") fstParam sndParam)
+toGateDecl = gateDecl (qubitAnnotation' %. fstParam) (qubitAnnotation' %. sndParam) (cnot fstParam sndParam)
 
 -- Takes a formatter for a gate declaration and a formatter for a gate application and
 -- generates a formatter that combines the declaration and application of the gate
@@ -275,6 +274,10 @@ fmtGateDeclAndApp gateDeclFormatter gateAppFormatter = scopedDecl fmtGateDecl  f
   where
     fmtGateDecl = accessed fst gateDeclFormatter
     fmtGateApp =  accessed snd $ appGateToQubits gateAppFormatter
+
+toFormatter' :: String -> Format r (a -> r)
+toFormatter' = fconst . fromString
+
 
 -- Generates a MetaQasm program where a two qubit gate
 -- is declared and then applied to two in-scope qubits
@@ -288,7 +291,7 @@ toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoQubitGateDe
 
 programWithTwoQubitGateDeclAndApp =  toTwoQubitGateDeclAndApp toGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
   where
-    twoQubitGateApp gate = toFormatter gate %  parenthesised (regCollAccess % ", " <> regCollAccess)
+    twoQubitGateApp gate = twoParamGateApp (toFormatter' gate)  regCollAccess regCollAccess
 
 -- Generates programs where a two qubit gate is applied to
 -- three qubits

@@ -470,6 +470,9 @@ twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> M
 
 twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter)
 
+singleParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
+singleParamGateApp gateNameFormatter gateArgFormatter = gateNameFormatter <> parenthesised gateArgFormatter
+
 -- Generates a declaration for a gate that takes a qubit
 -- and a bit and stores the qubit measurement in the bit
 scopedGateThatPerformsMeasurement :: Gen MetaQasmProgram
@@ -480,6 +483,6 @@ scopedGateThatPerformsMeasurement = formatToString scopedBody <$> gateThatMeasur
     scopedBody = scopedDecl  qregCollDecl $ scopedDecl cregCollDecl  $ scopedDecl (accessed _gateInfo gateDecl') gateApp
     qregCollDecl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl
     cregCollDecl = accessed (classicRegCollInfo . _measurementComponents) classicRegCollDecl
-    gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) (accessed _gateInfo fstParam)  (accessed _gateInfo sndParam)
-    --gateApp = accessed (_gateName . _gateInfo) string <> parenthesised (accessed _gateInfo fstParam <> "," %+ accessed _gateInfo sndParam)
+    --gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) (accessed _gateInfo fstParam)  (accessed _gateInfo sndParam)
+    gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) (accessed (quantumRegCollInfo . _measurementComponents) regCollAccess) (accessed (classicRegCollInfo . _measurementComponents) regCollAccess)
 

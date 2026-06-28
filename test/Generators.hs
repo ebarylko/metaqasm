@@ -452,7 +452,7 @@ gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <
 
 twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
-twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter)
+twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> (fconst ",") <%+> sndArgFormatter)
 
 
 -- scopedGateThatAppliesHadamardGateToOneArg

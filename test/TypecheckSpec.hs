@@ -43,7 +43,7 @@ import Generators(outOfScopeRegColl,
                  InvalidRegCollApp(..),
                  programThatMeasuresABit,
                  programThatStoresQubitMeasurementInAQubit,
-                 scopedGateThatPerformsMeasurement)
+                 scopedGateThatAppliesHadamardGateToOneArg)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -263,4 +263,4 @@ spec =  do
 
   describe "Declaring a gate that takes a qubit and a bit and applying it to a qubit and a bit" $ do
     prop "Is valid and has type unit" $ do
-      forAll scopedGateThatPerformsMeasurement prop_canApplyGate
+      forAll scopedGateThatAppliesHadamardGateToOneArg prop_canApplyGate

@@ -21,7 +21,7 @@ module Generators(outOfScopeRegColl,
                  InvalidRegCollApp(..),
                  programThatMeasuresABit,
                  programThatStoresQubitMeasurementInAQubit,
-                 scopedGateThatPerformsMeasurement)
+                 scopedGateThatAppliesHadamardGateToOneArg)
   where
 
 import Test.QuickCheck
@@ -458,9 +458,9 @@ twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameForm
 -- scopedGateThatAppliesHadamardGateToOneArg
 -- Generates a declaration for a gate that takes a qubit
 -- and a bit and applies a hadamard gate to the qubit
-scopedGateThatPerformsMeasurement :: Gen MetaQasmProgram
+scopedGateThatAppliesHadamardGateToOneArg :: Gen MetaQasmProgram
 
-scopedGateThatPerformsMeasurement = formatToString scopedGate <$> gateThatMeasuresQubitInfo
+scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateThatMeasuresQubitInfo
   where
     scopedGate = scopedDecl qregColl $ scopedDecl cregColl $ scopedDecl gate gateApp
     qregColl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl

@@ -454,8 +454,6 @@ twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> M
 
 twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> (fconst ",") <%+> sndArgFormatter)
 
-
--- scopedGateThatAppliesHadamardGateToOneArg
 -- Generates a declaration for a gate that takes a qubit
 -- and a bit and applies a hadamard gate to the qubit
 scopedGateThatAppliesHadamardGateToOneArg :: Gen MetaQasmProgram

@@ -233,14 +233,14 @@ programWithCNotGateApp  = formatToString toCnotGateApp <$> genValidRegCollAccess
     toCnotGateApp = appGateToQubits (cnot regCollAccess regCollAccess)
 
 
--- This data type represents the information known about a two qubit gate declaration, namely the name of the
+-- This data type represents the information known about a two arg gate declaration, namely the name of the
 -- gate and the parameters
-data TwoQubitGateDeclInfo = TwoQubitGateDeclInfo{_gateName :: String, _fstQubit :: String, _sndQubit :: String}
+data TwoArgGateDeclInfo = TwoArgGateDeclInfo{_gateName :: String, _fstArg:: String, _sndArg :: String}
 
-twoQubitGateDeclInfo :: Gen TwoQubitGateDeclInfo
+twoArgGateDeclInfo :: Gen TwoArgGateDeclInfo
 
 -- Generates information for a two qubit gate declaration such that the names of the parameters and gate are unique
-twoQubitGateDeclInfo = replicateM 3 outOfScopeVarName `suchThat` allNamesAreUnique & fmap (\[x, y, z] -> TwoQubitGateDeclInfo x y z)
+twoArgGateDeclInfo = replicateM 3 outOfScopeVarName `suchThat` allNamesAreUnique & fmap (\[x, y, z] -> TwoArgGateDeclInfo x y z)
   where
     allNamesAreUnique :: [String] -> Bool
     allNamesAreUnique = nub >>> length >>> (== 3)
@@ -248,28 +248,28 @@ twoQubitGateDeclInfo = replicateM 3 outOfScopeVarName `suchThat` allNamesAreUniq
 -- This type represents pairs of specifications about gate declarations and
 -- register collection accesses such that the reigster name does not overshadow
 -- the gate name or its parameters
-type TwoQubitGateDeclAndAppInfo = (TwoQubitGateDeclInfo, RegCollAccessSpec)
+type TwoQubitGateDeclAndAppInfo = (TwoArgGateDeclInfo, RegCollAccessSpec)
 
 -- Generates pairs of gate declaration and register collection access specifications such that
 -- the accessed register collection does not use the same name as the declared gate
 nonShadowingRegCollAccess :: Gen TwoQubitGateDeclAndAppInfo
-nonShadowingRegCollAccess = twoQubitGateDeclInfo >*< genValidRegCollAccessSpec `suchThat` isNotBeingOverShadowedByRegAcc
+nonShadowingRegCollAccess = twoArgGateDeclInfo >*< genValidRegCollAccessSpec `suchThat` isNotBeingOverShadowedByRegAcc
   where
-    isNotBeingOverShadowedByRegAcc  :: (TwoQubitGateDeclInfo, RegCollAccessSpec) -> Bool
-    isNotBeingOverShadowedByRegAcc  (TwoQubitGateDeclInfo gateName _ _, RegCollAccessSpec regCollName _ _) = regCollName /= gateName
+    isNotBeingOverShadowedByRegAcc  :: (TwoArgGateDeclInfo, RegCollAccessSpec) -> Bool
+    isNotBeingOverShadowedByRegAcc  (TwoArgGateDeclInfo gateName _ _, RegCollAccessSpec regCollName _ _) = regCollName /= gateName
 
 qubitAnnotation = later (<> ": Qbit")
 bitAnnotation = later (<> ": Bit")
 
-fstParam :: MetaQasmProgramFormatter TwoQubitGateDeclInfo
+fstParam :: MetaQasmProgramFormatter TwoArgGateDeclInfo
 
-fstParam = accessed _fstQubit string
+fstParam = accessed _fstArg string
 
-sndParam :: MetaQasmProgramFormatter  TwoQubitGateDeclInfo
-sndParam = accessed _sndQubit string
+sndParam :: MetaQasmProgramFormatter  TwoArgGateDeclInfo
+sndParam = accessed _sndArg string
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
-toGateDecl :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram)
+toGateDecl :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram)
 toGateDecl = gateDecl (qubitAnnotation %. fstParam) (qubitAnnotation %. sndParam) (cnot fstParam sndParam)
 
 
@@ -280,11 +280,11 @@ programWithTwoQubitGateDeclAndApp :: Gen MetaQasmProgram
 
 -- Takes a formatter for a two qubit gate declaration, a formatter for the application of the gate, the information needed for both formatters,
 -- and generates a MetaQASM program based on the formatters and info that declares a two qubit gate and applies it later
-toTwoQubitGateDeclAndApp :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram) -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+toTwoQubitGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
 
-toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoQubitGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp gateDeclFormatter (gateAppFormatter gateName)) info
+toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoArgGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp gateDeclFormatter (gateAppFormatter gateName)) info
   where
-    fmtGateDeclAndApp :: Format MetaQasmProgram (TwoQubitGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
+    fmtGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
     fmtGateDeclAndApp gateDeclFormatter' gateAppFormatter' = scopedDecl (accessed fst gateDeclFormatter')  (accessed snd $ appGateToQubits gateAppFormatter')
 
 programWithTwoQubitGateDeclAndApp =  toTwoQubitGateDeclAndApp toGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
@@ -435,37 +435,40 @@ programThatStoresQubitMeasurementInAQubit = genInvalidProgram invalidMeasurement
     storeMeasurementInQbit = formatMeasurement regCollAccess regCollAccess
 
 -- This data type represents the information needed to construct a scoped gate that
--- measures a qubit and stores the measurement in a bit
-data GateThatMeasuresQubitInfo = GateThatMeasuresQubitInfo{_gateInfo :: TwoQubitGateDeclInfo, _measurementComponents :: QubitMeasurementSpec}
+-- takes a qubit and bit
+data GateThatTakesQubitAndBit = GateThatTakesQubitAndBit{_gateInfo :: TwoArgGateDeclInfo, _measurementComponents :: QubitMeasurementSpec}
 
-gateThatMeasuresQubitInfo :: Gen GateThatMeasuresQubitInfo
+gateThatMeasuresQubitInfo :: Gen GateThatTakesQubitAndBit
 
-gateThatMeasuresQubitInfo = uncurry GateThatMeasuresQubitInfo <$> (twoQubitGateDeclInfo >*< qubitMeasurementSpec ) `suchThat` gateDoesNotOvershadowRegColls
+gateThatMeasuresQubitInfo = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclInfo >*< qubitMeasurementSpec ) `suchThat` gateDoesNotOvershadowRegColls
   where
-    gateDoesNotOvershadowRegColls :: (TwoQubitGateDeclInfo, QubitMeasurementSpec) -> Bool
+    gateDoesNotOvershadowRegColls :: (TwoArgGateDeclInfo, QubitMeasurementSpec) -> Bool
     gateDoesNotOvershadowRegColls (declSpec, measurementInfo) = (_gateName declSpec) /= (_regCollName . quantumRegCollInfo) measurementInfo
 
 
 -- Takes two formatters for the types of the arguments to the gate, a formatter for the gate body, and
 -- returns a formatter that generates a two qubit gate declaration with the argument types dictated by
 -- the first formatter and the body by the other
-gateDecl :: MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo -> MetaQasmProgramFormatter TwoQubitGateDeclInfo
+gateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo
 gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  = "gate" %+ (accessed _gateName string) <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter) <> " " % braced gateBodyFormatter
 
 twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
 twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter)
 
+
+-- scopedGateThatAppliesHadamardGateToOneArg
 -- Generates a declaration for a gate that takes a qubit
--- and a bit and stores the qubit measurement in the bit
+-- and a bit and applies a hadamard gate to the qubit
 scopedGateThatPerformsMeasurement :: Gen MetaQasmProgram
 
 scopedGateThatPerformsMeasurement = formatToString scopedGate <$> gateThatMeasuresQubitInfo
   where
+    scopedGate = scopedDecl  qregColl $ scopedDecl cregColl $ scopedDecl gate gateApp
+    qregColl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl
+    cregColl = accessed (classicRegCollInfo . _measurementComponents) classicRegCollDecl
+    gate = accessed _gateInfo gateDecl'
     gateDecl' = gateDecl (qubitAnnotation %. fstParam) (bitAnnotation %. sndParam) (hadamardApp fstParam)
-    scopedGate = scopedDecl  qregCollDecl $ scopedDecl cregCollDecl  $ scopedDecl (accessed _gateInfo gateDecl') gateApp
-    qregCollDecl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl
-    cregCollDecl = accessed (classicRegCollInfo . _measurementComponents) classicRegCollDecl
     gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) qubit bit
     qubit = accessed (quantumRegCollInfo . _measurementComponents) regCollAccess
     bit = accessed (classicRegCollInfo . _measurementComponents) regCollAccess

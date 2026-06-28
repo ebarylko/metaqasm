@@ -32,6 +32,7 @@ tokens :-
   \:                                                       {ignoreInputAndReturn Colon}
   \,                                                       {ignoreInputAndReturn Comma}
   Qbit                                                     {genToken TypeAnnotation (const "Qbit") }
+  Bit                                                     {genToken TypeAnnotation (const "Bit") }
   [a-z]($digit|$alpha)*                                     { lexId }
   [1-9]$digit*|0                                            { lexNat }
 

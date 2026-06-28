@@ -78,6 +78,7 @@ toVar (Id varName lineNum) = WithContext varName lineNum
 -- to the corresponding MetaQASM type
 toTermType :: Token -> TermType
 toTermType (TypeAnnotation "Qbit" _) = Qbit
+toTermType (TypeAnnotation "Bit" _) = Bit
 
 toIdx :: Token -> Idx
 toIdx (Nat num lineNum) = WithContext (NonNeg num) lineNum

@@ -42,7 +42,8 @@ import Generators(outOfScopeRegColl,
                  programThatTreatsRegCollsAsGates,
                  InvalidRegCollApp(..),
                  programThatMeasuresABit,
-                 programThatStoresQubitMeasurementInAQubit)
+                 programThatStoresQubitMeasurementInAQubit,
+                 scopedGateThatAppliesHadamardGateToOneArg)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -259,3 +260,7 @@ spec =  do
   describe "Trying to store a qubit measurement inside another qubit" $ do
     prop "Is invalid and results in an error noting that measurements can only be stored in a bit" $ do
       forAll programThatStoresQubitMeasurementInAQubit prop_cannotSubstituteQubitForBit
+
+  describe "Declaring a gate that takes a qubit and a bit and applying it to a qubit and a bit" $ do
+    prop "Is valid and has type unit" $ do
+      forAll scopedGateThatAppliesHadamardGateToOneArg prop_canApplyGate

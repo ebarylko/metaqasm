@@ -269,10 +269,8 @@ sndParam :: MetaQasmProgramFormatter  TwoArgGateDeclInfo
 sndParam = accessed _sndArg string
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
-toGateDecl :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram)
-toGateDecl = gateDecl (qubitAnnotation %. fstParam) (qubitAnnotation %. sndParam) (cnot fstParam sndParam)
-
-
+twoQubitGateDecl :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram)
+twoQubitGateDecl = gateDecl (qubitAnnotation %. fstParam) (qubitAnnotation %. sndParam) (cnot fstParam sndParam)
 
 -- Generates a MetaQasm program where a two qubit gate
 -- is declared and then applied to two in-scope qubits
@@ -287,7 +285,7 @@ toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoArgGateDecl
     fmtGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
     fmtGateDeclAndApp gateDeclFormatter' gateAppFormatter' = scopedDecl (accessed fst gateDeclFormatter')  (accessed snd $ appGateToQubits gateAppFormatter')
 
-programWithTwoQubitGateDeclAndApp =  toTwoQubitGateDeclAndApp toGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
+programWithTwoQubitGateDeclAndApp =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
   where
     twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
 
@@ -295,7 +293,7 @@ programWithTwoQubitGateDeclAndApp =  toTwoQubitGateDeclAndApp toGateDecl twoQubi
 -- three qubits
 programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
+programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
   where
     threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess % ", " <> regCollAccess % ", " <> regCollAccess)
 
@@ -303,7 +301,7 @@ programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl threeQub
 -- one qubit
 programWithTooFewParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp toGateDecl (flip singleQubitGateApp regCollAccess) <$> nonShadowingRegCollAccess
+programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl (flip singleQubitGateApp regCollAccess) <$> nonShadowingRegCollAccess
 
 -- This type represents the information needed to create a MetaQASMProgram
 -- that measures a qubit and stores the measurement in a bit
@@ -464,7 +462,7 @@ scopedGateThatPerformsMeasurement :: Gen MetaQasmProgram
 
 scopedGateThatPerformsMeasurement = formatToString scopedGate <$> gateThatMeasuresQubitInfo
   where
-    scopedGate = scopedDecl  qregColl $ scopedDecl cregColl $ scopedDecl gate gateApp
+    scopedGate = scopedDecl qregColl $ scopedDecl cregColl $ scopedDecl gate gateApp
     qregColl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl
     cregColl = accessed (classicRegCollInfo . _measurementComponents) classicRegCollDecl
     gate = accessed _gateInfo gateDecl'

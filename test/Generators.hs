@@ -436,9 +436,9 @@ programThatStoresQubitMeasurementInAQubit = genInvalidProgram invalidMeasurement
 -- takes a qubit and bit
 data GateThatTakesQubitAndBit = GateThatTakesQubitAndBit{_gateInfo :: TwoArgGateDeclInfo, _measurementComponents :: QubitMeasurementSpec}
 
-gateThatMeasuresQubitInfo :: Gen GateThatTakesQubitAndBit
+gateThatTakesQubitAndBit :: Gen GateThatTakesQubitAndBit
 
-gateThatMeasuresQubitInfo = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclInfo >*< qubitMeasurementSpec ) `suchThat` gateDoesNotOvershadowRegColls
+gateThatTakesQubitAndBit = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclInfo >*< qubitMeasurementSpec ) `suchThat` gateDoesNotOvershadowRegColls
   where
     gateDoesNotOvershadowRegColls :: (TwoArgGateDeclInfo, QubitMeasurementSpec) -> Bool
     gateDoesNotOvershadowRegColls (declSpec, measurementInfo) = (_gateName declSpec) /= (_regCollName . quantumRegCollInfo) measurementInfo
@@ -448,7 +448,7 @@ gateThatMeasuresQubitInfo = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDecl
 -- returns a formatter that generates a two qubit gate declaration with the argument types dictated by
 -- the first formatter and the body by the other
 gateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo
-gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  = "gate" %+ (accessed _gateName string) <> parenthesised (fstArgFormatter <> "," %+ sndArgFormatter) <> " " % braced gateBodyFormatter
+gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter <> (fconst ",") <%+> sndArgFormatter) <%+> braced gateBodyFormatter
 
 twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
@@ -460,14 +460,16 @@ twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameForm
 -- and a bit and applies a hadamard gate to the qubit
 scopedGateThatAppliesHadamardGateToOneArg :: Gen MetaQasmProgram
 
-scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateThatMeasuresQubitInfo
+scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateThatTakesQubitAndBit
   where
     scopedGate = scopedDecl qregColl $ scopedDecl cregColl $ scopedDecl gate gateApp
-    qregColl = accessed (quantumRegCollInfo . _measurementComponents) quantumRegCollDecl
-    cregColl = accessed (classicRegCollInfo . _measurementComponents) classicRegCollDecl
+    qregColl = accessed quantumMeasurementComponent quantumRegCollDecl
+    cregColl = accessed classicalMeasurementComponent classicRegCollDecl
     gate = accessed _gateInfo gateDecl'
     gateDecl' = gateDecl (qubitAnnotation %. fstParam) (bitAnnotation %. sndParam) (hadamardApp fstParam)
     gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) qubit bit
-    qubit = accessed (quantumRegCollInfo . _measurementComponents) regCollAccess
-    bit = accessed (classicRegCollInfo . _measurementComponents) regCollAccess
+    qubit = accessed quantumMeasurementComponent regCollAccess
+    bit = accessed classicalMeasurementComponent regCollAccess
+    quantumMeasurementComponent = quantumRegCollInfo . _measurementComponents
+    classicalMeasurementComponent = classicRegCollInfo . _measurementComponents
 

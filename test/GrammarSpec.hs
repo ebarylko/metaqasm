@@ -113,3 +113,9 @@ spec = do
     describe "Parsing non-scoped register collection declarations" $ do
       it "Generates a term representing the declaration" $ do
         "creg x[1]" `shouldParseToCommand` DeclRegColl Classical "x" (index 1)
+
+    describe "Parsing sequences of commands" $ do
+      it "Generates a new command where the command on the left is executed before that on the right" $ do
+        let fstRegCollDecl = DeclRegColl Classical "x" (index 1)
+        let sndRegCollDecl = DeclRegColl Classical "y" (index 1)
+        "creg x[1] ; creg y[1]" `shouldParseToCommand` Sequence fstRegCollDecl sndRegCollDecl

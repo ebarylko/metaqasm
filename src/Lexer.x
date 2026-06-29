@@ -30,6 +30,7 @@ tokens :-
   measure                                              {ignoreInputAndReturn QubitMeasurement}
   "->"                                                   {ignoreInputAndReturn RightArrow}
   \:                                                       {ignoreInputAndReturn Colon}
+  \;                                                       {ignoreInputAndReturn Semicolon}
   \,                                                       {ignoreInputAndReturn Comma}
   Qbit                                                     {genToken TypeAnnotation (const "Qbit") }
   Bit                                                     {genToken TypeAnnotation (const "Bit") }
@@ -55,6 +56,7 @@ data Token = LBracket LineNumber
   | Comma
   | GateDec
   | Colon
+  | Semicolon
   | TypeAnnotation String LineNumber
   | QubitMeasurement
   | RightArrow

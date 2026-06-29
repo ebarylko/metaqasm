@@ -58,5 +58,5 @@ data Command = Gate GateApp -- Apply a gate to one or more qubits
   | ScopedRegCollDecl {collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command} -- Declare a register collection and use it in a later expression
   | RegCollDecl {collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum}
   | Sequence Command Command -- Evaluates the second command under the context obtained from evaluating the first
-  | MeasureQubit{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
+  | QubitMeasurement{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
    deriving (Show, Eq)

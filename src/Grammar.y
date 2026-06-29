@@ -41,7 +41,7 @@ gate    {GateDec}
 annotation     {TypeAnnotation typ lineNum}
 id      { Id name lineNum}
 nat     { Nat num lineNum}
-measure  {QubitMeasurement}
+measure  {Measurement}
 "->"      {RightArrow}
 
 %%
@@ -54,7 +54,7 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl Quantum (ext
 | creg id '[' nat ']' {RegCollDecl Classical (extractName $2) (toNat $4)}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (extractName $2) $4 $7 $11}
-| measure arg "->" arg {MeasureQubit $2 $4}
+| measure arg "->" arg {QubitMeasurement $2 $4}
 | command ';' command {Sequence $1 $3}
 
 gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}

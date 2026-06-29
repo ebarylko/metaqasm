@@ -27,7 +27,7 @@ tokens :-
   creg                                                       {ignoreInputAndReturn Creg}
   in                                                       {ignoreInputAndReturn In}
   gate                                                     {ignoreInputAndReturn GateDec}
-  measure                                              {ignoreInputAndReturn QubitMeasurement}
+  measure                                              {ignoreInputAndReturn Measurement}
   "->"                                                   {ignoreInputAndReturn RightArrow}
   \:                                                       {ignoreInputAndReturn Colon}
   \;                                                       {ignoreInputAndReturn Semicolon}
@@ -58,7 +58,7 @@ data Token = LBracket LineNumber
   | Colon
   | Semicolon
   | TypeAnnotation String LineNumber
-  | QubitMeasurement
+  | Measurement
   | RightArrow
   deriving (Eq,Show)
 

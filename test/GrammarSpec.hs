@@ -86,7 +86,7 @@ spec = do
 
     describe "Parsing qubit measurements" $ do
       it "Generates a term representing the act of measuring a qubit" $ do
-        "measure q -> b" `shouldParseToCommand` MeasureQubit{toMeasure = var "q", toStoreIn = var "b"}
+        "measure q -> b" `shouldParseToCommand` QubitMeasurement{toMeasure = var "q", toStoreIn = var "b"}
 
     describe "Parsing locally scoped register collection declarations" $ do
       it "Generates a term with the context of where the collections and inner expressions were declared" $ do

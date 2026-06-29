@@ -179,7 +179,7 @@ verifyCommand m (ScopedRegCollDecl collType regCollName numOfRegs@(WithContext n
     emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
 
 -- Verifies that a qubit is being measured and stored in a bit
-verifyCommand m (MeasureQubit toMeasure toStoreIn) =
+verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
   verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
     verifyMeasurementComponent :: Expression -> TermType -> TypeCalculationResult

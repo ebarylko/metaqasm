@@ -441,7 +441,7 @@ gateThatTakesQubitAndBit :: Gen GateThatTakesQubitAndBit
 gateThatTakesQubitAndBit = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclInfo >*< qubitMeasurementSpec ) `suchThat` gateDoesNotOvershadowRegColls
   where
     gateDoesNotOvershadowRegColls :: (TwoArgGateDeclInfo, QubitMeasurementSpec) -> Bool
-    gateDoesNotOvershadowRegColls (declSpec, measurementInfo) = (_gateName declSpec) /= (_regCollName . quantumRegCollInfo) measurementInfo
+    gateDoesNotOvershadowRegColls (declSpec, measurementInfo) = (_gateName declSpec) /= (_regCollName . quantumRegCollInfo) measurementInfo && (_gateName declSpec) /= (_regCollName . classicRegCollInfo) measurementInfo
 
 
 -- Takes two formatters for the types of the arguments to the gate, a formatter for the gate body, and

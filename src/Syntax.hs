@@ -56,5 +56,6 @@ data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, 
 data Command = Gate GateApp -- Apply a gate to one or more qubits
   | DeclGateIn {gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command} -- Declare a gate and use it in a later expression
   | DeclRegCollIn {collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command} -- Declare a register collection and use it in a later expression
+  | DeclRegColl {collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum}
   | MeasureQubit{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
    deriving (Show, Eq)

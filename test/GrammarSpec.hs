@@ -110,4 +110,6 @@ spec = do
         let expectedGateApp = Gate (App fnName [var "a", var "b"])
         "gate f(x: Qbit, z: Bit) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` DeclGateIn "f" expectedGateArgs expectedGateBody expectedGateApp
 
-
+    describe "Parsing non-scoped register collection declarations" $ do
+      it "Generates a term representing the declaration" $ do
+        "creg x[1]" `shouldParseToCommand` DeclRegColl Classical "x" (index 1)

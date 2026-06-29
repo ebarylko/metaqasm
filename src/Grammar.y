@@ -50,6 +50,7 @@ term : command {Vary.from $1}  | arg { Vary.from $1 }
 
 command : qreg id '[' nat ']' in '{' command '}' {DeclRegCollIn Quantum (extractName $2) (toNat $4) $8}
 | creg id '[' nat ']' in '{' command '}' {DeclRegCollIn Classical (extractName $2) (toNat $4) $8}
+| creg id '[' nat ']' {DeclRegColl Classical (extractName $2) (toNat $4)}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {DeclGateIn (extractName $2) $4 $7 $11}
 | measure arg "->" arg {MeasureQubit $2 $4}

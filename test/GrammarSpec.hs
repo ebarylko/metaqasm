@@ -67,7 +67,7 @@ shouldParseToExpr :: MetaQasmProgram -> Expression -> Expectation
 shouldParseToExpr text expected = (fmap toExpr . parseText) text `shouldBe` Right expected
 
 regCollDecl :: RegisterType -> String -> Int -> Command -> Command
-regCollDecl collType regCollName regCount innerExpr = DeclRegCollIn{collType, regCollName, numOfRegs = index regCount, innerExpr }
+regCollDecl collType regCollName regCount innerExpr = ScopedRegCollDecl{collType, regCollName, numOfRegs = index regCount, innerExpr }
 
 quantumRegCollDecl = regCollDecl Quantum
 classicalRegCollDecl = regCollDecl Classical
@@ -112,10 +112,10 @@ spec = do
 
     describe "Parsing non-scoped register collection declarations" $ do
       it "Generates a term representing the declaration" $ do
-        "creg x[1]" `shouldParseToCommand` DeclRegColl Classical "x" (index 1)
+        "creg x[1]" `shouldParseToCommand` RegCollDecl Classical "x" (index 1)
 
     describe "Parsing sequences of commands" $ do
       it "Generates a new command where the command on the left is executed before that on the right" $ do
-        let fstRegCollDecl = DeclRegColl Classical "x" (index 1)
-        let sndRegCollDecl = DeclRegColl Classical "y" (index 1)
+        let fstRegCollDecl = RegCollDecl Classical "x" (index 1)
+        let sndRegCollDecl = RegCollDecl Classical "y" (index 1)
         "creg x[1] ; creg y[1]" `shouldParseToCommand` Sequence fstRegCollDecl sndRegCollDecl

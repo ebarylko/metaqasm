@@ -170,7 +170,7 @@ verifyCommand m (ScopedGateDecl{..}) =
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
-verifyCommand m (DeclRegCollIn collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
+verifyCommand m (ScopedRegCollDecl collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where

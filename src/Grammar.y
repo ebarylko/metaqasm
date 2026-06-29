@@ -53,7 +53,7 @@ command : qreg id '[' nat ']' in '{' command '}' {DeclRegCollIn Quantum (extract
 | creg id '[' nat ']' in '{' command '}' {DeclRegCollIn Classical (extractName $2) (toNat $4) $8}
 | creg id '[' nat ']' {DeclRegColl Classical (extractName $2) (toNat $4)}
 | gateApp {Gate $1}
-| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {DeclGateIn (extractName $2) $4 $7 $11}
+| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (extractName $2) $4 $7 $11}
 | measure arg "->" arg {MeasureQubit $2 $4}
 | command ';' command {Sequence $1 $3}
 

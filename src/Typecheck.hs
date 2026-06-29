@@ -156,7 +156,7 @@ verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
 
 -- Verifies that declaring a gate and then applying it is valid
-verifyCommand m (DeclGateIn{..}) =
+verifyCommand m (ScopedGateDecl{..}) =
   verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
   where
     gateCtx = foldr extendCtxWithGateParam m args

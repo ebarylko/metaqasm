@@ -210,7 +210,7 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
 verifyCommand m (Sequence (RegCollDecl collInfo) y) =
   verifyCommand updatedCtx y
   where
-    updatedCtx = addRegCollToCtx collInfo m
+    updatedCtx = addRegCollToCtx collInfo  m
 
 -- Takes the name and kind of a register collection along with the number of registers
 -- and updates the current evaluation context with the type of the collection

@@ -3,7 +3,7 @@
 
 module Generators(freshVariable,
                   outOfScopeExpr,
-                  programWithQubitInScope,
+                  programWithValidHGateApp,
                   MetaQasmProgram,
                   programWithEmptyRegCollDecl,
                  programWithInvalidRegAccess,
@@ -11,7 +11,7 @@ module Generators(freshVariable,
                  programWithTGateApp,
                  programWithTDaggerGateApp,
                  programWithCNotGateApp,
-                 programWithTwoQubitGateDeclAndApp,
+                 scopedTwoQubitGate,
                  programWithTooManyParamsInGateApp,
                  programWithTooFewParamsInGateApp,
                  programThatMeasuresAQubit,
@@ -106,9 +106,9 @@ validRegCollAccess = genRegCollAccessSpec isAccessingValidReg
 -- This generates an instance of an invalid register
 -- access spec where the wanted register is outside of the
 -- bounds of the register collection
-genInvalidRegCollAccessSpec :: Gen RegCollAccessSpec
+invalidRegCollAccess :: Gen RegCollAccessSpec
 
-genInvalidRegCollAccessSpec = genRegCollAccessSpec isAccessingInvalidReg
+invalidRegCollAccess = genRegCollAccessSpec isAccessingInvalidReg
   where
     isAccessingInvalidReg (RegCollAccessSpec _ regCount regIdx) = regIdx >= regCount
 
@@ -167,9 +167,8 @@ hadamardApp' = singleQubitGateApp "h" regCollAccess
 
 -- Generates metaQASM code where a hadamard gate is applied to
 -- a qubit that is in scope
-programWithQubitInScope :: Gen MetaQasmProgram
-
-programWithQubitInScope =  toProgWithHGateApp <$> validRegCollAccess
+programWithValidHGateApp :: Gen MetaQasmProgram
+programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
   where
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
@@ -178,7 +177,7 @@ programWithQubitInScope =  toProgWithHGateApp <$> validRegCollAccess
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 
-programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> genInvalidRegCollAccessSpec
+programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> invalidRegCollAccess
   where
     toProgWithEmptyRegCollDecl = formatToString (scopedDecl emptyRegCollDecl hadamardApp')
     emptyRegCollDecl = "qreg" %+ (accessed _regCollName string) % "[0]"
@@ -191,7 +190,7 @@ type ProgramWithExpectedErr = (MetaQasmProgram, TypeEvaluationError)
 -- and the expected register access error received when running them
 programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
 
-programWithInvalidRegAccess = genInvalidRegCollAccessSpec & fmap ((&&&) toProgWithInvalidAccess toErr)
+programWithInvalidRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithInvalidAccess = formatToString (appGateToQubits hadamardApp')
@@ -275,7 +274,7 @@ twoQubitGateDecl = gateDecl (qubitAnnotation %. fstParam) (qubitAnnotation %. sn
 
 -- Generates a MetaQasm program where a two qubit gate
 -- is declared and then applied to two in-scope qubits
-programWithTwoQubitGateDeclAndApp :: Gen MetaQasmProgram
+scopedTwoQubitGate :: Gen MetaQasmProgram
 
 -- Takes a formatter for a two qubit gate declaration, a formatter for the application of the gate, the information needed for both formatters,
 -- and generates a MetaQASM program based on the formatters and info that declares a two qubit gate and applies it later
@@ -286,7 +285,7 @@ toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoArgGateDecl
     fmtGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
     fmtGateDeclAndApp gateDeclFormatter' gateAppFormatter' = scopedDecl (accessed fst gateDeclFormatter')  (accessed snd $ appGateToQubits gateAppFormatter')
 
-programWithTwoQubitGateDeclAndApp =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
+scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
   where
     twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
 
@@ -475,7 +474,6 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
     classicalMeasurementComponent = classicRegCollInfo . _measurementComponents
 
 
--- nonscopedRegCollDeclWithHGateApp
 -- Generates a program that declares a quantum register collection
 -- before applying a Hadamard gate to one of the qubits in the collection
 nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram

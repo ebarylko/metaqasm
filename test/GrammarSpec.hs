@@ -7,6 +7,7 @@ import Grammar(parseText)
 import Syntax(Expression(..),
            WithContext(..),
            Identifier,
+           RegCollInfo(..),
            GateApp(..),
            NonNeg(..),
            NatNum,
@@ -66,11 +67,18 @@ var = Var . onLine1
 shouldParseToExpr :: MetaQasmProgram -> Expression -> Expectation
 shouldParseToExpr text expected = (fmap toExpr . parseText) text `shouldBe` Right expected
 
-regCollDecl :: RegisterType -> String -> Int -> Command -> Command
-regCollDecl collType regCollName regCount innerExpr = ScopedRegCollDecl{collType, regCollName, numOfRegs = index regCount, innerExpr }
+regCollInfo :: RegisterType -> String -> Int -> RegCollInfo
+regCollInfo collType regCollName regCount = RegCollInfo collType regCollName (index regCount)
 
-quantumRegCollDecl = regCollDecl Quantum
-classicalRegCollDecl = regCollDecl Classical
+regCollDecl :: RegisterType -> String -> Int  -> Command
+
+regCollDecl collType regCollName regCount  =  RegCollDecl $ regCollInfo collType regCollName regCount
+
+scopedRegCollDecl :: RegisterType -> String -> Int -> Command -> Command
+scopedRegCollDecl collType regCollName regCount innerExpr = ScopedRegCollDecl (regCollInfo collType regCollName regCount) innerExpr
+
+scopedQuantumRegCollDecl = scopedRegCollDecl Quantum
+scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 
 spec :: Spec
 
@@ -90,9 +98,9 @@ spec = do
 
     describe "Parsing locally scoped register collection declarations" $ do
       it "Generates a term with the context of where the collections and inner expressions were declared" $ do
-        "creg regColl[1] in {h(x)}" `shouldParseToCommand` classicalRegCollDecl "regColl" 1 (gateOnLine1 "h" [var "x"])
+        "creg regColl[1] in {h(x)}" `shouldParseToCommand` scopedClassicalRegCollDecl "regColl" 1 (gateOnLine1 "h" [var "x"])
 
-        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` quantumRegCollDecl "regColl"  1 (gateOnLine1 "h" [var "x"])
+        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` scopedQuantumRegCollDecl "regColl"  1 (gateOnLine1 "h" [var "x"])
 
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
@@ -112,10 +120,10 @@ spec = do
 
     describe "Parsing non-scoped register collection declarations" $ do
       it "Generates a term representing the declaration" $ do
-        "qreg x[1]" `shouldParseToCommand` RegCollDecl Quantum "x" (index 1)
+        "qreg x[1]" `shouldParseToCommand` regCollDecl Quantum "x" 1
 
     describe "Parsing sequences of commands" $ do
       it "Generates a new command where the command on the left is executed before that on the right" $ do
-        let fstRegCollDecl = RegCollDecl Quantum "x" (index 1)
-        let sndRegCollDecl = RegCollDecl Quantum "y" (index 1)
+        let fstRegCollDecl = regCollDecl Quantum "x" 1
+        let sndRegCollDecl = regCollDecl Quantum "y" 1
         "qreg x[1] ; qreg y[1]" `shouldParseToCommand` Sequence fstRegCollDecl sndRegCollDecl

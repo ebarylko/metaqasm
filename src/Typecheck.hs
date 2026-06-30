@@ -15,13 +15,14 @@ import Syntax(Identifier,
               WithContext(..),
               Id,
               Index,
+              RegCollInfo(..),
               GateArg(..),
               Idx,
               NonNeg(..),
               NatNum,
               GateApp(..),
               RegisterType(..),
-              Command(..))
+              Command(..), RegCollInfo)
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
@@ -171,13 +172,19 @@ verifyCommand m (ScopedGateDecl{..}) =
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
-verifyCommand m (ScopedRegCollDecl collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
+verifyCommand m ScopedRegCollDecl{..}
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where
-    newContext = addRegCollToCtx regCollName collType numOfRegs m
-    isEmptyRegColl = num == NonNeg 0
-    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
+    newContext = addRegCollToCtx coll m
+    isEmptyRegColl = regCount == NonNeg 0
+    regCount = coll & extractData . numOfRegs
+    lineNum = coll & extractCtx . numOfRegs
+    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl (regCollName coll)) lineNum
+    extractData :: WithContext a b -> a
+    extractData (WithContext x _) = x
+    extractCtx :: WithContext a b -> b
+    extractCtx (WithContext _ x) = x
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
@@ -200,16 +207,16 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     extractLineNum (WithContext _ line) = line
 
 
-verifyCommand m (Sequence RegCollDecl{collType, regCollName, numOfRegs} y) =
+verifyCommand m (Sequence (RegCollDecl collInfo) y) =
   verifyCommand updatedCtx y
   where
-    updatedCtx = addRegCollToCtx regCollName collType numOfRegs m
+    updatedCtx = addRegCollToCtx collInfo m
 
 -- Takes the name and kind of a register collection along with the number of registers
 -- and updates the current evaluation context with the type of the collection
-addRegCollToCtx :: Identifier -> RegisterType -> NatNum -> EvaluationContext -> EvaluationContext
+addRegCollToCtx :: RegCollInfo -> EvaluationContext -> EvaluationContext
 
-addRegCollToCtx regCollName regCollType numOfRegs = M.insert regCollName (RegisterGroup regCollType numOfRegs)
+addRegCollToCtx RegCollInfo{..} = M.insert regCollName (RegisterGroup collType numOfRegs)
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

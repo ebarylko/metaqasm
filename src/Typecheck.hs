@@ -164,7 +164,7 @@ verifyCommand m (ScopedGateDecl{..}) =
     gateCtx = foldr extendCtxWithGateParam m args
 
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
-    extendCtxWithGateParam (GateArg{name, argType}) = M.insert name argType
+    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
 
     commandCtx = extendCtxWithCircuit gateName args m
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)

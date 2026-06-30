@@ -158,7 +158,7 @@ type Term = Vary '[Expression, GateApp, Command]
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 
 -- Verifies that applying a gate produces a valid type.
-verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
+verifyCommand m (Gate x@(App{})) = verifyGateApp m x
 
 -- Verifies that declaring a gate and then applying it is valid
 verifyCommand m (ScopedGateDecl{..}) =

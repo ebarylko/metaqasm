@@ -19,7 +19,6 @@ import Syntax(Identifier,
               GateArg(..),
               Idx,
               NonNeg(..),
-              NatNum,
               GateApp(..),
               RegisterType(..),
               Command(..), RegCollInfo)
@@ -172,19 +171,15 @@ verifyCommand m (ScopedGateDecl{..}) =
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
-verifyCommand m ScopedRegCollDecl{..}
+--verifyCommand m ScopedRegCollDecl{..}
+--verifyCommand m (ScopedRegCollDecl coll@RegCollInfo{regCollName, numOfRegs = numOfRegs@(WithContext regCount lineNum)} innerExpr)
+verifyCommand m (ScopedRegCollDecl coll@RegCollInfo{regCollName, numOfRegs = x@(WithContext regCount lineNum)} innerExpr)
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where
     newContext = addRegCollToCtx coll m
     isEmptyRegColl = regCount == NonNeg 0
-    regCount = coll & extractData . numOfRegs
-    lineNum = coll & extractCtx . numOfRegs
-    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl (regCollName coll)) lineNum
-    extractData :: WithContext a b -> a
-    extractData (WithContext x _) = x
-    extractCtx :: WithContext a b -> b
-    extractCtx (WithContext _ x) = x
+    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =

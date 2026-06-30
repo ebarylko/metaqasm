@@ -210,6 +210,7 @@ verifyCommand m (Sequence (RegCollDecl collInfo) y) =
   where
     updatedCtx = addRegCollToCtx collInfo  m
 
+verifyCommand _ (RegCollDecl _) = Right Unit
 
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x

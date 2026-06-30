@@ -18,6 +18,7 @@ import Syntax(Identifier,
               GateArg(..),
               Idx,
               NonNeg(..),
+              NatNum,
               GateApp(..),
               RegisterType(..),
               Command(..))
@@ -174,7 +175,7 @@ verifyCommand m (ScopedRegCollDecl collType regCollName numOfRegs@(WithContext n
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where
-    newContext = M.insert regCollName (RegisterGroup collType numOfRegs) m
+    newContext = addRegCollToCtx regCollName collType numOfRegs m
     isEmptyRegColl = num == NonNeg 0
     emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
 
@@ -198,10 +199,15 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     extractLineNum :: Id -> LineNumber
     extractLineNum (WithContext _ line) = line
 
+
 verifyCommand m (Sequence RegCollDecl{collType, regCollName, numOfRegs} y) =
   verifyCommand updatedCtx y
   where
-    updatedCtx = M.insert regCollName (RegisterGroup collType numOfRegs) m
+    updatedCtx = addRegCollToCtx regCollName collType numOfRegs m
+
+addRegCollToCtx :: Identifier -> RegisterType -> NatNum -> EvaluationContext -> EvaluationContext
+
+addRegCollToCtx  regCollName regCollType numOfRegs = M.insert regCollName (RegisterGroup regCollType numOfRegs)
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

@@ -481,11 +481,14 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
     quantumMeasurementComponent = quantumRegCollInfo . _measurementComponents
     classicalMeasurementComponent = classicRegCollInfo . _measurementComponents
 
+semicolon :: MetaQasmProgramFormatter a
+
+semicolon = fconst ";"
 
 -- Generates a program that declares a quantum register collection
 -- before applying a Hadamard gate a qubit in the collection
 nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram
-nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> fconst ";" <%+> hadamardApp') <$> validRegCollAccess
+nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess
 
 -- Generates a program consisting solely of an
 -- unscoped register collection declaration
@@ -502,4 +505,4 @@ emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAcces
 -- Generates a program that declares an empty quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
-programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl <> fconst ";" <%+> hadamardApp') <$> validRegCollAccess
+programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess

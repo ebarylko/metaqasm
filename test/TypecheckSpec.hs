@@ -173,10 +173,10 @@ prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
 -- in an error noting that the term does not have the expected type
 prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgram -> IO ()
 
-prog_cannotSubstituteAForB expectedType actualType (prog, misplacedTerm) =
+prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
   calcTypeOf prog `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedTerm) (LineNumber 1)
+    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType erroneousTerm) (LineNumber 1)
 
 
 prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()

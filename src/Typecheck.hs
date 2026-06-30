@@ -205,9 +205,11 @@ verifyCommand m (Sequence RegCollDecl{collType, regCollName, numOfRegs} y) =
   where
     updatedCtx = addRegCollToCtx regCollName collType numOfRegs m
 
+-- Takes the name and kind of a register collection along with the number of registers
+-- and updates the current evaluation context with the type of the collection
 addRegCollToCtx :: Identifier -> RegisterType -> NatNum -> EvaluationContext -> EvaluationContext
 
-addRegCollToCtx  regCollName regCollType numOfRegs = M.insert regCollName (RegisterGroup regCollType numOfRegs)
+addRegCollToCtx regCollName regCollType numOfRegs = M.insert regCollName (RegisterGroup regCollType numOfRegs)
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

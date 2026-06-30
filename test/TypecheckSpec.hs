@@ -45,7 +45,8 @@ import Generators(freshVariable,
                  programThatStoresQubitMeasurementInAQubit,
                  scopedGateThatAppliesHadamardGateToOneArg,
                  nonscopedRegCollDeclWithHGateApp,
-                 nonscopedRegCollDecl)
+                 nonscopedRegCollDecl,
+                 emptyUnscopedRegCollDecl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -266,3 +267,7 @@ spec =  do
   describe "Declaring a register collection that does not get used" $ do
     prop "Is valid and has type unit" $ do
       forAll nonscopedRegCollDecl prop_isValidProgram
+
+  describe "Declaring an empty unscoped register collection" $ do
+    prop "Is invalid" $ do
+      forAll emptyUnscopedRegCollDecl prop_cannotDeclareEmptyRegColl

@@ -23,7 +23,8 @@ module Generators(freshVariable,
                  programThatStoresQubitMeasurementInAQubit,
                  scopedGateThatAppliesHadamardGateToOneArg,
                  nonscopedRegCollDeclWithHGateApp,
-                 nonscopedRegCollDecl)
+                 nonscopedRegCollDecl,
+                 emptyUnscopedRegCollDecl)
   where
 
 import Test.QuickCheck
@@ -174,6 +175,10 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
 
+emptyRegCollDecl :: RegAccessFormatter
+
+emptyRegCollDecl = fconst "qreg" <%+> accessed _regCollName string <> fconst "[0]"
+
 -- Generates metaQASM code where an empty
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen MetaQasmProgram
@@ -181,7 +186,6 @@ programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> invalidRegCollAccess
   where
     toProgWithEmptyRegCollDecl = formatToString (scopedDecl emptyRegCollDecl hadamardApp')
-    emptyRegCollDecl = "qreg" %+ (accessed _regCollName string) % "[0]"
 
 -- Represents pairs of programs and the errors obtained when
 -- running them
@@ -488,3 +492,9 @@ nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> fconst 
 nonscopedRegCollDecl :: Gen MetaQasmProgram
 
 nonscopedRegCollDecl = formatToString quantumRegCollDecl <$> validRegCollAccess
+
+-- Generates a program only containing an
+-- empty unscoped register collection declaration
+emptyUnscopedRegCollDecl :: Gen MetaQasmProgram
+
+emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAccess

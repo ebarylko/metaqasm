@@ -446,15 +446,18 @@ gateThatTakesQubitAndBit = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclI
     getClassicalRegCollName = _regCollName . classicRegCollInfo
 
 
+comma :: Format r (a -> r)
+comma = fconst ","
+
 -- Takes two formatters for the types of the arguments to the gate, a formatter for the gate body, and
 -- returns a formatter that generates a two qubit gate declaration with the argument types dictated by
 -- the first formatter and the body by the other
 gateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo
-gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter <> (fconst ",") <%+> sndArgFormatter) <%+> braced gateBodyFormatter
+gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter <> comma <%+> sndArgFormatter) <%+> braced gateBodyFormatter
 
 twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
-twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> (fconst ",") <%+> sndArgFormatter)
+twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> comma <%+> sndArgFormatter)
 
 -- Generates a declaration for a gate that takes a qubit
 -- and a bit and applies a hadamard gate to the qubit

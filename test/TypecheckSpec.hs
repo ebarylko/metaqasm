@@ -28,7 +28,7 @@ import Generators(freshVariable,
                   MetaQasmProgram,
                   programWithValidHGateApp,
                   programWithEmptyRegCollDecl,
-                  programWithInvalidRegAccess,
+                  programWithOutOfBoundsRegAccess,
                   ProgramWithExpectedErr,
                   programWithTGateApp,
                   programWithTDaggerGateApp,
@@ -210,7 +210,7 @@ spec =  do
 
   describe "Accessing a register outside the bounds of a register collection" $ do
     prop "Results in an error noting that this is not permitted" $ do
-      forAll programWithInvalidRegAccess prop_cannotAccessRegOutsideOfRegColl
+      forAll programWithOutOfBoundsRegAccess prop_cannotAccessRegOutsideOfRegColl
 
   describe "Applying a t gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do

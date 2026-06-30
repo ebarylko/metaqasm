@@ -6,7 +6,7 @@ module Generators(freshVariable,
                   programWithValidHGateApp,
                   MetaQasmProgram,
                   programWithEmptyRegCollDecl,
-                 programWithInvalidRegAccess,
+                 programWithOutOfBoundsRegAccess,
                  ProgramWithExpectedErr,
                  programWithTGateApp,
                  programWithTDaggerGateApp,
@@ -193,9 +193,8 @@ type ProgramWithExpectedErr = (MetaQasmProgram, TypeEvaluationError)
 
 -- Generate a pair of programs that access invalid registers
 -- and the expected register access error received when running them
-programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
-
-programWithInvalidRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithInvalidAccess toErr)
+programWithOutOfBoundsRegAccess :: Gen ProgramWithExpectedErr
+programWithOutOfBoundsRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithInvalidAccess = formatToString (appGateToQubits hadamardApp')

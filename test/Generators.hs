@@ -24,7 +24,8 @@ module Generators(freshVariable,
                  scopedGateThatAppliesHadamardGateToOneArg,
                  nonscopedRegCollDeclWithHGateApp,
                  nonscopedRegCollDecl,
-                 emptyUnscopedRegCollDecl)
+                 emptyUnscopedRegCollDecl,
+                 programThatSequencesEmptyRegCollDecl)
   where
 
 import Test.QuickCheck
@@ -482,18 +483,23 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
 
 
 -- Generates a program that declares a quantum register collection
--- before applying a Hadamard gate to one of the qubits in the collection
+-- before applying a Hadamard gate a qubit in the collection
 nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram
 nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> fconst ";" <%+> hadamardApp') <$> validRegCollAccess
 
--- Generates a program consisting solely of a
--- register collection declaration
+-- Generates a program consisting solely of an
+-- unscoped register collection declaration
 nonscopedRegCollDecl :: Gen MetaQasmProgram
 
 nonscopedRegCollDecl = formatToString quantumRegCollDecl <$> validRegCollAccess
 
 -- Generates a program only containing an
--- empty unscoped register collection declaration
+-- unscoped empty register collection declaration
 emptyUnscopedRegCollDecl :: Gen MetaQasmProgram
 
 emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAccess
+
+-- Generates a program that declares an empty quantum register collection
+-- before applying a Hadamard gate to a qubit in the collection
+programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
+programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl <> fconst ";" <%+> hadamardApp') <$> validRegCollAccess

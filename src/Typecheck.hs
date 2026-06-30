@@ -200,10 +200,15 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     getLineNum (Var varName) = extractCtx varName
     getLineNum RegisterAccess{registerName} = extractCtx registerName
 
-verifyCommand m (Sequence (RegCollDecl collInfo) y) =
-  verifyCommand updatedCtx y
+verifyCommand m (Sequence (RegCollDecl collInfo) y)
+  | isEmptyRegColl collInfo = genEmptyRegCollDeclErr collInfo
+  | otherwise = verifyCommand updatedCtx y
   where
     updatedCtx = addRegCollToCtx collInfo  m
+--verifyCommand m (Sequence (RegCollDecl collInfo) y) =
+--  verifyCommand updatedCtx y
+--  where
+--    updatedCtx = addRegCollToCtx collInfo  m
 
 verifyCommand _ (RegCollDecl info)
   | isEmptyRegColl info = genEmptyRegCollDeclErr info

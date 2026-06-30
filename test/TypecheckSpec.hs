@@ -46,7 +46,8 @@ import Generators(freshVariable,
                  scopedGateThatAppliesHadamardGateToOneArg,
                  nonscopedRegCollDeclWithHGateApp,
                  nonscopedRegCollDecl,
-                 emptyUnscopedRegCollDecl)
+                 emptyUnscopedRegCollDecl,
+                 programThatSequencesEmptyRegCollDecl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -271,3 +272,7 @@ spec =  do
   describe "Declaring an empty unscoped register collection" $ do
     prop "Is invalid" $ do
       forAll emptyUnscopedRegCollDecl prop_cannotDeclareEmptyRegColl
+
+  describe "Sequencing an empty register collection declaration with any other command" $ do
+    prop "Is invalid" $ do
+      forAll programThatSequencesEmptyRegCollDecl prop_cannotDeclareEmptyRegColl

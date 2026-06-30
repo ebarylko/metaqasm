@@ -43,7 +43,8 @@ import Generators(outOfScopeRegColl,
                  InvalidRegCollApp(..),
                  programThatMeasuresABit,
                  programThatStoresQubitMeasurementInAQubit,
-                 scopedGateThatAppliesHadamardGateToOneArg)
+                 scopedGateThatAppliesHadamardGateToOneArg,
+                 nonscopedRegCollDeclWithHGateApp)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -264,3 +265,7 @@ spec =  do
   describe "Declaring a gate that takes a qubit and a bit and applying it to a qubit and a bit" $ do
     prop "Is valid and has type unit" $ do
       forAll scopedGateThatAppliesHadamardGateToOneArg prop_canApplyGate
+
+  describe "Sequencing a quantum register collection declaration with a Hadamard gate application to one of its elements" $ do
+    prop "Is valid and has type unit" $ do
+      forAll nonscopedRegCollDeclWithHGateApp prop_canApplyGate

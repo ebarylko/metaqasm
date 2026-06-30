@@ -112,10 +112,10 @@ spec = do
 
     describe "Parsing non-scoped register collection declarations" $ do
       it "Generates a term representing the declaration" $ do
-        "creg x[1]" `shouldParseToCommand` RegCollDecl Classical "x" (index 1)
+        "qreg x[1]" `shouldParseToCommand` RegCollDecl Quantum "x" (index 1)
 
     describe "Parsing sequences of commands" $ do
       it "Generates a new command where the command on the left is executed before that on the right" $ do
-        let fstRegCollDecl = RegCollDecl Classical "x" (index 1)
-        let sndRegCollDecl = RegCollDecl Classical "y" (index 1)
-        "creg x[1] ; creg y[1]" `shouldParseToCommand` Sequence fstRegCollDecl sndRegCollDecl
+        let fstRegCollDecl = RegCollDecl Quantum "x" (index 1)
+        let sndRegCollDecl = RegCollDecl Quantum "y" (index 1)
+        "qreg x[1] ; qreg y[1]" `shouldParseToCommand` Sequence fstRegCollDecl sndRegCollDecl

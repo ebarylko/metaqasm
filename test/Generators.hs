@@ -21,7 +21,8 @@ module Generators(outOfScopeRegColl,
                  InvalidRegCollApp(..),
                  programThatMeasuresABit,
                  programThatStoresQubitMeasurementInAQubit,
-                 scopedGateThatAppliesHadamardGateToOneArg)
+                 scopedGateThatAppliesHadamardGateToOneArg,
+                 nonscopedRegCollDeclWithHGateApp)
   where
 
 import Test.QuickCheck
@@ -472,4 +473,11 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
     bit = accessed classicalMeasurementComponent regCollAccess
     quantumMeasurementComponent = quantumRegCollInfo . _measurementComponents
     classicalMeasurementComponent = classicRegCollInfo . _measurementComponents
+
+
+-- nonscopedRegCollDeclWithHGateApp
+-- Generates a program that declares a quantum register collection
+-- before applying a Hadamard gate to one of the qubits in the collection
+nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram
+nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> fconst ";" <%+> hadamardApp') <$> genValidRegCollAccessSpec
 

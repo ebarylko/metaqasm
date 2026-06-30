@@ -8,6 +8,7 @@ import Syntax(Expression(..),
               Idx,
               Id,
               RegisterType(..),
+              RegCollInfo(..),
               NatNum,
               NonNeg(..),
               GateApp(..),
@@ -34,13 +35,14 @@ creg    {Creg}
 in      {In}
 ','     {Comma}
 ':'     {Colon}
+';'     {Semicolon}
 gate    {GateDec}
 '('     { LParen _}
 ')'     { RParen _ }
 annotation     {TypeAnnotation typ lineNum}
 id      { Id name lineNum}
 nat     { Nat num lineNum}
-measure  {QubitMeasurement}
+measure  {Measurement}
 "->"      {RightArrow}
 
 %%
@@ -48,17 +50,19 @@ measure  {QubitMeasurement}
 term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
 
-command : qreg id '[' nat ']' in '{' command '}' {DeclRegCollIn Quantum (extractName $2) (toNat $4) $8}
-| creg id '[' nat ']' in '{' command '}' {DeclRegCollIn Classical (extractName $2) (toNat $4) $8}
+command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Quantum (extractName $2) (toNat $4)) $8}
+| creg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Classical (extractName $2) (toNat $4)) $8}
+| qreg id '[' nat ']' {RegCollDecl (RegCollInfo Quantum (extractName $2) (toNat $4))}
 | gateApp {Gate $1}
-| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {DeclGateIn (extractName $2) $4 $7 $11}
-| measure arg "->" arg {MeasureQubit $2 $4}
+| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (extractName $2) $4 $7 $11}
+| measure arg "->" arg {QubitMeasurement $2 $4}
+| command ';' command {Sequence $1 $3}
 
 gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}
 gateArgs : gateArg {[$1]}
 | gateArg ',' gateArgs {$1 : $3}
 
-gateApp : id '(' args ')' {App (toVar $1) $3}
+gateApp : id '(' args ')' {GateApp (toVar $1) $3}
 
 args : arg {[$1]} | arg ',' args {$1 : $3}
 

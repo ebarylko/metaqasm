@@ -23,17 +23,17 @@ import Control.Arrow((>>>))
 import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
-import Generators(outOfScopeRegColl,
+import Generators(freshVariable,
                   outOfScopeExpr,
                   MetaQasmProgram,
-                  programWithQubitInScope,
+                  programWithValidHGateApp,
                   programWithEmptyRegCollDecl,
                   programWithInvalidRegAccess,
                   ProgramWithExpectedErr,
                   programWithTGateApp,
                   programWithTDaggerGateApp,
                   programWithCNotGateApp,
-                  programWithTwoQubitGateDeclAndApp,
+                  scopedTwoQubitGate,
                   programWithTooManyParamsInGateApp,
                   programWithTooFewParamsInGateApp,
                   programThatMeasuresAQubit,
@@ -43,7 +43,9 @@ import Generators(outOfScopeRegColl,
                  InvalidRegCollApp(..),
                  programThatMeasuresABit,
                  programThatStoresQubitMeasurementInAQubit,
-                 scopedGateThatAppliesHadamardGateToOneArg)
+                 scopedGateThatAppliesHadamardGateToOneArg,
+                 nonscopedRegCollDeclWithHGateApp,
+                 nonscopedRegCollDecl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -95,7 +97,7 @@ prop_cannotApplyGateToOutOfScopeExpr :: MetaQasmProgram -> IO ()
 prop_cannotApplyGateToOutOfScopeExpr expr =
   calcTypeOf hGateApp `shouldBe` variableNotInScopeErr
   where
-    hGateApp = formatToString ("h(" % string % ")") expr
+    hGateApp = formatToString ("h" % parenthesised string ) expr
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) (LineNumber 1)
     extractVarName = takeWhile (/= '[')
 
@@ -120,11 +122,6 @@ prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
   where
     invalidRegAccessErr = Left $ TypeErr $ WithContext expectedErr (LineNumber 1)
 
--- Takes a MetaQasm program with a gate application to a qubit and confirms
--- it has type unit
-prop_canApplyGate :: MetaQasmProgram -> IO ()
-prop_canApplyGate prog = calcTypeOf prog `shouldBe` Right Unit
-
 genExpectedNumOfArgsErr :: Int -> Int -> ProgramTypeEvaluationResult
 
 -- Takes the expected number of arguments to a gate, the actual number of arguments passed, and
@@ -143,7 +140,6 @@ prop_cannotApplyGateToTooManyQubits prog =
   calcTypeOf prog `shouldBe` tooManyArgsErr
   where
     tooManyArgsErr = genExpectedNumOfArgsErr 2 3
-
 
 -- Checks that a MetaQASM program that applies a two qubit gate
 -- to one qubit is invalid
@@ -171,29 +167,27 @@ prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
   where
     typeMismatchErr = Left $ TypeErr $ WithContext (ExpectedAGate collType regColl) (LineNumber 1)
 
--- Takes a MetaQASM program that applies an operation for qubits on
--- a bit and checks that such a program is invalid and results in an
--- error noting that a qubit should have been used
-prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()
+-- Takes the expected type of a term, the actual type of it, a program that applies
+-- an invalid operation on said term, and checks that running the program results
+-- in an error noting that the term does not have the expected type
+prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgram -> IO ()
 
-prop_cannotSubstituteBitForQubit (prog, misplacedBit) =
+prog_cannotSubstituteAForB expectedType actualType (prog, misplacedTerm) =
   calcTypeOf prog `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedBit) (LineNumber 1)
-    expectedType = Qbit
-    actualType = Bit
+    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedTerm) (LineNumber 1)
+
+
+prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()
+prop_cannotSubstituteBitForQubit = prog_cannotSubstituteAForB Qbit Bit
 
 -- Takes a MetaQASM program that applies an operation for bits on a
 -- qubit and checks that an error is generated noting this
 -- inconsistency
 prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()
-prop_cannotSubstituteQubitForBit (prog, misplacedQbit) =
-  calcTypeOf prog `shouldBe` typeMismatchErr
-  where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedQbit) (LineNumber 1)
-    expectedType = Bit
-    actualType = Qbit
+prop_cannotSubstituteQubitForBit = prog_cannotSubstituteAForB Bit Qbit
 
+outOfScopeRegColl = freshVariable
 
 spec :: Spec
 spec =  do
@@ -207,7 +201,7 @@ spec =  do
 
   describe "Applying a hadamard gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithQubitInScope prop_canApplyGate
+      forAll programWithValidHGateApp prop_isValidProgram
 
   describe "Declaring an empty quantum register collection" $ do
     prop "Results in an error noting that this is not permitted" $ do
@@ -219,19 +213,19 @@ spec =  do
 
   describe "Applying a t gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithTGateApp prop_canApplyGate
+      forAll programWithTGateApp prop_isValidProgram
 
   describe "Applying a t dagger gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithTDaggerGateApp prop_canApplyGate
+      forAll programWithTDaggerGateApp prop_isValidProgram
 
   describe "Applying a controlled-Not gate to two qubits" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithCNotGateApp prop_canApplyGate
+      forAll programWithCNotGateApp prop_isValidProgram
 
   describe "Declaring a two qubit gate and applying it to two qubits" $ do
     prop "Is valid and has type unit" $ do
-      forAll programWithTwoQubitGateDeclAndApp prop_canApplyGate
+      forAll scopedTwoQubitGate prop_isValidProgram
 
   describe "Declaring a two qubit gate and applying it to three qubits" $ do
     prop "Is invalid and generates an error noting this discrepancy" $ do
@@ -263,4 +257,12 @@ spec =  do
 
   describe "Declaring a gate that takes a qubit and a bit and applying it to a qubit and a bit" $ do
     prop "Is valid and has type unit" $ do
-      forAll scopedGateThatAppliesHadamardGateToOneArg prop_canApplyGate
+      forAll scopedGateThatAppliesHadamardGateToOneArg prop_isValidProgram
+
+  describe "Sequencing a quantum register collection declaration with a Hadamard gate application to one of its elements" $ do
+    prop "Is valid and has type unit" $ do
+      forAll nonscopedRegCollDeclWithHGateApp prop_isValidProgram
+
+  describe "Declaring a register collection that does not get used" $ do
+    prop "Is valid and has type unit" $ do
+      forAll nonscopedRegCollDecl prop_isValidProgram

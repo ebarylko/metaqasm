@@ -7,6 +7,7 @@ module Syntax(Expression(..),
           GateApp(..),
           NatNum,
           TermType(..),
+          RegCollInfo(..),
           RegisterType(..),
           NonNeg(..),
           Command(..),
@@ -35,7 +36,7 @@ type Idx = WithContext Index LineNumber
 data Expression = Var Id  | RegisterAccess{registerName:: Id,  registerNumber::Idx} deriving (Show, Eq)
 
 -- This data type represents the application of gates to qubits.
-data GateApp = App{gateId :: Id, gateArgs :: [Expression]} deriving (Show, Eq)
+data GateApp = GateApp{gateId :: Id, gateArgs :: [Expression]} deriving (Show, Eq)
 
 type NatNum = WithContext NonNeg LineNumber
 
@@ -52,9 +53,15 @@ data TermType
 
 data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, Eq)
 
+-- This data type represents the information that characterizes a register collection, being its name,
+-- the kind of elements present, and the number of registers
+data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum} deriving (Eq, Show)
+
 -- This data type represents all possible commands a user can execute.
 data Command = Gate GateApp -- Apply a gate to one or more qubits
-  | DeclGateIn {gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command} -- Declare a gate and use it in a later expression
-  | DeclRegCollIn {collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum, innerExpr :: Command} -- Declare a register collection and use it in a later expression
-  | MeasureQubit{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
+  | ScopedGateDecl {gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command} -- Declare a gate and use it in a later expression
+  | ScopedRegCollDecl {coll :: RegCollInfo, innerExpr :: Command} -- Declare a register collection and use it in a later expression
+  | RegCollDecl RegCollInfo -- Declare a register collection
+  | Sequence Command Command -- Evaluates the second command under the context obtained from evaluating the first
+  | QubitMeasurement{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
    deriving (Show, Eq)

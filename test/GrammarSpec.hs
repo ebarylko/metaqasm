@@ -7,6 +7,7 @@ import Grammar(parseText)
 import Syntax(Expression(..),
            WithContext(..),
            Identifier,
+           RegCollInfo(..),
            GateApp(..),
            NonNeg(..),
            NatNum,
@@ -38,7 +39,7 @@ shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe
 -- Takes the name of a gate, the line it was applied on,the parameters of the gate,
 -- and returns a command that consists solely of the gate applied to the parameters
 toGateWithinCommand :: LineNumber -> String -> [Expression] -> Command
-toGateWithinCommand line gateName'= Gate . App (WithContext gateName' line)
+toGateWithinCommand line gateName'= Gate . GateApp (WithContext gateName' line)
 
 gateOnLine1 = toGateWithinCommand (LineNumber 1)
 
@@ -66,11 +67,18 @@ var = Var . onLine1
 shouldParseToExpr :: MetaQasmProgram -> Expression -> Expectation
 shouldParseToExpr text expected = (fmap toExpr . parseText) text `shouldBe` Right expected
 
-regCollDecl :: RegisterType -> String -> Int -> Command -> Command
-regCollDecl collType regCollName regCount innerExpr = DeclRegCollIn{collType, regCollName, numOfRegs = index regCount, innerExpr }
+regCollInfo :: RegisterType -> String -> Int -> RegCollInfo
+regCollInfo collType regCollName regCount = RegCollInfo collType regCollName (index regCount)
 
-quantumRegCollDecl = regCollDecl Quantum
-classicalRegCollDecl = regCollDecl Classical
+regCollDecl :: RegisterType -> String -> Int  -> Command
+
+regCollDecl collType regCollName regCount  =  RegCollDecl $ regCollInfo collType regCollName regCount
+
+scopedRegCollDecl :: RegisterType -> String -> Int -> Command -> Command
+scopedRegCollDecl collType regCollName regCount innerExpr = ScopedRegCollDecl (regCollInfo collType regCollName regCount) innerExpr
+
+scopedQuantumRegCollDecl = scopedRegCollDecl Quantum
+scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 
 spec :: Spec
 
@@ -86,13 +94,13 @@ spec = do
 
     describe "Parsing qubit measurements" $ do
       it "Generates a term representing the act of measuring a qubit" $ do
-        "measure q -> b" `shouldParseToCommand` MeasureQubit{toMeasure = var "q", toStoreIn = var "b"}
+        "measure q -> b" `shouldParseToCommand` QubitMeasurement{toMeasure = var "q", toStoreIn = var "b"}
 
     describe "Parsing locally scoped register collection declarations" $ do
       it "Generates a term with the context of where the collections and inner expressions were declared" $ do
-        "creg regColl[1] in {h(x)}" `shouldParseToCommand` classicalRegCollDecl "regColl" 1 (gateOnLine1 "h" [var "x"])
+        "creg regColl[1] in {h(x)}" `shouldParseToCommand` scopedClassicalRegCollDecl "regColl" 1 (gateOnLine1 "h" [var "x"])
 
-        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` quantumRegCollDecl "regColl"  1 (gateOnLine1 "h" [var "x"])
+        "qreg regColl[1] in {h(x)}" `shouldParseToCommand` scopedQuantumRegCollDecl "regColl"  1 (gateOnLine1 "h" [var "x"])
 
     describe "Parsing gate applications" $
       it "Generates a term representing the application" $ do
@@ -105,9 +113,17 @@ spec = do
       it "Generates a term representing the declaration and its application" $ do
         let expectedGateArgs = [GateArg "x" Qbit, GateArg "z" Bit]
         let cnot = onLine1 "cx"
-        let expectedGateBody = App cnot [var "x" , var "z"]
+        let expectedGateBody = GateApp cnot [var "x" , var "z"]
         let fnName = onLine1 "f"
-        let expectedGateApp = Gate (App fnName [var "a", var "b"])
-        "gate f(x: Qbit, z: Bit) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` DeclGateIn "f" expectedGateArgs expectedGateBody expectedGateApp
+        let expectedGateApp = Gate (GateApp fnName [var "a", var "b"])
+        "gate f(x: Qbit, z: Bit) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl "f" expectedGateArgs expectedGateBody expectedGateApp
 
+    describe "Parsing non-scoped register collection declarations" $ do
+      it "Generates a term representing the declaration" $ do
+        "qreg x[1]" `shouldParseToCommand` regCollDecl Quantum "x" 1
 
+    describe "Parsing sequences of commands" $ do
+      it "Generates a new command where the command on the left is executed before that on the right" $ do
+        let fstRegCollDecl = regCollDecl Quantum "x" 1
+        let sndRegCollDecl = regCollDecl Quantum "y" 1
+        "qreg x[1] ; qreg y[1]" `shouldParseToCommand` Sequence fstRegCollDecl sndRegCollDecl

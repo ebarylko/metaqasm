@@ -15,16 +15,17 @@ import Syntax(Identifier,
               WithContext(..),
               Id,
               Index,
+              RegCollInfo(..),
               GateArg(..),
               Idx,
               NonNeg(..),
               GateApp(..),
               RegisterType(..),
-              Command(..))
+              Command(..), RegCollInfo)
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
-import Data.Function ((&))
+import Data.Function ((&), on)
 import Data.Functor(($>))
 import Data.List(findIndex)
 import Data.Maybe(fromJust)
@@ -66,13 +67,16 @@ eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Le
 -- error otherwise
 verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
+extractVal :: WithContext a b -> a
+extractVal (WithContext x _) = x
+
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
   & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg (WithContext regIdx' _) (RegisterGroup _ (WithContext numOfRegs _)) = regIdx' < numOfRegs
+    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractVal) regIdx' numOfRegs
 
     determineRegElemType :: TermType -> TermType
     determineRegElemType (RegisterGroup Quantum _) = Qbit
@@ -126,7 +130,7 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
-verifyGateApp m (App gateName@(WithContext _ line) args) = do
+verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
   expectedTypes <- findGateType gateName m
   actualTypes <- traverse (verifyExpr m) args
   verifyGateArgs line expectedTypes actualTypes args
@@ -143,43 +147,45 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
 -- Takes the current context, an expression, and calculates its type
 -- under the given context
 verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
-verifyExpr m x@(RegisterAccess _ _) = verifyRegAccess m x
+verifyExpr m x@(RegisterAccess{}) = verifyRegAccess m x
 
 verifyExpr m (Var varName) = findTypeWithinScope varName m
 
 
 type Term = Vary '[Expression, GateApp, Command]
 
+
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 
 -- Verifies that applying a gate produces a valid type.
-verifyCommand m (Gate x@(App _ _)) = verifyGateApp m x
+verifyCommand m (Gate x@(GateApp{})) = verifyGateApp m x
 
 -- Verifies that declaring a gate and then applying it is valid
-verifyCommand m (DeclGateIn{..}) =
+verifyCommand m (ScopedGateDecl{..}) =
   verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
   where
     gateCtx = foldr extendCtxWithGateParam m args
 
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
-    extendCtxWithGateParam (GateArg{name, argType}) = M.insert name argType
+    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
 
     commandCtx = extendCtxWithCircuit gateName args m
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType
 
+
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
-verifyCommand m (DeclRegCollIn collType regCollName numOfRegs@(WithContext num lineNum) innerExpr)
+verifyCommand m ScopedRegCollDecl{coll = coll@RegCollInfo{..}, ..}
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where
-    newContext = M.insert regCollName (RegisterGroup collType numOfRegs) m
-    isEmptyRegColl = num == NonNeg 0
-    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
+    newContext = addRegCollToCtx coll m
+    isEmptyRegColl = (extractVal numOfRegs) == NonNeg 0
+    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)
 
 -- Verifies that a qubit is being measured and stored in a bit
-verifyCommand m (MeasureQubit toMeasure toStoreIn) =
+verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
   verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
     verifyMeasurementComponent :: Expression -> TermType -> TypeCalculationResult
@@ -193,12 +199,24 @@ verifyCommand m (MeasureQubit toMeasure toStoreIn) =
     -- Takes an expression and returns the line at where the
     -- expression was found
     getLineNum :: Expression -> LineNumber
-    getLineNum (Var varName) = extractLineNum varName
-    getLineNum RegisterAccess{registerName} = extractLineNum registerName
-    extractLineNum :: Id -> LineNumber
-    extractLineNum (WithContext _ line) = line
+    getLineNum (Var varName) = extractCtx varName
+    getLineNum RegisterAccess{registerName} = extractCtx registerName
 
+verifyCommand m (Sequence (RegCollDecl collInfo) y) =
+  verifyCommand updatedCtx y
+  where
+    updatedCtx = addRegCollToCtx collInfo  m
 
+verifyCommand _ (RegCollDecl _) = Right Unit
+
+extractCtx :: WithContext a b -> b
+extractCtx (WithContext _ x) = x
+
+-- Takes the name and kind of a register collection along with the number of registers
+-- and updates the current evaluation context with the type of the collection
+addRegCollToCtx :: RegCollInfo -> EvaluationContext -> EvaluationContext
+
+addRegCollToCtx RegCollInfo{..} = M.insert regCollName (RegisterGroup collType numOfRegs)
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

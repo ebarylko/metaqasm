@@ -198,7 +198,10 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     extractLineNum :: Id -> LineNumber
     extractLineNum (WithContext _ line) = line
 
-
+verifyCommand m (Sequence RegCollDecl{collType, regCollName, numOfRegs} y) =
+  verifyCommand updatedCtx y
+  where
+    updatedCtx = M.insert regCollName (RegisterGroup collType numOfRegs) m
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

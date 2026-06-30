@@ -200,7 +200,6 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     -- expression was found
     getLineNum :: Expression -> LineNumber
     getLineNum (Var varName) = extractCtx varName
-    --getLineNum (Var varName) = extractLineNum varName
     getLineNum RegisterAccess{registerName} = extractCtx registerName
 
 verifyCommand m (Sequence (RegCollDecl collInfo) y) =

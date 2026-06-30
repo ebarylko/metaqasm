@@ -130,7 +130,7 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
 -- Returns the type of the application if so. Returns an error otherwise.
 verifyGateApp :: EvaluationContext -> GateApp -> TypeCalculationResult
 
-verifyGateApp m (App gateName@(WithContext _ line) args) = do
+verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
   expectedTypes <- findGateType gateName m
   actualTypes <- traverse (verifyExpr m) args
   verifyGateArgs line expectedTypes actualTypes args
@@ -158,7 +158,7 @@ type Term = Vary '[Expression, GateApp, Command]
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 
 -- Verifies that applying a gate produces a valid type.
-verifyCommand m (Gate x@(App{})) = verifyGateApp m x
+verifyCommand m (Gate x@(GateApp{})) = verifyGateApp m x
 
 -- Verifies that declaring a gate and then applying it is valid
 verifyCommand m (ScopedGateDecl{..}) =

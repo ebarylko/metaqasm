@@ -36,7 +36,7 @@ type Idx = WithContext Index LineNumber
 data Expression = Var Id  | RegisterAccess{registerName:: Id,  registerNumber::Idx} deriving (Show, Eq)
 
 -- This data type represents the application of gates to qubits.
-data GateApp = App{gateId :: Id, gateArgs :: [Expression]} deriving (Show, Eq)
+data GateApp = GateApp{gateId :: Id, gateArgs :: [Expression]} deriving (Show, Eq)
 
 type NatNum = WithContext NonNeg LineNumber
 

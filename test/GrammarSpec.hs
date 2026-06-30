@@ -39,7 +39,7 @@ shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe
 -- Takes the name of a gate, the line it was applied on,the parameters of the gate,
 -- and returns a command that consists solely of the gate applied to the parameters
 toGateWithinCommand :: LineNumber -> String -> [Expression] -> Command
-toGateWithinCommand line gateName'= Gate . App (WithContext gateName' line)
+toGateWithinCommand line gateName'= Gate . GateApp (WithContext gateName' line)
 
 gateOnLine1 = toGateWithinCommand (LineNumber 1)
 
@@ -113,9 +113,9 @@ spec = do
       it "Generates a term representing the declaration and its application" $ do
         let expectedGateArgs = [GateArg "x" Qbit, GateArg "z" Bit]
         let cnot = onLine1 "cx"
-        let expectedGateBody = App cnot [var "x" , var "z"]
+        let expectedGateBody = GateApp cnot [var "x" , var "z"]
         let fnName = onLine1 "f"
-        let expectedGateApp = Gate (App fnName [var "a", var "b"])
+        let expectedGateApp = Gate (GateApp fnName [var "a", var "b"])
         "gate f(x: Qbit, z: Bit) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl "f" expectedGateArgs expectedGateBody expectedGateApp
 
     describe "Parsing non-scoped register collection declarations" $ do

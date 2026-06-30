@@ -62,7 +62,7 @@ gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}
 gateArgs : gateArg {[$1]}
 | gateArg ',' gateArgs {$1 : $3}
 
-gateApp : id '(' args ')' {App (toVar $1) $3}
+gateApp : id '(' args ')' {GateApp (toVar $1) $3}
 
 args : arg {[$1]} | arg ',' args {$1 : $3}
 

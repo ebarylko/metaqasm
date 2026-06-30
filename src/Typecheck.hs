@@ -199,11 +199,9 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     -- Takes an expression and returns the line at where the
     -- expression was found
     getLineNum :: Expression -> LineNumber
-    getLineNum (Var varName) = extractLineNum varName
+    getLineNum (Var varName) = extractCtx varName
+    --getLineNum (Var varName) = extractLineNum varName
     getLineNum RegisterAccess{registerName} = extractCtx registerName
-    extractLineNum :: Id -> LineNumber
-    extractLineNum (WithContext _ line) = line
-
 
 verifyCommand m (Sequence (RegCollDecl collInfo) y) =
   verifyCommand updatedCtx y

@@ -25,7 +25,7 @@ import Syntax(Identifier,
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
-import Data.Function ((&))
+import Data.Function ((&), on)
 import Data.Functor(($>))
 import Data.List(findIndex)
 import Data.Maybe(fromJust)
@@ -67,13 +67,16 @@ eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Le
 -- error otherwise
 verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
+extractVal :: WithContext a b -> a
+extractVal (WithContext x _) = x
+
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
   & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg (WithContext regIdx' _) (RegisterGroup _ (WithContext numOfRegs _)) = regIdx' < numOfRegs
+    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractVal) regIdx' numOfRegs
 
     determineRegElemType :: TermType -> TermType
     determineRegElemType (RegisterGroup Quantum _) = Qbit
@@ -144,12 +147,13 @@ verifyGateApp m (App gateName@(WithContext _ line) args) = do
 -- Takes the current context, an expression, and calculates its type
 -- under the given context
 verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
-verifyExpr m x@(RegisterAccess _ _) = verifyRegAccess m x
+verifyExpr m x@(RegisterAccess{}) = verifyRegAccess m x
 
 verifyExpr m (Var varName) = findTypeWithinScope varName m
 
 
 type Term = Vary '[Expression, GateApp, Command]
+
 
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 
@@ -169,17 +173,16 @@ verifyCommand m (ScopedGateDecl{..}) =
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType
 
+
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
---verifyCommand m ScopedRegCollDecl{..}
---verifyCommand m (ScopedRegCollDecl coll@RegCollInfo{regCollName, numOfRegs = numOfRegs@(WithContext regCount lineNum)} innerExpr)
-verifyCommand m (ScopedRegCollDecl coll@RegCollInfo{regCollName, numOfRegs = x@(WithContext regCount lineNum)} innerExpr)
+verifyCommand m ScopedRegCollDecl{coll = coll@RegCollInfo{..}, ..}
   | isEmptyRegColl  = emptyRegCollDeclErr
   | otherwise = verifyCommand newContext innerExpr
   where
     newContext = addRegCollToCtx coll m
-    isEmptyRegColl = regCount == NonNeg 0
-    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) lineNum
+    isEmptyRegColl = (extractVal numOfRegs) == NonNeg 0
+    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
@@ -197,7 +200,7 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     -- expression was found
     getLineNum :: Expression -> LineNumber
     getLineNum (Var varName) = extractLineNum varName
-    getLineNum RegisterAccess{registerName} = extractLineNum registerName
+    getLineNum RegisterAccess{registerName} = extractCtx registerName
     extractLineNum :: Id -> LineNumber
     extractLineNum (WithContext _ line) = line
 
@@ -206,6 +209,10 @@ verifyCommand m (Sequence (RegCollDecl collInfo) y) =
   verifyCommand updatedCtx y
   where
     updatedCtx = addRegCollToCtx collInfo  m
+
+
+extractCtx :: WithContext a b -> b
+extractCtx (WithContext _ x) = x
 
 -- Takes the name and kind of a register collection along with the number of registers
 -- and updates the current evaluation context with the type of the collection

@@ -140,7 +140,6 @@ prop_cannotApplyGateToTooManyQubits prog =
   where
     tooManyArgsErr = genExpectedNumOfArgsErr 2 3
 
-
 -- Checks that a MetaQASM program that applies a two qubit gate
 -- to one qubit is invalid
 prop_cannotApplyGateToTooFewQubits :: MetaQasmProgram -> IO ()
@@ -178,31 +177,14 @@ prog_cannotSubstituteAForB expectedType actualType (prog, misplacedTerm) =
     typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedTerm) (LineNumber 1)
 
 
-
--- Takes a MetaQASM program that applies an operation for qubits on
--- a bit and checks that such a program is invalid and results in an
--- error noting that a qubit should have been used
 prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()
-
 prop_cannotSubstituteBitForQubit = prog_cannotSubstituteAForB Qbit Bit
-
--- prop_cannotSubstituteBitForQubit (prog, misplacedBit) =
---   calcTypeOf prog `shouldBe` typeMismatchErr
---   where
---     typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedBit) (LineNumber 1)
---     expectedType = Qbit
---     actualType = Bit
 
 -- Takes a MetaQASM program that applies an operation for bits on a
 -- qubit and checks that an error is generated noting this
 -- inconsistency
 prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()
-prop_cannotSubstituteQubitForBit (prog, misplacedQbit) =
-  calcTypeOf prog `shouldBe` typeMismatchErr
-  where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedQbit) (LineNumber 1)
-    expectedType = Bit
-    actualType = Qbit
+prop_cannotSubstituteQubitForBit = prog_cannotSubstituteAForB Bit Qbit
 
 outOfScopeRegColl = freshVariable
 

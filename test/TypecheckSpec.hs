@@ -23,7 +23,7 @@ import Control.Arrow((>>>))
 import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
-import Generators(outOfScopeRegColl,
+import Generators(freshVariable,
                   outOfScopeExpr,
                   MetaQasmProgram,
                   programWithQubitInScope,
@@ -195,6 +195,7 @@ prop_cannotSubstituteQubitForBit (prog, misplacedQbit) =
     expectedType = Bit
     actualType = Qbit
 
+outOfScopeRegColl = freshVariable
 
 spec :: Spec
 spec =  do

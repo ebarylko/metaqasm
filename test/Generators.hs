@@ -6,7 +6,7 @@ module Generators(freshVariable,
                   programWithValidHGateApp,
                   MetaQasmProgram,
                   programWithEmptyRegCollDecl,
-                 programWithInvalidRegAccess,
+                 programWithOutOfBoundsRegAccess,
                  ProgramWithExpectedErr,
                  programWithTGateApp,
                  programWithTDaggerGateApp,
@@ -23,7 +23,9 @@ module Generators(freshVariable,
                  programThatStoresQubitMeasurementInAQubit,
                  scopedGateThatAppliesHadamardGateToOneArg,
                  nonscopedRegCollDeclWithHGateApp,
-                 nonscopedRegCollDecl)
+                 nonscopedRegCollDecl,
+                 emptyUnscopedRegCollDecl,
+                 programThatSequencesEmptyRegCollDecl)
   where
 
 import Test.QuickCheck
@@ -174,6 +176,10 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
 
+emptyRegCollDecl :: RegAccessFormatter
+
+emptyRegCollDecl = fconst "qreg" <%+> accessed _regCollName string <> fconst "[0]"
+
 -- Generates metaQASM code where an empty
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen MetaQasmProgram
@@ -181,7 +187,6 @@ programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> invalidRegCollAccess
   where
     toProgWithEmptyRegCollDecl = formatToString (scopedDecl emptyRegCollDecl hadamardApp')
-    emptyRegCollDecl = "qreg" %+ (accessed _regCollName string) % "[0]"
 
 -- Represents pairs of programs and the errors obtained when
 -- running them
@@ -189,9 +194,8 @@ type ProgramWithExpectedErr = (MetaQasmProgram, TypeEvaluationError)
 
 -- Generate a pair of programs that access invalid registers
 -- and the expected register access error received when running them
-programWithInvalidRegAccess :: Gen ProgramWithExpectedErr
-
-programWithInvalidRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithInvalidAccess toErr)
+programWithOutOfBoundsRegAccess :: Gen ProgramWithExpectedErr
+programWithOutOfBoundsRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithInvalidAccess toErr)
   where
     toProgWithInvalidAccess :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithInvalidAccess = formatToString (appGateToQubits hadamardApp')
@@ -477,14 +481,28 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
     quantumMeasurementComponent = quantumRegCollInfo . _measurementComponents
     classicalMeasurementComponent = classicRegCollInfo . _measurementComponents
 
+semicolon :: MetaQasmProgramFormatter a
+
+semicolon = fconst ";"
 
 -- Generates a program that declares a quantum register collection
--- before applying a Hadamard gate to one of the qubits in the collection
+-- before applying a Hadamard gate to a qubit in the collection
 nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram
-nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> fconst ";" <%+> hadamardApp') <$> validRegCollAccess
+nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess
 
--- Generates a program consisting solely of a
--- register collection declaration
+-- Generates a program consisting solely of an
+-- unscoped register collection declaration
 nonscopedRegCollDecl :: Gen MetaQasmProgram
 
 nonscopedRegCollDecl = formatToString quantumRegCollDecl <$> validRegCollAccess
+
+-- Generates a program only containing an
+-- unscoped empty register collection declaration
+emptyUnscopedRegCollDecl :: Gen MetaQasmProgram
+
+emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAccess
+
+-- Generates a program that declares an empty quantum register collection
+-- before applying a Hadamard gate to a qubit in the collection
+programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
+programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess

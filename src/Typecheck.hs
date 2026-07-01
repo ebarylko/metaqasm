@@ -176,13 +176,7 @@ verifyCommand m (ScopedGateDecl{..}) =
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
-verifyCommand m ScopedRegCollDecl{coll = coll@RegCollInfo{..}, ..}
-  | isEmptyRegColl  = emptyRegCollDeclErr
-  | otherwise = verifyCommand newContext innerExpr
-  where
-    newContext = addRegCollToCtx coll m
-    isEmptyRegColl = (extractVal numOfRegs) == NonNeg 0
-    emptyRegCollDeclErr = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)
+verifyCommand m ScopedRegCollDecl{ ..} = evalUnderExpandedCtxIfDeclIsNotEmpty m coll innerExpr
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
@@ -202,15 +196,34 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     getLineNum (Var varName) = extractCtx varName
     getLineNum RegisterAccess{registerName} = extractCtx registerName
 
-verifyCommand m (Sequence (RegCollDecl collInfo) y) =
-  verifyCommand updatedCtx y
-  where
-    updatedCtx = addRegCollToCtx collInfo  m
+verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalUnderExpandedCtxIfDeclIsNotEmpty m collInfo y
 
-verifyCommand _ (RegCollDecl _) = Right Unit
+verifyCommand _ (RegCollDecl info)
+  | isEmptyRegColl info = genEmptyRegCollDeclErr info
+  | otherwise = Right Unit
+
+-- Takes the current context, the makeup of a register collection
+-- declaration, a command to evaluate, and evaluates the command under
+-- the context updated with the declaration if an empty collection is not
+-- being declared. Returns an error otherwise
+evalUnderExpandedCtxIfDeclIsNotEmpty :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
+evalUnderExpandedCtxIfDeclIsNotEmpty ctx declInfo toEval
+  | isEmptyRegColl declInfo = genEmptyRegCollDeclErr declInfo
+  | otherwise = verifyCommand newContext toEval
+  where
+    newContext = addRegCollToCtx declInfo ctx
 
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x
+
+isEmptyRegColl :: RegCollInfo -> Bool
+isEmptyRegColl = getRegCount >>> (== NonNeg 0)
+  where
+    getRegCount =  numOfRegs >>> extractVal
+
+genEmptyRegCollDeclErr :: RegCollInfo -> TypeCalculationResult
+
+genEmptyRegCollDeclErr RegCollInfo{..} = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)
 
 -- Takes the name and kind of a register collection along with the number of registers
 -- and updates the current evaluation context with the type of the collection

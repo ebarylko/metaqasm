@@ -28,7 +28,7 @@ import Generators(freshVariable,
                   MetaQasmProgram,
                   programWithValidHGateApp,
                   programWithEmptyRegCollDecl,
-                  programWithInvalidRegAccess,
+                  programWithOutOfBoundsRegAccess,
                   ProgramWithExpectedErr,
                   programWithTGateApp,
                   programWithTDaggerGateApp,
@@ -45,7 +45,9 @@ import Generators(freshVariable,
                  programThatStoresQubitMeasurementInAQubit,
                  scopedGateThatAppliesHadamardGateToOneArg,
                  nonscopedRegCollDeclWithHGateApp,
-                 nonscopedRegCollDecl)
+                 nonscopedRegCollDecl,
+                 emptyUnscopedRegCollDecl,
+                 programThatSequencesEmptyRegCollDecl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -172,10 +174,10 @@ prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
 -- in an error noting that the term does not have the expected type
 prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgram -> IO ()
 
-prog_cannotSubstituteAForB expectedType actualType (prog, misplacedTerm) =
+prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
   calcTypeOf prog `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType misplacedTerm) (LineNumber 1)
+    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType erroneousTerm) (LineNumber 1)
 
 
 prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()
@@ -209,7 +211,7 @@ spec =  do
 
   describe "Accessing a register outside the bounds of a register collection" $ do
     prop "Results in an error noting that this is not permitted" $ do
-      forAll programWithInvalidRegAccess prop_cannotAccessRegOutsideOfRegColl
+      forAll programWithOutOfBoundsRegAccess prop_cannotAccessRegOutsideOfRegColl
 
   describe "Applying a t gate to a qubit that is in scope" $ do
     prop "Is valid and has type unit" $ do
@@ -266,3 +268,11 @@ spec =  do
   describe "Declaring a register collection that does not get used" $ do
     prop "Is valid and has type unit" $ do
       forAll nonscopedRegCollDecl prop_isValidProgram
+
+  describe "Declaring an empty unscoped register collection" $ do
+    prop "Is invalid" $ do
+      forAll emptyUnscopedRegCollDecl prop_cannotDeclareEmptyRegColl
+
+  describe "Sequencing an empty register collection declaration with any other command" $ do
+    prop "Is invalid" $ do
+      forAll programThatSequencesEmptyRegCollDecl prop_cannotDeclareEmptyRegColl

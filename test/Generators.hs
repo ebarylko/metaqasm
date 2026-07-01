@@ -486,7 +486,7 @@ semicolon :: MetaQasmProgramFormatter a
 semicolon = fconst ";"
 
 -- Generates a program that declares a quantum register collection
--- before applying a Hadamard gate a qubit in the collection
+-- before applying a Hadamard gate to a qubit in the collection
 nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram
 nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess
 

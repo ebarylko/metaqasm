@@ -121,6 +121,7 @@ spec = do
     describe "Parsing non-scoped register collection declarations" $ do
       it "Generates a term representing the declaration" $ do
         "qreg x[1]" `shouldParseToCommand` regCollDecl Quantum "x" 1
+        "creg x[1]" `shouldParseToCommand` regCollDecl Classical "x" 1
 
     describe "Parsing sequences of commands" $ do
       it "Generates a new command where the command on the left is executed before that on the right" $ do

@@ -25,7 +25,8 @@ module Generators(freshVariable,
                  nonscopedRegCollDeclWithHGateApp,
                  nonscopedRegCollDecl,
                  emptyUnscopedRegCollDecl,
-                 programThatSequencesEmptyRegCollDecl)
+                 programThatSequencesEmptyRegCollDecl,
+                 programThatMeasuresQubitFromNonScopedRegColl)
   where
 
 import Test.QuickCheck
@@ -506,3 +507,17 @@ emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAcces
 -- before applying a Hadamard gate to a qubit in the collection
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
 programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess
+
+sepBySemicolon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a 
+
+sepBySemicolon f g = f <> semicolon <%+> g
+
+
+programThatMeasuresQubitFromNonScopedRegColl :: Gen MetaQasmProgram
+
+programThatMeasuresQubitFromNonScopedRegColl = formatToString (sepBySemicolon quantumRegCollDecl' $ sepBySemicolon classicRegCollDecl' $ formatMeasurement qubit' bit') <$>  qubitMeasurementSpec
+  where
+    quantumRegCollDecl' = accessed quantumRegCollInfo quantumRegCollDecl
+    classicRegCollDecl' = accessed classicRegCollInfo classicRegCollDecl
+    qubit' = accessed quantumRegCollInfo regCollAccess
+    bit' = accessed classicRegCollInfo regCollAccess

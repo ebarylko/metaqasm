@@ -26,7 +26,7 @@ module Generators(freshVariable,
                  nonscopedRegCollDecl,
                  emptyUnscopedRegCollDecl,
                  programThatSequencesEmptyRegCollDecl,
-                 programThatMeasuresQubitFromNonScopedRegColl)
+                 programThatSequencesUnscopedClassicRegColl)
   where
 
 import Test.QuickCheck
@@ -117,7 +117,6 @@ invalidRegCollAccess = genRegCollAccessSpec isAccessingInvalidReg
     isAccessingInvalidReg (RegCollAccessSpec _ regCount regIdx) = regIdx >= regCount
 
 
-
 -- This type represents all formatters that generate a MetaQasm program based off
 -- of a specification detailing how to access a register collection
 type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmProgram)
@@ -151,7 +150,7 @@ type MetaQasmProgramFormatter a = Format MetaQasmProgram (a -> MetaQasmProgram)
 --   qreg q[2] in { h(q[0]) }
 --   gate f(x: Qbit) { h(x) } in { f(q[0]) }
 scopedDecl :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-scopedDecl f g = f %+ "in " <> braced g
+scopedDecl f g = f <%+> fconst "in" <%+> braced g
 
 -- Takes a formatter for a register access specification and generates a formatter
 -- for applying a gate to the accessed qubit/s
@@ -511,9 +510,11 @@ emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAcces
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
 programThatSequencesEmptyRegCollDecl = formatToString (sepBySemicolon emptyRegCollDecl hadamardApp') <$> validRegCollAccess
 
-programThatMeasuresQubitFromNonScopedRegColl :: Gen MetaQasmProgram
-
-programThatMeasuresQubitFromNonScopedRegColl = formatToString (sepBySemicolon quantumRegCollDecl' $ sepBySemicolon classicRegCollDecl' $ formatMeasurement qubit' bit') <$>  qubitMeasurementSpec
+-- Generates a program that first declares a classic register collection
+-- before sequencing it with a command that uses it
+-- programThatSequencesUnscopedClassicRegColl
+programThatSequencesUnscopedClassicRegColl :: Gen MetaQasmProgram
+programThatSequencesUnscopedClassicRegColl = formatToString (sepBySemicolon classicRegCollDecl' $ sepBySemicolon quantumRegCollDecl' $ formatMeasurement qubit' bit') <$>  qubitMeasurementSpec
   where
     quantumRegCollDecl' = accessed quantumRegCollInfo quantumRegCollDecl
     classicRegCollDecl' = accessed classicRegCollInfo classicRegCollDecl

@@ -294,13 +294,22 @@ scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp 
   where
     twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
 
+-- Takes a separator, two formatters, and generates a formatter that separates the
+-- results obtained by both formatters by the separator
+sepBy :: String -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+
+sepBy separator f g = f <> toFormatter separator <%+> g
+
+sepByComma :: MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+sepByComma = sepBy ","
+
 -- Generates programs where a two qubit gate is applied to
 -- three qubits
 programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
 programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
   where
-    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess <> comma <%+> regCollAccess <> comma <%+> regCollAccess)
+    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess `sepByComma` regCollAccess `sepByComma` regCollAccess)
 
 -- Generates programs where a two qubit gate is applied to
 -- one qubit
@@ -451,18 +460,15 @@ gateThatTakesQubitAndBit = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclI
     getClassicalRegCollName = _regCollName . classicRegCollInfo
 
 
-comma :: Format r (a -> r)
-comma = fconst ","
-
 -- Takes two formatters for the types of the arguments to the gate, a formatter for the gate body, and
 -- returns a formatter that generates a two qubit gate declaration with the argument types dictated by
 -- the first formatter and the body by the other
 gateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo
-gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter <> comma <%+> sndArgFormatter) <%+> braced gateBodyFormatter
+gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter) <%+> braced gateBodyFormatter
 
 twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
-twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> comma <%+> sndArgFormatter)
+twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter)
 
 -- Generates a declaration for a gate that takes a qubit
 -- and a bit and applies a hadamard gate to the qubit
@@ -483,10 +489,8 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
 
 
 sepBySemicolon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
-sepBySemicolon f g = f <> semicolon <%+> g
-  where
-    semicolon :: MetaQasmProgramFormatter a
-    semicolon = fconst ";"
+
+sepBySemicolon  = sepBy ";"
 
 -- Generates a program that declares a quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection

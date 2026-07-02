@@ -300,7 +300,7 @@ programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
 programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
   where
-    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess % ", " <> regCollAccess % ", " <> regCollAccess)
+    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess <> comma <%+> regCollAccess <> comma <%+> regCollAccess)
 
 -- Generates programs where a two qubit gate is applied to
 -- one qubit

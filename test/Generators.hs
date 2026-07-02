@@ -491,7 +491,7 @@ sepBySemicolon f g = f <> semicolon <%+> g
 -- Generates a program that declares a quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram
-nonscopedRegCollDeclWithHGateApp = formatToString (sepBySemicolon quantumRegCollDecl hadamardApp') <$> validRegCollAccess
+nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl `sepBySemicolon` hadamardApp') <$> validRegCollAccess
 
 -- Generates a program consisting solely of an
 -- unscoped register collection declaration
@@ -508,13 +508,13 @@ emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAcces
 -- Generates a program that declares an empty quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
-programThatSequencesEmptyRegCollDecl = formatToString (sepBySemicolon emptyRegCollDecl hadamardApp') <$> validRegCollAccess
+programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl `sepBySemicolon` hadamardApp') <$> validRegCollAccess
 
 -- Generates a program that first declares a classic register collection
 -- before sequencing it with a command that uses it
 -- programThatSequencesUnscopedClassicRegColl
 programThatSequencesUnscopedClassicRegColl :: Gen MetaQasmProgram
-programThatSequencesUnscopedClassicRegColl = formatToString (sepBySemicolon classicRegCollDecl' $ sepBySemicolon quantumRegCollDecl' $ formatMeasurement qubit' bit') <$>  qubitMeasurementSpec
+programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl' `sepBySemicolon`  quantumRegCollDecl' `sepBySemicolon`  formatMeasurement qubit' bit') <$>  qubitMeasurementSpec
   where
     quantumRegCollDecl' = accessed quantumRegCollInfo quantumRegCollDecl
     classicRegCollDecl' = accessed classicRegCollInfo classicRegCollDecl

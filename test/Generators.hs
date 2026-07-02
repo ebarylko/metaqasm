@@ -336,7 +336,7 @@ classicRegCollDecl = regCollDecl "creg"
 -- what is generated is "measure x -> y"
 formatMeasurement :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
 
-formatMeasurement f g = "measure"  %+ f %+ "-> " <> g
+formatMeasurement f g = fconst "measure"  <%+> f <%+> fconst "->" <%+> g
 
 -- Generates programs where a qubit is measured and
 -- the measurement is stored in a bit
@@ -482,14 +482,17 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
     quantumMeasurementComponent = quantumRegCollInfo . _measurementComponents
     classicalMeasurementComponent = classicRegCollInfo . _measurementComponents
 
-semicolon :: MetaQasmProgramFormatter a
 
-semicolon = fconst ";"
+sepBySemicolon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
+sepBySemicolon f g = f <> semicolon <%+> g
+  where
+    semicolon :: MetaQasmProgramFormatter a
+    semicolon = fconst ";"
 
 -- Generates a program that declares a quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram
-nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess
+nonscopedRegCollDeclWithHGateApp = formatToString (sepBySemicolon quantumRegCollDecl hadamardApp') <$> validRegCollAccess
 
 -- Generates a program consisting solely of an
 -- unscoped register collection declaration
@@ -506,12 +509,7 @@ emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAcces
 -- Generates a program that declares an empty quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
-programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess
-
-sepBySemicolon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a 
-
-sepBySemicolon f g = f <> semicolon <%+> g
-
+programThatSequencesEmptyRegCollDecl = formatToString (sepBySemicolon emptyRegCollDecl hadamardApp') <$> validRegCollAccess
 
 programThatMeasuresQubitFromNonScopedRegColl :: Gen MetaQasmProgram
 

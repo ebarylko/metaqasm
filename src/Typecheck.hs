@@ -182,19 +182,8 @@ verifyCommand m ScopedRegCollDecl{ ..} = evalUnderExpandedCtxIfDeclIsNotEmpty m 
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
   verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
-    verifyMeasurementComponent :: Expression -> TermType -> TypeCalculationResult
-    verifyMeasurementComponent measurementComponent expectedComponentType = verifyExpr m measurementComponent & eitherFromPred (== expectedComponentType) (genMismatchErr expectedComponentType measurementComponent)
-
-    verifyMeasuredQubit = verifyMeasurementComponent toMeasure Qbit
-    verifyStoredBit = verifyMeasurementComponent toStoreIn Bit
-    genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
-    genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
-
-    -- Takes an expression and returns the line at where the
-    -- expression was found
-    getLineNum :: Expression -> LineNumber
-    getLineNum (Var varName) = extractCtx varName
-    getLineNum RegisterAccess{registerName} = extractCtx registerName
+    verifyMeasuredQubit = verifyExprType m Qbit toMeasure
+    verifyStoredBit = verifyExprType m Bit toStoreIn
 
 verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalUnderExpandedCtxIfDeclIsNotEmpty m collInfo y
 
@@ -206,6 +195,8 @@ verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
 verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
 
+-- Takes the expected type of an expression, an expression, the actual type of the expression,
+--  and generates an error noting that the actual and expected types do not match
 genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
 genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
   where
@@ -215,6 +206,9 @@ genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{
     getLineNum (Var varName) = extractCtx varName
     getLineNum RegisterAccess{registerName} = extractCtx registerName
 
+-- Takes the context under which to evaluate an expression, the expected type of the
+-- expression, said expression, and returns the actual type of the expression if it matches
+-- the expected one. Returns an error otherwise.
 verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult
 
 verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)

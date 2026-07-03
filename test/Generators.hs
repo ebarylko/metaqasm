@@ -26,7 +26,8 @@ module Generators(freshVariable,
                  nonscopedRegCollDecl,
                  emptyUnscopedRegCollDecl,
                  programThatSequencesEmptyRegCollDecl,
-                 programThatSequencesUnscopedClassicRegColl)
+                 programThatSequencesUnscopedClassicRegColl,
+                 programThatSequencesUnrelatedCommands)
   where
 
 import Test.QuickCheck
@@ -523,3 +524,8 @@ programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl'
     classicRegCollDecl' = accessed classicRegCollInfo classicRegCollDecl
     qubit' = accessed quantumRegCollInfo regCollAccess
     bit' = accessed classicRegCollInfo regCollAccess
+
+-- Generates MetaQASM programs that are comprised of one
+-- unrelated command sequenced with another
+programThatSequencesUnrelatedCommands :: Gen MetaQasmProgram
+programThatSequencesUnrelatedCommands = formatToString (string % ";" %+ string)  <$> programWithValidHGateApp  <*> programWithCNotGateApp

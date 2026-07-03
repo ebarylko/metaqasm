@@ -53,6 +53,7 @@ term : command {Vary.from $1}  | arg { Vary.from $1 }
 command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Quantum (extractName $2) (toNat $4)) $8}
 | creg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Classical (extractName $2) (toNat $4)) $8}
 | qreg id '[' nat ']' {RegCollDecl (RegCollInfo Quantum (extractName $2) (toNat $4))}
+| creg id '[' nat ']' {RegCollDecl (RegCollInfo Classical (extractName $2) (toNat $4))}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (extractName $2) $4 $7 $11}
 | measure arg "->" arg {QubitMeasurement $2 $4}

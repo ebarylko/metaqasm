@@ -25,7 +25,8 @@ module Generators(freshVariable,
                  nonscopedRegCollDeclWithHGateApp,
                  nonscopedRegCollDecl,
                  emptyUnscopedRegCollDecl,
-                 programThatSequencesEmptyRegCollDecl)
+                 programThatSequencesEmptyRegCollDecl,
+                 programThatSequencesUnscopedClassicRegColl)
   where
 
 import Test.QuickCheck
@@ -116,7 +117,6 @@ invalidRegCollAccess = genRegCollAccessSpec isAccessingInvalidReg
     isAccessingInvalidReg (RegCollAccessSpec _ regCount regIdx) = regIdx >= regCount
 
 
-
 -- This type represents all formatters that generate a MetaQasm program based off
 -- of a specification detailing how to access a register collection
 type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmProgram)
@@ -150,7 +150,7 @@ type MetaQasmProgramFormatter a = Format MetaQasmProgram (a -> MetaQasmProgram)
 --   qreg q[2] in { h(q[0]) }
 --   gate f(x: Qbit) { h(x) } in { f(q[0]) }
 scopedDecl :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-scopedDecl f g = f %+ "in " <> braced g
+scopedDecl f g = f <%+> fconst "in" <%+> braced g
 
 -- Takes a formatter for a register access specification and generates a formatter
 -- for applying a gate to the accessed qubit/s
@@ -294,13 +294,22 @@ scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp 
   where
     twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
 
+-- Takes a separator, two formatters, and generates a formatter that separates the
+-- results obtained by both formatters by the separator
+sepBy :: String -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+
+sepBy separator f g = f <> toFormatter separator <%+> g
+
+sepByComma :: MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+sepByComma = sepBy ","
+
 -- Generates programs where a two qubit gate is applied to
 -- three qubits
 programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
 programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
   where
-    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess % ", " <> regCollAccess % ", " <> regCollAccess)
+    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess `sepByComma` regCollAccess `sepByComma` regCollAccess)
 
 -- Generates programs where a two qubit gate is applied to
 -- one qubit
@@ -335,7 +344,7 @@ classicRegCollDecl = regCollDecl "creg"
 -- what is generated is "measure x -> y"
 formatMeasurement :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
 
-formatMeasurement f g = "measure"  %+ f %+ "-> " <> g
+formatMeasurement f g = fconst "measure"  <%+> f <%+> fconst "->" <%+> g
 
 -- Generates programs where a qubit is measured and
 -- the measurement is stored in a bit
@@ -451,18 +460,15 @@ gateThatTakesQubitAndBit = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclI
     getClassicalRegCollName = _regCollName . classicRegCollInfo
 
 
-comma :: Format r (a -> r)
-comma = fconst ","
-
 -- Takes two formatters for the types of the arguments to the gate, a formatter for the gate body, and
 -- returns a formatter that generates a two qubit gate declaration with the argument types dictated by
 -- the first formatter and the body by the other
 gateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo
-gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter <> comma <%+> sndArgFormatter) <%+> braced gateBodyFormatter
+gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter) <%+> braced gateBodyFormatter
 
 twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
-twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter <> comma <%+> sndArgFormatter)
+twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter)
 
 -- Generates a declaration for a gate that takes a qubit
 -- and a bit and applies a hadamard gate to the qubit
@@ -481,14 +487,15 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
     quantumMeasurementComponent = quantumRegCollInfo . _measurementComponents
     classicalMeasurementComponent = classicRegCollInfo . _measurementComponents
 
-semicolon :: MetaQasmProgramFormatter a
 
-semicolon = fconst ";"
+sepBySemicolon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
+
+sepBySemicolon  = sepBy ";"
 
 -- Generates a program that declares a quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 nonscopedRegCollDeclWithHGateApp :: Gen MetaQasmProgram
-nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess
+nonscopedRegCollDeclWithHGateApp = formatToString (quantumRegCollDecl `sepBySemicolon` hadamardApp') <$> validRegCollAccess
 
 -- Generates a program consisting solely of an
 -- unscoped register collection declaration
@@ -505,4 +512,14 @@ emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAcces
 -- Generates a program that declares an empty quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
-programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl <> semicolon <%+> hadamardApp') <$> validRegCollAccess
+programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl `sepBySemicolon` hadamardApp') <$> validRegCollAccess
+
+-- Generates a program that first declares a classic register collection
+-- before sequencing it with a valid command that uses it
+programThatSequencesUnscopedClassicRegColl :: Gen MetaQasmProgram
+programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl' `sepBySemicolon`  quantumRegCollDecl' `sepBySemicolon`  formatMeasurement qubit' bit') <$>  qubitMeasurementSpec
+  where
+    quantumRegCollDecl' = accessed quantumRegCollInfo quantumRegCollDecl
+    classicRegCollDecl' = accessed classicRegCollInfo classicRegCollDecl
+    qubit' = accessed quantumRegCollInfo regCollAccess
+    bit' = accessed classicRegCollInfo regCollAccess

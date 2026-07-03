@@ -526,6 +526,6 @@ programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl'
     bit' = accessed classicRegCollInfo regCollAccess
 
 -- Generates MetaQASM programs that are comprised of one
--- unrelated command sequenced with another
+-- valid unrelated command sequenced with another valid command
 programThatSequencesUnrelatedCommands :: Gen MetaQasmProgram
 programThatSequencesUnrelatedCommands = formatToString (string % ";" %+ string)  <$> programWithValidHGateApp  <*> programWithCNotGateApp

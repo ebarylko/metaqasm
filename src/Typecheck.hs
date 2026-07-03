@@ -244,6 +244,3 @@ determineType m term = term &
   $ Vary.on @GateApp (verifyGateApp m)
   $ Vary.on @Command (verifyCommand m)
    $ Vary.exhaustiveCase  )
-
-
-

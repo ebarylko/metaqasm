@@ -284,5 +284,5 @@ spec =  do
       forAll programThatSequencesUnscopedClassicRegColl prop_isValidProgram
 
   describe "Sequencing two valid unrelated commands" $ do
-    prop "Produces a valid command" $ do
+    prop "Produces a third valid command" $ do
       forAll programThatSequencesUnrelatedCommands prop_isValidProgram

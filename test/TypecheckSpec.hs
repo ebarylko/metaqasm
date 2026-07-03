@@ -49,7 +49,8 @@ import Generators(freshVariable,
                  emptyUnscopedRegCollDecl,
                  programThatSequencesEmptyRegCollDecl,
                  programThatSequencesUnscopedClassicRegColl,
-                 programThatSequencesUnrelatedCommands)
+                 programThatSequencesUnrelatedCommands,
+                 programThatResetsAQubit)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -286,3 +287,7 @@ spec =  do
   describe "Sequencing two valid unrelated commands" $ do
     prop "Produces a third valid command" $ do
       forAll programThatSequencesUnrelatedCommands prop_isValidProgram
+
+  describe "Resetting a term that evaluates to a qubit" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programThatResetsAQubit prop_isValidProgram

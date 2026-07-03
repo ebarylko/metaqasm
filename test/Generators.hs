@@ -27,7 +27,8 @@ module Generators(freshVariable,
                  emptyUnscopedRegCollDecl,
                  programThatSequencesEmptyRegCollDecl,
                  programThatSequencesUnscopedClassicRegColl,
-                 programThatSequencesUnrelatedCommands)
+                 programThatSequencesUnrelatedCommands,
+                 programThatResetsAQubit)
   where
 
 import Test.QuickCheck
@@ -529,3 +530,11 @@ programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl'
 -- valid unrelated command sequenced with another valid command
 programThatSequencesUnrelatedCommands :: Gen MetaQasmProgram
 programThatSequencesUnrelatedCommands = formatToString (string % ";" %+ string)  <$> programWithValidHGateApp  <*> programWithCNotGateApp
+
+-- Generates a program that resets a qubit to its default state
+programThatResetsAQubit :: Gen MetaQasmProgram
+
+programThatResetsAQubit = formatToString (quantumRegCollDecl `sepBySemicolon` reset regCollAccess) <$> validRegCollAccess
+  where
+    reset :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+    reset = (fconst "reset" <%+>)

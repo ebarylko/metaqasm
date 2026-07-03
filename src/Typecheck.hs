@@ -249,7 +249,7 @@ addRegCollToCtx RegCollInfo{..} = M.insert regCollName (RegisterGroup collType n
 determineType :: EvaluationContext -> Term -> TypeCalculationResult
 
 determineType m term = term &
-  (Vary.on @Expression (verifyRegAccess m)
+  (Vary.on @Expression (verifyExpr m)
   $ Vary.on @GateApp (verifyGateApp m)
   $ Vary.on @Command (verifyCommand m)
    $ Vary.exhaustiveCase  )

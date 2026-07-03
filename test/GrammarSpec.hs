@@ -127,4 +127,4 @@ spec = do
       it "Generates a new command where the command on the left is executed before that on the right" $ do
         let fstRegCollDecl = regCollDecl Quantum "x" 1
         let sndRegCollDecl = regCollDecl Quantum "y" 1
-        "qreg x[1] ; qreg y[1]" `shouldParseToCommand` Sequence fstRegCollDecl sndRegCollDecl
+        "qreg x[1] ; qreg y[1]; qreg x[1]" `shouldParseToCommand` Sequence fstRegCollDecl (Sequence sndRegCollDecl fstRegCollDecl)

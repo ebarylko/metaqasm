@@ -202,6 +202,8 @@ verifyCommand _ (RegCollDecl info)
   | isEmptyRegColl info = genEmptyRegCollDeclErr info
   | otherwise = Right Unit
 
+verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
+
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under
 -- the context updated with the declaration if an empty collection is not
@@ -242,6 +244,3 @@ determineType m term = term &
   $ Vary.on @GateApp (verifyGateApp m)
   $ Vary.on @Command (verifyCommand m)
    $ Vary.exhaustiveCase  )
-
-
-

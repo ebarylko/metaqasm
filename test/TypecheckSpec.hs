@@ -48,7 +48,8 @@ import Generators(freshVariable,
                  nonscopedRegCollDecl,
                  emptyUnscopedRegCollDecl,
                  programThatSequencesEmptyRegCollDecl,
-                 programThatSequencesUnscopedClassicRegColl)
+                 programThatSequencesUnscopedClassicRegColl,
+                 programThatSequencesUnrelatedCommands)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -281,3 +282,7 @@ spec =  do
   describe "Sequencing a classical register collection declaration into a valid command that incorporates it" $ do
     prop "Is valid" $ do
       forAll programThatSequencesUnscopedClassicRegColl prop_isValidProgram
+
+  describe "Sequencing two valid unrelated commands" $ do
+    prop "Produces a third valid command" $ do
+      forAll programThatSequencesUnrelatedCommands prop_isValidProgram

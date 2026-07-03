@@ -204,6 +204,21 @@ verifyCommand _ (RegCollDecl info)
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
+verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
+
+genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
+genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
+  where
+    -- Takes an expression and returns the line at where the
+    -- expression was found
+    getLineNum :: Expression -> LineNumber
+    getLineNum (Var varName) = extractCtx varName
+    getLineNum RegisterAccess{registerName} = extractCtx registerName
+
+verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult
+
+verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)
+
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under
 -- the context updated with the declaration if an empty collection is not

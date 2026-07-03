@@ -515,8 +515,7 @@ programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
 programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl `sepBySemicolon` hadamardApp') <$> validRegCollAccess
 
 -- Generates a program that first declares a classic register collection
--- before sequencing it with a command that uses it
--- programThatSequencesUnscopedClassicRegColl
+-- before sequencing it with a valid command that uses it
 programThatSequencesUnscopedClassicRegColl :: Gen MetaQasmProgram
 programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl' `sepBySemicolon`  quantumRegCollDecl' `sepBySemicolon`  formatMeasurement qubit' bit') <$>  qubitMeasurementSpec
   where

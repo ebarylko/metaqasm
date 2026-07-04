@@ -124,6 +124,12 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes} line
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
+-- Takes the current context, an expression, and calculates its type
+-- under the given context
+verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
+verifyExpr m x@(RegisterAccess{}) = verifyRegAccess m x
+
+verifyExpr m (Var varName) = findTypeWithinScope varName m
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
@@ -144,16 +150,7 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
     genIsNotGateErr :: TermType -> TypeErrAt
     genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
 
--- Takes the current context, an expression, and calculates its type
--- under the given context
-verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
-verifyExpr m x@(RegisterAccess{}) = verifyRegAccess m x
-
-verifyExpr m (Var varName) = findTypeWithinScope varName m
-
-
 type Term = Vary '[Expression, GateApp, Command]
-
 
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 
@@ -207,7 +204,7 @@ genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{
     getLineNum RegisterAccess{registerName} = extractCtx registerName
 
 -- Takes the context under which to evaluate an expression, the expected type of the
--- expression, said expression, and returns the actual type of the expression if it matches
+-- expression, an expression, and returns the actual type of the expression if it matches
 -- the expected one. Returns an error otherwise.
 verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult
 

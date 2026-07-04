@@ -23,7 +23,7 @@ import Control.Arrow((>>>))
 import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
-import Generators(freshVariable,
+import Generators(outOfScopeVar,
                   outOfScopeExpr,
                   MetaQasmProgram,
                   programWithValidHGateApp,
@@ -190,13 +190,12 @@ prop_cannotSubstituteBitForQubit = prog_cannotSubstituteAForB Qbit Bit
 prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()
 prop_cannotSubstituteQubitForBit = prog_cannotSubstituteAForB Bit Qbit
 
-outOfScopeVariable = freshVariable
 
 spec :: Spec
 spec =  do
   describe "Accessing an out of scope variable" $ do
     prop "Is invalid and generates an error" $ do
-      forAll outOfScopeVariable prop_cannotAccessOutOfScopeVar
+      forAll outOfScopeVar prop_cannotAccessOutOfScopeVar
 
   describe "Applying a hadamard gate to an out of scope expression" $ do
     prop "Returns an error stating the expression is not in scope" $ do

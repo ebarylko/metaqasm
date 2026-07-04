@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Generators(freshVariable,
+                  outOfScopeVar,
                   outOfScopeExpr,
                   programWithValidHGateApp,
                   MetaQasmProgram,
@@ -52,11 +53,11 @@ import Data.List(nub)
 import Data.Text.Lazy.Builder(fromString)
 import Control.Applicative(liftA3)
 
-builtInGates :: [String]
-builtInGates = ["h", "cx", "t", "tdg"]
+reservedKeywords :: [String]
+reservedKeywords = ["h", "cx", "t", "tdg", "in"]
 
 freshVariable :: Gen String
-freshVariable = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (`notElem` builtInGates)
+freshVariable = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (`notElem` reservedKeywords)
   where
     lowerCaseLetter :: Gen Char
     lowerCaseLetter = elements ['a'..'z']
@@ -76,13 +77,14 @@ freshVariable = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (`n
 -- This type represents the code of a MetaQASM program
 type MetaQasmProgram = String
 
-outOfScopeVarName = freshVariable
+outOfScopeVar :: Gen MetaQasmProgram
+outOfScopeVar = freshVariable
 
 outOfScopeRegAccess :: Gen MetaQasmProgram
 outOfScopeRegAccess = (++) <$> freshVariable <*> pure "[0]"
 
 outOfScopeExpr :: Gen MetaQasmProgram
-outOfScopeExpr = oneof [outOfScopeVarName, outOfScopeRegAccess]
+outOfScopeExpr = oneof [freshVariable, outOfScopeRegAccess]
 
 -- This data type represents a request to access a register in a register collection. However, the
 -- request can be invalid if the wanted register is outside of the bounds of the collection
@@ -247,7 +249,7 @@ data TwoArgGateDeclInfo = TwoArgGateDeclInfo{_gateName :: String, _fstArg:: Stri
 twoArgGateDeclInfo :: Gen TwoArgGateDeclInfo
 
 -- Generates information for a two qubit gate declaration such that the names of the parameters and gate are unique
-twoArgGateDeclInfo = replicateM 3 outOfScopeVarName `suchThat` allNamesAreUnique & fmap (\[x, y, z] -> TwoArgGateDeclInfo x y z)
+twoArgGateDeclInfo = replicateM 3 freshVariable `suchThat` allNamesAreUnique & fmap (\[x, y, z] -> TwoArgGateDeclInfo x y z)
   where
     allNamesAreUnique :: [String] -> Bool
     allNamesAreUnique = nub >>> length >>> (== 3)

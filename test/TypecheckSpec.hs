@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeApplications #-}
-
 
 module TypecheckSpec(spec) where
 
@@ -15,7 +13,6 @@ import Typecheck(TypeEvaluationError(..),
 import Syntax(Identifier,
               TermType(..),
               WithContext(..),
-              Expression(..),
               NonNeg(..))
 import Lexer(LineNumber(..))
 import Grammar(parseText)
@@ -55,7 +52,6 @@ import Generators(freshVariable,
                  programThatSequencesUnrelatedCommands,
                  programThatResetsAQubit)
 import Data.Function(on)
-import qualified Vary
 
 -- This represents the possible errors in a metaQasm program, being
 -- either an error that occurred when parsing the code or

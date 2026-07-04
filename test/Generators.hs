@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Generators(freshVariable,
-                  outOfScopeVar,
+module Generators(outOfScopeVar,
                   outOfScopeExpr,
                   programWithValidHGateApp,
                   MetaQasmProgram,
@@ -29,7 +28,8 @@ module Generators(freshVariable,
                  programThatSequencesEmptyRegCollDecl,
                  programThatSequencesUnscopedClassicRegColl,
                  programThatSequencesUnrelatedCommands,
-                 programThatResetsAQubit)
+                 programThatResetsAQubit,
+                 programThatResetsABit)
   where
 
 import Test.QuickCheck
@@ -533,10 +533,15 @@ programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl'
 programThatSequencesUnrelatedCommands :: Gen MetaQasmProgram
 programThatSequencesUnrelatedCommands = formatToString (string % ";" %+ string)  <$> programWithValidHGateApp  <*> programWithCNotGateApp
 
+reset :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+reset = (fconst "reset" <%+>)
+
 -- Generates a program that resets a qubit to its default state
 programThatResetsAQubit :: Gen MetaQasmProgram
 
 programThatResetsAQubit = formatToString (quantumRegCollDecl `sepBySemicolon` reset regCollAccess) <$> validRegCollAccess
-  where
-    reset :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-    reset = (fconst "reset" <%+>)
+
+-- Generates a program that resets a bit
+programThatResetsABit :: Gen InvalidProgram
+
+programThatResetsABit = genInvalidProgram (classicRegCollDecl `sepBySemicolon` reset regCollAccess)

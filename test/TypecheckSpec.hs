@@ -50,7 +50,8 @@ import Generators(outOfScopeVar,
                  programThatSequencesEmptyRegCollDecl,
                  programThatSequencesUnscopedClassicRegColl,
                  programThatSequencesUnrelatedCommands,
-                 programThatResetsAQubit)
+                 programThatResetsAQubit,
+                 programThatResetsABit)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -288,3 +289,7 @@ spec =  do
   describe "Resetting a term that evaluates to a qubit" $ do
     prop "Is valid and has type unit" $ do
       forAll programThatResetsAQubit prop_isValidProgram
+
+  describe "Resetting a term that does not evaluate to a qubit" $ do
+    prop "Is invalid and generates an error" $ do
+      forAll programThatResetsABit prop_cannotSubstituteBitForQubit

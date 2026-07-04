@@ -64,4 +64,5 @@ data Command = Gate GateApp -- Apply a gate to one or more qubits
   | RegCollDecl RegCollInfo -- Declare a register collection
   | Sequence Command Command -- Evaluates the second command under the context obtained from evaluating the first
   | QubitMeasurement{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
+  | QubitReset{toReset :: Expression}
    deriving (Show, Eq)

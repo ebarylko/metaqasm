@@ -36,6 +36,7 @@ in      {In}
 ','     {Comma}
 ':'     {Colon}
 ';'     {Semicolon}
+reset {Reset}
 gate    {GateDec}
 '('     { LParen _}
 ')'     { RParen _ }
@@ -58,6 +59,7 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (extractName $2) $4 $7 $11}
 | measure arg "->" arg {QubitMeasurement $2 $4}
 | command ';' command {Sequence $1 $3}
+| reset arg {QubitReset $2}
 
 gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}
 gateArgs : gateArg {[$1]}

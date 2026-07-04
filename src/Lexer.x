@@ -28,6 +28,7 @@ tokens :-
   in                                                       {ignoreInputAndReturn In}
   gate                                                     {ignoreInputAndReturn GateDec}
   measure                                              {ignoreInputAndReturn Measurement}
+  reset                                                {ignoreInputAndReturn Reset}
   "->"                                                   {ignoreInputAndReturn RightArrow}
   \:                                                       {ignoreInputAndReturn Colon}
   \;                                                       {ignoreInputAndReturn Semicolon}
@@ -57,6 +58,7 @@ data Token = LBracket LineNumber
   | GateDec
   | Colon
   | Semicolon
+  | Reset
   | TypeAnnotation String LineNumber
   | Measurement
   | RightArrow

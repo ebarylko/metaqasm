@@ -124,6 +124,12 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes} line
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
+-- Takes the current context, an expression, and calculates its type
+-- under the given context
+verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
+verifyExpr m x@(RegisterAccess{}) = verifyRegAccess m x
+
+verifyExpr m (Var varName) = findTypeWithinScope varName m
 
 -- Takes the current context, the application of a gate, and
 -- verifies if the application is valid under the given context.
@@ -144,16 +150,7 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
     genIsNotGateErr :: TermType -> TypeErrAt
     genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
 
--- Takes the current context, an expression, and calculates its type
--- under the given context
-verifyExpr :: EvaluationContext -> Expression -> TypeCalculationResult
-verifyExpr m x@(RegisterAccess{}) = verifyRegAccess m x
-
-verifyExpr m (Var varName) = findTypeWithinScope varName m
-
-
 type Term = Vary '[Expression, GateApp, Command]
-
 
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 
@@ -182,19 +179,8 @@ verifyCommand m ScopedRegCollDecl{ ..} = evalUnderExpandedCtxIfDeclIsNotEmpty m 
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
   verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
-    verifyMeasurementComponent :: Expression -> TermType -> TypeCalculationResult
-    verifyMeasurementComponent measurementComponent expectedComponentType = verifyExpr m measurementComponent & eitherFromPred (== expectedComponentType) (genMismatchErr expectedComponentType measurementComponent)
-
-    verifyMeasuredQubit = verifyMeasurementComponent toMeasure Qbit
-    verifyStoredBit = verifyMeasurementComponent toStoreIn Bit
-    genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
-    genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
-
-    -- Takes an expression and returns the line at where the
-    -- expression was found
-    getLineNum :: Expression -> LineNumber
-    getLineNum (Var varName) = extractCtx varName
-    getLineNum RegisterAccess{registerName} = extractCtx registerName
+    verifyMeasuredQubit = verifyExprType m Qbit toMeasure
+    verifyStoredBit = verifyExprType m Bit toStoreIn
 
 verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalUnderExpandedCtxIfDeclIsNotEmpty m collInfo y
 
@@ -203,6 +189,26 @@ verifyCommand _ (RegCollDecl info)
   | otherwise = Right Unit
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
+
+verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
+
+-- Takes the expected type of an expression, an expression, the actual type of the expression,
+--  and generates an error noting that the actual and expected types do not match
+genMismatchErr :: TermType -> Expression -> TermType -> TypeErrAt
+genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{..} (getLineNum erroneousTerm)
+  where
+    -- Takes an expression and returns the line at where the
+    -- expression was found
+    getLineNum :: Expression -> LineNumber
+    getLineNum (Var varName) = extractCtx varName
+    getLineNum RegisterAccess{registerName} = extractCtx registerName
+
+-- Takes the context under which to evaluate an expression, the expected type of the
+-- expression, an expression, and returns the actual type of the expression if it matches
+-- the expected one. Returns an error otherwise.
+verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult
+
+verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)
 
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under
@@ -240,7 +246,7 @@ addRegCollToCtx RegCollInfo{..} = M.insert regCollName (RegisterGroup collType n
 determineType :: EvaluationContext -> Term -> TypeCalculationResult
 
 determineType m term = term &
-  (Vary.on @Expression (verifyRegAccess m)
+  (Vary.on @Expression (verifyExpr m)
   $ Vary.on @GateApp (verifyGateApp m)
   $ Vary.on @Command (verifyCommand m)
    $ Vary.exhaustiveCase  )

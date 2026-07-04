@@ -23,7 +23,7 @@ import Control.Arrow((>>>))
 import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
-import Generators(freshVariable,
+import Generators(outOfScopeVar,
                   outOfScopeExpr,
                   MetaQasmProgram,
                   programWithValidHGateApp,
@@ -49,7 +49,8 @@ import Generators(freshVariable,
                  emptyUnscopedRegCollDecl,
                  programThatSequencesEmptyRegCollDecl,
                  programThatSequencesUnscopedClassicRegColl,
-                 programThatSequencesUnrelatedCommands)
+                 programThatSequencesUnrelatedCommands,
+                 programThatResetsAQubit)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -83,16 +84,14 @@ calcTypeOf = parseCode >=> calcType
 genNotInScopeErr :: Identifier -> LineNumber -> ProgramTypeEvaluationResult
 genNotInScopeErr varName lineInfo = Left $ TypeErr $ WithContext (VariableNotInScope varName) lineInfo
 
--- -- Tests that accessing a register collection that is not in
+-- -- Tests that accessing a variable that is not in
 -- -- the current evaluation scope always fails.
-prop_cannotAccessOutOfScopeRegColl :: Identifier -> IO ()
-
-prop_cannotAccessOutOfScopeRegColl regCollName  =
-  calcTypeOf registerAccess `shouldBe` variableNotInScopeErr
+prop_cannotAccessOutOfScopeVar :: Identifier -> IO ()
+prop_cannotAccessOutOfScopeVar var  =
+  calcTypeOf var `shouldBe` variableNotInScopeErr
   where
-    registerAccess = regCollName <> "[0]"
     expectedLineNum = LineNumber 1
-    variableNotInScopeErr = genNotInScopeErr regCollName expectedLineNum
+    variableNotInScopeErr = genNotInScopeErr var expectedLineNum
 
 -- Asserts that a hadamard gate cannot be applied to
 -- an out of scope expression
@@ -191,13 +190,12 @@ prop_cannotSubstituteBitForQubit = prog_cannotSubstituteAForB Qbit Bit
 prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()
 prop_cannotSubstituteQubitForBit = prog_cannotSubstituteAForB Bit Qbit
 
-outOfScopeRegColl = freshVariable
 
 spec :: Spec
 spec =  do
-  describe "Accessing elements from a collection of registers that is out of scope" $ do
-    prop "Accessing any register returns an error stating the collection is not in scope" $ do
-      forAll outOfScopeRegColl prop_cannotAccessOutOfScopeRegColl
+  describe "Accessing an out of scope variable" $ do
+    prop "Is invalid and generates an error" $ do
+      forAll outOfScopeVar prop_cannotAccessOutOfScopeVar
 
   describe "Applying a hadamard gate to an out of scope expression" $ do
     prop "Returns an error stating the expression is not in scope" $ do
@@ -286,3 +284,7 @@ spec =  do
   describe "Sequencing two valid unrelated commands" $ do
     prop "Produces a third valid command" $ do
       forAll programThatSequencesUnrelatedCommands prop_isValidProgram
+
+  describe "Resetting a term that evaluates to a qubit" $ do
+    prop "Is valid and has type unit" $ do
+      forAll programThatResetsAQubit prop_isValidProgram

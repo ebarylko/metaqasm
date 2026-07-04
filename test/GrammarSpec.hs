@@ -118,6 +118,10 @@ spec = do
         let expectedGateApp = Gate (GateApp fnName [var "a", var "b"])
         "gate f(x: Qbit, z: Bit) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl "f" expectedGateArgs expectedGateBody expectedGateApp
 
+    describe "Parsing qubit resets" $ do
+      it "Generates a term representing the act of setting a qubit to its default state" $ do
+        "reset x" `shouldParseToCommand` QubitReset (var "x")
+
     describe "Parsing non-scoped register collection declarations" $ do
       it "Generates a term representing the declaration" $ do
         "qreg x[1]" `shouldParseToCommand` regCollDecl Quantum "x" 1

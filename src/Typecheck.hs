@@ -171,6 +171,7 @@ verifyCommand m ScopedGateDecl{info = GateInfo{..}, ..} =
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType
 
+verifyCommand m (Sequence (GateDecl info@GateInfo{}) y) = verifyOnlyIfGateDeclIsValid info m y
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
@@ -192,6 +193,18 @@ verifyCommand _ (RegCollDecl info)
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
 verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
+
+verifyOnlyIfGateDeclIsValid :: GateInfo -> EvaluationContext -> Command -> TypeCalculationResult
+verifyOnlyIfGateDeclIsValid GateInfo{..} m toVerify =  verifyGateApp gateCtx gateBody *> verifyCommand commandCtx toVerify
+  where
+    gateCtx = foldr extendCtxWithGateParam m args
+
+    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
+    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
+
+    commandCtx = extendCtxWithCircuit gateName args m
+    extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
+    genCircuit = Circuit . map argType
 
 -- Takes the expected type of an expression, an expression, the actual type of the expression,
 --  and generates an error noting that the actual and expected types do not match

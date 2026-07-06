@@ -58,11 +58,12 @@ data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, 
 -- the kind of elements present, and the number of registers
 data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum} deriving (Eq, Show)
 
-data GateInfo = GateInfo{gateName' :: Identifier, args' :: [GateArg], gateBody' :: GateApp} deriving (Show, Eq)
+-- This type represents information pertinent to a gate
+data GateInfo = GateInfo{gateName :: Identifier, args :: [GateArg], gateBody :: GateApp} deriving (Show, Eq)
 
 -- This data type represents all possible commands a user can execute.
 data Command = Gate GateApp -- Apply a gate to one or more qubits
-  | ScopedGateDecl {gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command} -- Declare a gate and use it in a later expression
+  | ScopedGateDecl {info :: GateInfo, innerExpr :: Command} -- Declare a gate and use it in a later expression
   | ScopedRegCollDecl {coll :: RegCollInfo, innerExpr :: Command} -- Declare a register collection and use it in a later expression
   | RegCollDecl RegCollInfo -- Declare a register collection
   | Sequence Command Command -- Evaluates the second command under the context obtained from evaluating the first

@@ -117,7 +117,7 @@ spec = do
         let expectedGateBody = GateApp cnot [var "x" , var "z"]
         let fnName = onLine1 "f"
         let expectedGateApp = Gate (GateApp fnName [var "a", var "b"])
-        "gate f(x: Qbit, z: Bit) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl "f" expectedGateArgs expectedGateBody expectedGateApp
+        "gate f(x: Qbit, z: Bit) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl (GateInfo "f" expectedGateArgs expectedGateBody) expectedGateApp
 
     describe "Parsing qubit resets" $ do
       it "Generates a term representing the act of setting a qubit to its default state" $ do
@@ -136,7 +136,8 @@ spec = do
 
     describe "Parsing unscoped gate declarations" $ do
       it "Generates a term containing information about the gate" $ do
+        let hGate = (onLine1 "h")
         "gate f(x: Qbit) {h(x)} " `shouldParseToCommand` GateDecl (GateInfo
                                                                    "f"
                                                                    [GateArg "x" Qbit]
-                                                                  (GateApp (onLine1 "h") [var "x"]))
+                                                                  (GateApp hGate [var "x"]))

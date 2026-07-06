@@ -57,7 +57,7 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | qreg id '[' nat ']' {RegCollDecl (RegCollInfo Quantum (extractName $2) (toNat $4))}
 | creg id '[' nat ']' {RegCollDecl (RegCollInfo Classical (extractName $2) (toNat $4))}
 | gateApp {Gate $1}
-| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (extractName $2) $4 $7 $11}
+| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (GateInfo (extractName $2) $4 $7) $11}
 | measure arg "->" arg {QubitMeasurement $2 $4}
 | command ';' command {Sequence $1 $3}
 | reset arg {QubitReset $2}

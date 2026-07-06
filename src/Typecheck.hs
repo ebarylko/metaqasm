@@ -16,6 +16,7 @@ import Syntax(Identifier,
               Id,
               Index,
               RegCollInfo(..),
+              GateInfo(..),
               GateArg(..),
               Idx,
               NonNeg(..),
@@ -158,7 +159,7 @@ verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 verifyCommand m (Gate x@(GateApp{})) = verifyGateApp m x
 
 -- Verifies that declaring a gate and then applying it is valid
-verifyCommand m (ScopedGateDecl{..}) =
+verifyCommand m ScopedGateDecl{info = GateInfo{..}, ..} =
   verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
   where
     gateCtx = foldr extendCtxWithGateParam m args

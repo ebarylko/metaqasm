@@ -7,6 +7,7 @@ import Syntax(Expression(..),
               Identifier,
               Idx,
               Id,
+              GateInfo(..),
               RegisterType(..),
               RegCollInfo(..),
               NatNum,
@@ -60,6 +61,7 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | measure arg "->" arg {QubitMeasurement $2 $4}
 | command ';' command {Sequence $1 $3}
 | reset arg {QubitReset $2}
+| gate id '(' gateArgs ')' '{' gateApp '}' {GateDecl (GateInfo (extractName $2) $4 $7)}
 
 gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}
 gateArgs : gateArg {[$1]}

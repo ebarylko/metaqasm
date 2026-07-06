@@ -3,6 +3,7 @@ module Syntax(Expression(..),
           Identifier,
           Index,
           Idx,
+          GateInfo(..),
           Id,
           GateApp(..),
           NatNum,
@@ -57,6 +58,8 @@ data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, 
 -- the kind of elements present, and the number of registers
 data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum} deriving (Eq, Show)
 
+data GateInfo = GateInfo{gateName' :: Identifier, args' :: [GateArg], gateBody' :: GateApp} deriving (Show, Eq)
+
 -- This data type represents all possible commands a user can execute.
 data Command = Gate GateApp -- Apply a gate to one or more qubits
   | ScopedGateDecl {gateName :: Identifier, args :: [GateArg], gateBody :: GateApp, innerExpr :: Command} -- Declare a gate and use it in a later expression
@@ -65,4 +68,5 @@ data Command = Gate GateApp -- Apply a gate to one or more qubits
   | Sequence Command Command -- Evaluates the second command under the context obtained from evaluating the first
   | QubitMeasurement{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
   | QubitReset{toReset :: Expression}
+  | GateDecl GateInfo
    deriving (Show, Eq)

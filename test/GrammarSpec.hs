@@ -8,6 +8,7 @@ import Syntax(Expression(..),
            WithContext(..),
            Identifier,
            RegCollInfo(..),
+           GateInfo(..),
            GateApp(..),
            NonNeg(..),
            NatNum,
@@ -132,3 +133,10 @@ spec = do
         let fstRegCollDecl = regCollDecl Quantum "x" 1
         let sndRegCollDecl = regCollDecl Quantum "y" 1
         "qreg x[1] ; qreg y[1]; qreg x[1]" `shouldParseToCommand` Sequence fstRegCollDecl (Sequence sndRegCollDecl fstRegCollDecl)
+
+    describe "Parsing unscoped gate declarations" $ do
+      it "Generates a term containing information about the gate" $ do
+        "gate f(x: Qbit) {h(x)} " `shouldParseToCommand` GateDecl (GateInfo
+                                                                   "f"
+                                                                   [GateArg "x" Qbit]
+                                                                  (GateApp (onLine1 "h") [var "x"]))

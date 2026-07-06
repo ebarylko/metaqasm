@@ -29,7 +29,8 @@ module Generators(outOfScopeVar,
                  programThatSequencesUnscopedClassicRegColl,
                  programThatSequencesUnrelatedCommands,
                  programThatResetsAQubit,
-                 programThatResetsABit)
+                 programThatResetsABit,
+                 unscopedGateDeclAndApp)
   where
 
 import Test.QuickCheck
@@ -545,3 +546,14 @@ programThatResetsAQubit = formatToString (quantumRegCollDecl `sepBySemicolon` re
 programThatResetsABit :: Gen InvalidProgram
 
 programThatResetsABit = genInvalidProgram (classicRegCollDecl `sepBySemicolon` reset regCollAccess)
+
+unscopedGateDeclAndApp :: Gen MetaQasmProgram
+
+unscopedGateDeclAndApp = toProg <$>  nonShadowingRegCollAccess
+  where
+    toProg :: TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+    --toProg _ = undefined
+    toProg info@(TwoArgGateDeclInfo{_gateName}, _) = formatToString (accessed snd quantumRegCollDecl
+                                                                `sepBySemicolon` accessed fst twoQubitGateDecl
+                                                                `sepBySemicolon` accessed snd (twoParamGateApp (toFormatter _gateName) regCollAccess regCollAccess))
+                                                     info

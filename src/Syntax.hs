@@ -58,7 +58,8 @@ data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, 
 -- the kind of elements present, and the number of registers
 data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum} deriving (Eq, Show)
 
--- This type represents information pertinent to a gate
+-- This type represents information known about a gate, namely its name, the arguments it takes,
+-- and the body of the gate
 data GateInfo = GateInfo{gateName :: Identifier, args :: [GateArg], gateBody :: GateApp} deriving (Show, Eq)
 
 -- This data type represents all possible commands a user can execute.

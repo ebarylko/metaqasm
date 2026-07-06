@@ -158,24 +158,14 @@ verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 -- Verifies that applying a gate produces a valid type.
 verifyCommand m (Gate x@(GateApp{})) = verifyGateApp m x
 
--- Verifies that declaring a gate and then applying it is valid
-verifyCommand m ScopedGateDecl{info = GateInfo{..}, ..} =
-  verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
-  where
-    gateCtx = foldr extendCtxWithGateParam m args
+-- Verifies that declaring a scoped gate and then applying it is valid
+verifyCommand m ScopedGateDecl{..} = verifyOnlyIfGateDeclIsValid info m innerExpr
 
-    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
-    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
-
-    commandCtx = extendCtxWithCircuit gateName args m
-    extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
-    genCircuit = Circuit . map argType
-
-verifyCommand m (Sequence (GateDecl info@GateInfo{}) y) = verifyOnlyIfGateDeclIsValid info m y
+verifyCommand m (Sequence (GateDecl info) y) = verifyOnlyIfGateDeclIsValid info m y
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
-verifyCommand m ScopedRegCollDecl{ ..} = evalUnderExpandedCtxIfDeclIsNotEmpty m coll innerExpr
+verifyCommand m ScopedRegCollDecl{..} = evalUnderExpandedCtxIfDeclIsNotEmpty m coll innerExpr
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
@@ -194,6 +184,9 @@ verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
 verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
 
+-- Takes information about a gate declaration, the context under which to evaluate the
+-- declaration, a command, and evaluates the command with the gate type embedded in the context
+-- if the declaration is valid. Returns an error otherwise
 verifyOnlyIfGateDeclIsValid :: GateInfo -> EvaluationContext -> Command -> TypeCalculationResult
 verifyOnlyIfGateDeclIsValid GateInfo{..} m toVerify =  verifyGateApp gateCtx gateBody *> verifyCommand commandCtx toVerify
   where

@@ -165,7 +165,7 @@ verifyCommand m (Sequence (GateDecl info) y) = verifyOnlyIfGateDeclIsValid info 
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
-verifyCommand m ScopedRegCollDecl{..} = evalUnderExpandedCtxIfDeclIsNotEmpty m coll innerExpr
+verifyCommand m ScopedRegCollDecl{..} = evalIfRegCollDeclIsValid m coll innerExpr
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
@@ -174,7 +174,7 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     verifyMeasuredQubit = verifyExprType m Qbit toMeasure
     verifyStoredBit = verifyExprType m Bit toStoreIn
 
-verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalUnderExpandedCtxIfDeclIsNotEmpty m collInfo y
+verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m collInfo y
 
 verifyCommand _ (RegCollDecl info)
   | isEmptyRegColl info = genEmptyRegCollDeclErr info
@@ -221,8 +221,8 @@ verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred 
 -- declaration, a command to evaluate, and evaluates the command under
 -- the context updated with the declaration if an empty collection is not
 -- being declared. Returns an error otherwise
-evalUnderExpandedCtxIfDeclIsNotEmpty :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
-evalUnderExpandedCtxIfDeclIsNotEmpty ctx declInfo toEval
+evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
+evalIfRegCollDeclIsValid ctx declInfo toEval
   | isEmptyRegColl declInfo = genEmptyRegCollDeclErr declInfo
   | otherwise = verifyCommand newContext toEval
   where

@@ -295,8 +295,7 @@ toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoArgGateDecl
     fmtGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
     fmtGateDeclAndApp gateDeclFormatter' gateAppFormatter' = scopedDecl (accessed fst gateDeclFormatter')  (accessed snd $ appGateToQubits gateAppFormatter')
 
-scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
-  where
+scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess where
     twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
 
 -- Takes a separator, two formatters, and generates a formatter that separates the
@@ -549,11 +548,35 @@ programThatResetsABit = genInvalidProgram (classicRegCollDecl `sepBySemicolon` r
 
 unscopedGateDeclAndApp :: Gen MetaQasmProgram
 
+-- unscopedGateDeclAndApp = toProg <$>  nonShadowingRegCollAccess
+--   where
+--     toProg :: TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+--     toProg info@(TwoArgGateDeclInfo{_gateName}, _) = formatToString (accessed snd quantumRegCollDecl
+--                                                                 `sepBySemicolon` accessed fst twoQubitGateDecl
+--                                                                 `sepBySemicolon` accessed snd (twoParamGateApp (toFormatter _gateName) regCollAccess regCollAccess))
+--                                                      info
+
 unscopedGateDeclAndApp = toProg <$>  nonShadowingRegCollAccess
   where
-    toProg :: TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
-    --toProg _ = undefined
-    toProg info@(TwoArgGateDeclInfo{_gateName}, _) = formatToString (accessed snd quantumRegCollDecl
-                                                                `sepBySemicolon` accessed fst twoQubitGateDecl
-                                                                `sepBySemicolon` accessed snd (twoParamGateApp (toFormatter _gateName) regCollAccess regCollAccess))
-                                                     info
+    toProg ::  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+    toProg = fmtGateDeclAndApp sepBySemicolon twoQubitGateDecl (twoParamGateApp' regCollAccess regCollAccess)
+
+-- This type represents a formatter that controls if the results of the first formatter is
+-- locally scoped to the second or unscoped.
+-- E.g., using ; as a scope modifier would result in the values of the first formatter being passed along
+-- in an unscoped context.
+type ScopeModifier a = MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+
+-- Takes a formatter that modifies the scope of a gate declaration, a formatter for a gate declaration and application,
+-- information about the declaration and returns a formatter that places a gate application within the scope of the
+-- gate declaration
+fmtGateDeclAndApp :: ScopeModifier TwoQubitGateDeclAndAppInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+fmtGateDeclAndApp scopeModifier gateDeclFormatter gateAppFormatter info@(TwoArgGateDeclInfo{_gateName}, _)
+  = formatToString fmtter info
+  where
+    fmtter = scopeModifier (accessed fst gateDeclFormatter) (accessed snd (gateAppFormatter _gateName))
+
+
+twoParamGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> String -> MetaQasmProgramFormatter a
+
+twoParamGateApp' fstArgFormatter sndArgFormatter gateName = (toFormatter gateName) <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter)

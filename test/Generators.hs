@@ -559,7 +559,7 @@ unscopedGateDeclAndApp :: Gen MetaQasmProgram
 unscopedGateDeclAndApp = toProg <$>  nonShadowingRegCollAccess
   where
     toProg ::  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
-    toProg = fmtGateDeclAndApp sepBySemicolon twoQubitGateDecl (twoParamGateApp' regCollAccess regCollAccess)
+    toProg = fmtGateDeclAndApp sepBySemicolon twoQubitGateDecl ((quantumRegCollDecl `sepBySemicolon`) >>> twoParamGateApp' regCollAccess regCollAccess)
 
 -- This type represents a formatter that controls if the results of the first formatter is
 -- locally scoped to the second or unscoped.
@@ -570,13 +570,13 @@ type ScopeModifier a = MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
 -- Takes a formatter that modifies the scope of a gate declaration, a formatter for a gate declaration and application,
 -- information about the declaration and returns a formatter that places a gate application within the scope of the
 -- gate declaration
-fmtGateDeclAndApp :: ScopeModifier TwoQubitGateDeclAndAppInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+fmtGateDeclAndApp :: ScopeModifier TwoQubitGateDeclAndAppInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> (MetaQasmProgramFormatter a -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
 fmtGateDeclAndApp scopeModifier gateDeclFormatter gateAppFormatter info@(TwoArgGateDeclInfo{_gateName}, _)
   = formatToString fmtter info
   where
-    fmtter = scopeModifier (accessed fst gateDeclFormatter) (accessed snd (gateAppFormatter _gateName))
+    fmtter = scopeModifier (accessed fst gateDeclFormatter) $ accessed snd $ gateAppFormatter (toFormatter _gateName)
 
 
-twoParamGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> String -> MetaQasmProgramFormatter a
+twoParamGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
 
-twoParamGateApp' fstArgFormatter sndArgFormatter gateName = (toFormatter gateName) <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter)
+twoParamGateApp' fstArgFormatter sndArgFormatter gateNameFormatter = gateNameFormatter <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter)

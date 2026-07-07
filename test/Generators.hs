@@ -295,11 +295,12 @@ toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoArgGateDecl
     fmtGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
     fmtGateDeclAndApp gateDeclFormatter' gateAppFormatter' = scopedDecl (accessed fst gateDeclFormatter')  (accessed snd $ appGateToQubits gateAppFormatter')
 
+toScopedTwoQubitGateDeclAndApp :: (MetaQasmProgramFormatter a -> RegAccessFormatter) -> TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+
+toScopedTwoQubitGateDeclAndApp gateAppFormatter = fmtGateDeclAndApp scopedDecl twoQubitGateDecl (appGateToQubits . gateAppFormatter)
+
 scopedTwoQubitGate =  fmtGateDeclAndApp scopedDecl twoQubitGateDecl (appGateToQubits . twoQubitGateApp) <$> nonShadowingRegCollAccess where
     twoQubitGateApp gate = twoParamGateApp gate regCollAccess regCollAccess
-
---scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess where
---    twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
 
 -- Takes a separator, two formatters, and generates a formatter that separates the
 -- results obtained by both formatters by the separator
@@ -314,9 +315,13 @@ sepByComma = sepBy ","
 -- three qubits
 programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
+programWithTooManyParamsInGateApp = toScopedTwoQubitGateDeclAndApp  threeQubitGateApp <$> nonShadowingRegCollAccess
   where
-    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess `sepByComma` regCollAccess `sepByComma` regCollAccess)
+    threeQubitGateApp gate =  gate <>  parenthesised (regCollAccess `sepByComma` regCollAccess `sepByComma` regCollAccess)
+
+--programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
+--  where
+--    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess `sepByComma` regCollAccess `sepByComma` regCollAccess)
 
 -- Generates programs where a two qubit gate is applied to
 -- one qubit

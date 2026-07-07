@@ -295,8 +295,11 @@ toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoArgGateDecl
     fmtGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
     fmtGateDeclAndApp gateDeclFormatter' gateAppFormatter' = scopedDecl (accessed fst gateDeclFormatter')  (accessed snd $ appGateToQubits gateAppFormatter')
 
-scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess where
-    twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
+scopedTwoQubitGate =  fmtGateDeclAndApp scopedDecl twoQubitGateDecl (appGateToQubits . twoQubitGateApp) <$> nonShadowingRegCollAccess where
+    twoQubitGateApp gate = twoParamGateApp gate regCollAccess regCollAccess
+
+--scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess where
+--    twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
 
 -- Takes a separator, two formatters, and generates a formatter that separates the
 -- results obtained by both formatters by the separator

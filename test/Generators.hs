@@ -564,7 +564,7 @@ unscopedGateDeclAndApp :: Gen MetaQasmProgram
 unscopedGateDeclAndApp = toUnscopedGateDeclAndApp <$>  nonShadowingRegCollAccess
   where
     toUnscopedGateDeclAndApp ::  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
-    toUnscopedGateDeclAndApp = fmtGateDeclAndApp sepBySemicolon cnotGateDecl ((quantumRegCollDecl `sepBySemicolon`) . twoParamGateApp' regCollAccess regCollAccess)
+    toUnscopedGateDeclAndApp = fmtGateDeclAndApp sepBySemicolon cnotGateDecl (twoParamGateApp' regCollAccess regCollAccess >>> sepBySemicolon quantumRegCollDecl)
 
     twoParamGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
     twoParamGateApp' fstArgFormatter sndArgFormatter gateNameFormatter = twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter

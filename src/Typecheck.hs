@@ -162,6 +162,7 @@ verifyCommand m (Gate x@(GateApp{})) = verifyGateApp m x
 verifyCommand m ScopedGateDecl{..} = verifyOnlyIfGateDeclIsValid info m innerExpr
 
 verifyCommand m (Sequence (GateDecl info) y) = verifyOnlyIfGateDeclIsValid info m y
+verifyCommand m (GateDecl info) = verifyGateDecl info m
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
@@ -184,17 +185,22 @@ verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
 verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
 
+-- Takes information about a gate declaration, the local context, and
+-- checks that the body of the gate is valid according to the
+-- parameters in the declaration and the context. Returns an error otherwise
+verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult
+verifyGateDecl GateInfo{..} m = verifyGateApp gateDeclCtx gateBody
+  where
+    gateDeclCtx = foldr extendCtxWithGateParam m args
+    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
+    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
+
 -- Takes information about a gate declaration, the context under which to evaluate the
 -- declaration, a command, and evaluates the command with the gate type embedded in the context
 -- if the declaration is valid. Returns an error otherwise
 verifyOnlyIfGateDeclIsValid :: GateInfo -> EvaluationContext -> Command -> TypeCalculationResult
-verifyOnlyIfGateDeclIsValid GateInfo{..} m toVerify =  verifyGateApp gateCtx gateBody *> verifyCommand extendedCtx toVerify
+verifyOnlyIfGateDeclIsValid info@GateInfo{gateName, args} m toVerify =  verifyGateDecl info m  *> verifyCommand extendedCtx toVerify
   where
-    gateCtx = foldr extendCtxWithGateParam m args
-
-    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
-    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
-
     extendedCtx = extendCtxWithCircuit gateName args m
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType

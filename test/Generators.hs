@@ -30,7 +30,8 @@ module Generators(outOfScopeVar,
                  programThatSequencesUnrelatedCommands,
                  programThatResetsAQubit,
                  programThatResetsABit,
-                 unscopedGateDeclAndApp)
+                 unscopedGateDeclAndApp,
+                 unscopedTwoQubitGateDecl)
   where
 
 import Test.QuickCheck
@@ -568,3 +569,10 @@ unscopedGateDeclAndApp = toUnscopedGateDeclAndApp <$>  nonShadowingRegCollAccess
 
     twoParamGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
     twoParamGateApp' fstArgFormatter sndArgFormatter gateNameFormatter = twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter
+
+
+-- Generates a program that declares an unscoped two qubit
+-- gate that applies a CNOT gate to its arguments
+unscopedTwoQubitGateDecl :: Gen MetaQasmProgram
+
+unscopedTwoQubitGateDecl = formatToString cnotGateDecl <$> twoArgGateDeclInfo

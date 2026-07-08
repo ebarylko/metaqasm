@@ -188,14 +188,14 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQub
 -- declaration, a command, and evaluates the command with the gate type embedded in the context
 -- if the declaration is valid. Returns an error otherwise
 verifyOnlyIfGateDeclIsValid :: GateInfo -> EvaluationContext -> Command -> TypeCalculationResult
-verifyOnlyIfGateDeclIsValid GateInfo{..} m toVerify =  verifyGateApp gateCtx gateBody *> verifyCommand commandCtx toVerify
+verifyOnlyIfGateDeclIsValid GateInfo{..} m toVerify =  verifyGateApp gateCtx gateBody *> verifyCommand extendedCtx toVerify
   where
     gateCtx = foldr extendCtxWithGateParam m args
 
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
     extendCtxWithGateParam (GateArg{..}) = M.insert name argType
 
-    commandCtx = extendCtxWithCircuit gateName args m
+    extendedCtx = extendCtxWithCircuit gateName args m
     extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
     genCircuit = Circuit . map argType
 

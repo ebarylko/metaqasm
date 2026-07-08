@@ -185,6 +185,9 @@ verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
 verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
 
+-- Takes information about a gate declaration, the local context, and
+-- checks that the body of the gate is valid according to the
+-- parameters in the declaration and the context. Returns an error otherwise
 verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult
 verifyGateDecl GateInfo{..} m = verifyGateApp gateDeclCtx gateBody
   where

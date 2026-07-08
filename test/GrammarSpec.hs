@@ -141,3 +141,11 @@ spec = do
                                                                    "f"
                                                                    [GateArg "x" Qbit]
                                                                   (GateApp hGate [var "x"]))
+
+    describe "Parsing unscoped gate declarations that take a qubit collection" $ do
+      it "Generates a term containing information about the gate" $ do
+        let hGate = (onLine1 "h")
+        "gate f(x: Qbit[2]) {h(x[0])} " `shouldParseToCommand` GateDecl (GateInfo
+                                                                   "f"
+                                                                   [GateArg "x" (RegisterGroup Quantum (index 2))]
+                                                                  (GateApp hGate [regAccess "x" 0]))

@@ -52,7 +52,8 @@ import Generators(outOfScopeVar,
                  programThatSequencesUnrelatedCommands,
                  programThatResetsAQubit,
                  programThatResetsABit,
-                 unscopedGateDeclAndApp)
+                 unscopedGateDeclAndApp,
+                 unscopedTwoQubitGateDecl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -298,3 +299,7 @@ spec =  do
   describe "Sequencing a valid unscoped gate declaration with its application to the appropriate arguments" $ do
     prop "Is valid" $ do
       forAll unscopedGateDeclAndApp prop_isValidProgram
+
+  describe "Declaring a valid unscoped n-ary gate" $ do
+    prop "Is valid" $ do
+      forAll unscopedTwoQubitGateDecl prop_isValidProgram

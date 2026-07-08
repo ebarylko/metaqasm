@@ -295,6 +295,6 @@ spec =  do
     prop "Is invalid" $ do
       forAll programThatResetsABit prop_cannotSubstituteBitForQubit
 
-  describe "Sequencing a valid gate declaration with its application to the appropriate arguments" $ do
+  describe "Sequencing a valid unscoped gate declaration with its application to the appropriate arguments" $ do
     prop "Is valid" $ do
       forAll unscopedGateDeclAndApp prop_isValidProgram

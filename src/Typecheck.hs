@@ -16,6 +16,7 @@ import Syntax(Identifier,
               Id,
               Index,
               RegCollInfo(..),
+              GateInfo(..),
               GateArg(..),
               Idx,
               NonNeg(..),
@@ -157,23 +158,14 @@ verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
 -- Verifies that applying a gate produces a valid type.
 verifyCommand m (Gate x@(GateApp{})) = verifyGateApp m x
 
--- Verifies that declaring a gate and then applying it is valid
-verifyCommand m (ScopedGateDecl{..}) =
-  verifyGateApp gateCtx gateBody *> verifyCommand commandCtx innerExpr
-  where
-    gateCtx = foldr extendCtxWithGateParam m args
+-- Verifies that declaring a scoped gate and then applying it is valid
+verifyCommand m ScopedGateDecl{..} = verifyOnlyIfGateDeclIsValid info m innerExpr
 
-    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
-    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
-
-    commandCtx = extendCtxWithCircuit gateName args m
-    extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
-    genCircuit = Circuit . map argType
-
+verifyCommand m (Sequence (GateDecl info) y) = verifyOnlyIfGateDeclIsValid info m y
 
 -- Checks that a non-empty register collection is being declared and used
 -- validly in the inner expression
-verifyCommand m ScopedRegCollDecl{ ..} = evalUnderExpandedCtxIfDeclIsNotEmpty m coll innerExpr
+verifyCommand m ScopedRegCollDecl{..} = evalIfRegCollDeclIsValid m coll innerExpr
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
@@ -182,7 +174,7 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
     verifyMeasuredQubit = verifyExprType m Qbit toMeasure
     verifyStoredBit = verifyExprType m Bit toStoreIn
 
-verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalUnderExpandedCtxIfDeclIsNotEmpty m collInfo y
+verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m collInfo y
 
 verifyCommand _ (RegCollDecl info)
   | isEmptyRegColl info = genEmptyRegCollDeclErr info
@@ -191,6 +183,21 @@ verifyCommand _ (RegCollDecl info)
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
 verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
+
+-- Takes information about a gate declaration, the context under which to evaluate the
+-- declaration, a command, and evaluates the command with the gate type embedded in the context
+-- if the declaration is valid. Returns an error otherwise
+verifyOnlyIfGateDeclIsValid :: GateInfo -> EvaluationContext -> Command -> TypeCalculationResult
+verifyOnlyIfGateDeclIsValid GateInfo{..} m toVerify =  verifyGateApp gateCtx gateBody *> verifyCommand extendedCtx toVerify
+  where
+    gateCtx = foldr extendCtxWithGateParam m args
+
+    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
+    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
+
+    extendedCtx = extendCtxWithCircuit gateName args m
+    extendCtxWithCircuit circName circArgs = M.insert circName (genCircuit circArgs)
+    genCircuit = Circuit . map argType
 
 -- Takes the expected type of an expression, an expression, the actual type of the expression,
 --  and generates an error noting that the actual and expected types do not match
@@ -214,8 +221,8 @@ verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred 
 -- declaration, a command to evaluate, and evaluates the command under
 -- the context updated with the declaration if an empty collection is not
 -- being declared. Returns an error otherwise
-evalUnderExpandedCtxIfDeclIsNotEmpty :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
-evalUnderExpandedCtxIfDeclIsNotEmpty ctx declInfo toEval
+evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
+evalIfRegCollDeclIsValid ctx declInfo toEval
   | isEmptyRegColl declInfo = genEmptyRegCollDeclErr declInfo
   | otherwise = verifyCommand newContext toEval
   where

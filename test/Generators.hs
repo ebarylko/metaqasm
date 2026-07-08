@@ -29,7 +29,8 @@ module Generators(outOfScopeVar,
                  programThatSequencesUnscopedClassicRegColl,
                  programThatSequencesUnrelatedCommands,
                  programThatResetsAQubit,
-                 programThatResetsABit)
+                 programThatResetsABit,
+                 unscopedGateDeclAndApp)
   where
 
 import Test.QuickCheck
@@ -162,14 +163,14 @@ appGateToQubits :: RegAccessFormatter -> RegAccessFormatter
 appGateToQubits gate = scopedDecl quantumRegCollDecl  gate
 
 
-singleQubitGateApp :: String -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-singleQubitGateApp gateName gateArg = toFormatter gateName <> parenthesised gateArg
+singleQubitGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+singleQubitGateApp gateName gateArg = gateName <> parenthesised gateArg
 
 hadamardApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-hadamardApp = singleQubitGateApp "h"
+hadamardApp = singleQubitGateApp (fconst "h")
 
 hadamardApp' :: RegAccessFormatter
-hadamardApp' = singleQubitGateApp "h" regCollAccess
+hadamardApp' = singleQubitGateApp (fconst "h") regCollAccess
 
 
 -- Generates metaQASM code where a hadamard gate is applied to
@@ -208,7 +209,7 @@ programWithOutOfBoundsRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithI
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
 
 tGateApp :: RegAccessFormatter
-tGateApp = singleQubitGateApp "t" regCollAccess
+tGateApp = singleQubitGateApp (fconst "t") regCollAccess
 
 -- Generates programs containing the application of a t gate to a qubit
 programWithTGateApp :: Gen MetaQasmProgram
@@ -222,12 +223,15 @@ programWithTGateApp = toProgWithTGateApp <$> validRegCollAccess
 programWithTDaggerGateApp :: Gen MetaQasmProgram
 
 tDaggerGateApp :: RegAccessFormatter
-tDaggerGateApp = singleQubitGateApp "tdg" regCollAccess
+tDaggerGateApp = singleQubitGateApp (fconst "tdg") regCollAccess
 
 programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> validRegCollAccess
   where
     toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithTDaggerGateApp  = formatToString (appGateToQubits tDaggerGateApp)
+
+twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter)
 
 -- Takes two formatters and applies a cnot gate to the values obtained by the formatters
 -- Ex: cnot (fconst "x") (fconst "y") = "cx(x, y)"
@@ -278,25 +282,35 @@ sndParam :: MetaQasmProgramFormatter  TwoArgGateDeclInfo
 sndParam = accessed _sndArg string
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
-twoQubitGateDecl :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram)
-twoQubitGateDecl = gateDecl (qubitAnnotation %. fstParam) (qubitAnnotation %. sndParam) (cnot fstParam sndParam)
+cnotGateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo
+cnotGateDecl = gateDecl (qubitAnnotation %. fstParam) (qubitAnnotation %. sndParam) (cnot fstParam sndParam)
+
+-- This type represents a formatter that controls if the results of the first formatter is
+-- locally scoped to the second or unscoped.
+-- E.g., using ; as a scope modifier would result in the values of the first formatter being passed along
+-- in an unscoped context.
+type ScopeModifier a = MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+
+-- Takes a formatter that modifies the scope of a gate declaration, a formatter for a gate declaration and application,
+-- information about the declaration and returns a formatter that places a gate application within the scope of the
+-- gate declaration
+fmtGateDeclAndApp :: ScopeModifier TwoQubitGateDeclAndAppInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> (MetaQasmProgramFormatter a -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+fmtGateDeclAndApp modifier gateDeclFormatter gateAppFormatter info@(TwoArgGateDeclInfo{_gateName}, _)
+  = formatToString fmtter info
+  where
+    fmtter = modifier (accessed fst gateDeclFormatter) $ accessed snd $ gateAppFormatter (toFormatter _gateName)
+
+-- Takes a formatter for the application of a two qubit gate, the information needed for the application,
+-- and generates a program with a scoped two qubit gate declaration and subsequent application
+--toScopedTwoQubitGateDeclAndApp :: (MetaQasmProgramFormatter a -> RegAccessFormatter) -> TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+toScopedTwoQubitGateDeclAndApp :: (RegAccessFormatter -> RegAccessFormatter) -> TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+toScopedTwoQubitGateDeclAndApp gateAppFormatter = fmtGateDeclAndApp scopedDecl cnotGateDecl (appGateToQubits . gateAppFormatter)
 
 -- Generates a MetaQasm program where a two qubit gate
 -- is declared and then applied to two in-scope qubits
 scopedTwoQubitGate :: Gen MetaQasmProgram
-
--- Takes a formatter for a two qubit gate declaration, a formatter for the application of the gate, the information needed for both formatters,
--- and generates a MetaQASM program based on the formatters and info that declares a two qubit gate and applies it later
-toTwoQubitGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> (String -> RegAccessFormatter) ->  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
-
-toTwoQubitGateDeclAndApp gateDeclFormatter gateAppFormatter info@(TwoArgGateDeclInfo gateName _ _, _) = formatToString (fmtGateDeclAndApp gateDeclFormatter (gateAppFormatter gateName)) info
-  where
-    fmtGateDeclAndApp :: Format MetaQasmProgram (TwoArgGateDeclInfo -> MetaQasmProgram) -> RegAccessFormatter -> Format MetaQasmProgram (TwoQubitGateDeclAndAppInfo -> MetaQasmProgram)
-    fmtGateDeclAndApp gateDeclFormatter' gateAppFormatter' = scopedDecl (accessed fst gateDeclFormatter')  (accessed snd $ appGateToQubits gateAppFormatter')
-
-scopedTwoQubitGate =  toTwoQubitGateDeclAndApp twoQubitGateDecl twoQubitGateApp <$> nonShadowingRegCollAccess
-  where
-    twoQubitGateApp gate = twoParamGateApp (toFormatter gate)  regCollAccess regCollAccess
+scopedTwoQubitGate =  toScopedTwoQubitGateDeclAndApp twoQubitGateApp <$> nonShadowingRegCollAccess where
+    twoQubitGateApp gate = twoParamGateApp gate regCollAccess regCollAccess
 
 -- Takes a separator, two formatters, and generates a formatter that separates the
 -- results obtained by both formatters by the separator
@@ -311,15 +325,15 @@ sepByComma = sepBy ","
 -- three qubits
 programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooManyParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl threeQubitGateApp <$> nonShadowingRegCollAccess
+programWithTooManyParamsInGateApp = toScopedTwoQubitGateDeclAndApp  threeQubitGateApp <$> nonShadowingRegCollAccess
   where
-    threeQubitGateApp gate = toFormatter gate <>  parenthesised (regCollAccess `sepByComma` regCollAccess `sepByComma` regCollAccess)
+    threeQubitGateApp gate =  gate <>  parenthesised (regCollAccess `sepByComma` regCollAccess `sepByComma` regCollAccess)
 
 -- Generates programs where a two qubit gate is applied to
 -- one qubit
 programWithTooFewParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooFewParamsInGateApp = toTwoQubitGateDeclAndApp twoQubitGateDecl (flip singleQubitGateApp regCollAccess) <$> nonShadowingRegCollAccess
+programWithTooFewParamsInGateApp = toScopedTwoQubitGateDeclAndApp  (flip singleQubitGateApp regCollAccess) <$> nonShadowingRegCollAccess
 
 -- This type represents the information needed to create a MetaQASMProgram
 -- that measures a qubit and stores the measurement in a bit
@@ -470,9 +484,6 @@ gateThatTakesQubitAndBit = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclI
 gateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo
 gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter) <%+> braced gateBodyFormatter
 
-twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-
-twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter)
 
 -- Generates a declaration for a gate that takes a qubit
 -- and a bit and applies a hadamard gate to the qubit
@@ -545,3 +556,15 @@ programThatResetsAQubit = formatToString (quantumRegCollDecl `sepBySemicolon` re
 programThatResetsABit :: Gen InvalidProgram
 
 programThatResetsABit = genInvalidProgram (classicRegCollDecl `sepBySemicolon` reset regCollAccess)
+
+-- Generates a program that declares an unscoped two qubit
+-- gate and applies it to two qubits
+unscopedGateDeclAndApp :: Gen MetaQasmProgram
+
+unscopedGateDeclAndApp = toUnscopedGateDeclAndApp <$>  nonShadowingRegCollAccess
+  where
+    toUnscopedGateDeclAndApp ::  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
+    toUnscopedGateDeclAndApp = fmtGateDeclAndApp sepBySemicolon cnotGateDecl (twoParamGateApp' regCollAccess regCollAccess >>> sepBySemicolon quantumRegCollDecl)
+
+    twoParamGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
+    twoParamGateApp' fstArgFormatter sndArgFormatter gateNameFormatter = twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter

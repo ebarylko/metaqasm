@@ -300,6 +300,6 @@ spec =  do
     prop "Is valid" $ do
       forAll unscopedGateDeclAndApp prop_isValidProgram
 
-  describe "Declaring a valid unscoped n-ary gate" $ do
-    prop "Is valid" $ do
+  describe "Declaring a valid unscoped two qubit gate" $ do
+    prop "Is itself valid" $ do
       forAll unscopedTwoQubitGateDecl prop_isValidProgram

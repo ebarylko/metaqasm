@@ -63,7 +63,7 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | reset arg {QubitReset $2}
 | gate id '(' gateArgs ')' '{' gateApp '}' {GateDecl (GateInfo (extractName $2) $4 $7)}
 
-compoundType : simpleAnnotation '[' nat ']' {RegisterGroup ((toRegCollType  . toTermType) $1) (toNat $3)}
+compoundType : simpleAnnotation '[' nat ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ toNat $3}
 type : simpleAnnotation {toTermType $1} | compoundType {$1}
 
 gateArg : id ':' type {GateArg (extractName $1) $3}
@@ -77,7 +77,6 @@ args : arg {[$1]} | arg ',' args {$1 : $3}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
-
 
 
 {

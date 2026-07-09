@@ -93,6 +93,9 @@ outOfScopeExpr = oneof [freshVariable, outOfScopeRegAccess]
 data RegCollAccessSpec = RegCollAccessSpec{_regCollName :: Identifier, _numOfRegs :: Int, _wantedRegIdx :: Int}
 
 
+uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
+uncurry3 f = \(x, y, z) -> f x y z
+
 -- Takes a predicate and returns a generator that only
 -- outputs access specifications that satisfy the predicate
 genRegCollAccessSpec :: (RegCollAccessSpec -> Bool) -> Gen RegCollAccessSpec
@@ -102,8 +105,6 @@ genRegCollAccessSpec predicate = ((>**<) freshVariable posNum arbitrarySizedNatu
     posNum :: Gen Int
     posNum = getPositive <$> arbitrary
 
-    uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
-    uncurry3 f = \(x, y, z) -> f x y z
 
 -- This generates an instance of a valid register
 -- access spec where the wanted register is inside of the
@@ -576,3 +577,13 @@ unscopedGateDeclAndApp = toUnscopedGateDeclAndApp <$>  nonShadowingRegCollAccess
 unscopedTwoQubitGateDecl :: Gen MetaQasmProgram
 
 unscopedTwoQubitGateDecl = formatToString cnotGateDecl <$> twoArgGateDeclInfo
+
+data SingleParamGateInfo a = SingleParamGateInfo{_gateId :: String, _paramName :: String, _paramInfo :: a}
+
+gateThatTakesAQuantumRegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
+
+gateThatTakesAQuantumRegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
+  where
+    regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
+    regCollIsNotOvershadowed (gateName, _, RegCollAccessSpec{_regCollName}) = gateName /= _regCollName
+

@@ -582,19 +582,18 @@ unscopedTwoQubitGateDecl :: Gen MetaQasmProgram
 
 unscopedTwoQubitGateDecl = formatToString cnotGateDecl <$> twoArgGateDeclInfo
 
+-- This data type represents a gate that can take any kind of parameter
 data SingleParamGateInfo a = SingleParamGateInfo{_gateId :: String, _paramName :: String, _paramInfo :: a}
 makeLenses ''SingleParamGateInfo
 
+-- Generates information about a gate that only takes a quantum register
+-- collection
 gateThatTakesAQuantumRegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 
 gateThatTakesAQuantumRegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
     regCollIsNotOvershadowed (gateName, _, RegCollAccessSpec{_regCollName}) = gateName /= _regCollName
-
-
-qubitRegCollAnnotation :: RegAccessFormatter
-qubitRegCollAnnotation = fconst "Qbit" <> squared (viewed numOfRegs int)
 
 -- Generates a program that contains the application of an
 -- unscoped gate that takes a quantum register collection to
@@ -608,12 +607,18 @@ unscopedGateWithQuantumRegCollParam = toProg <$> gateThatTakesAQuantumRegColl
                                                                   `sepBySemicolonOnNewLine`
                                                                   singleParamGateDecl gateParam (viewed paramInfo (genGateBody _paramName))
                                                                  `sepBySemicolonOnNewLine`
-                                                                 singleParamGateApp (viewed gateId string) (viewed (paramInfo . regCollName) string)) info
+                                                                 gateApp) info
+
 
     gateParam = viewed paramName string `sepByColon` viewed paramInfo qubitRegCollAnnotation
+    gateApp = singleParamGateApp (viewed gateId string) $ viewed (paramInfo . regCollName) string
     genGateBody :: String -> RegAccessFormatter
     genGateBody  = set regCollName >>> (`mapf`  regCollAccess) >>> hadamardApp
     sepByColon = sepBy ":"
-    sepBySemicolonOnNewLine = sepBy ";\n"
+    sepBySemicolonOnNewLine = sepBy "\n;"
+
     singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a) ->  MetaQasmProgramFormatter (SingleParamGateInfo a)
-    singleParamGateDecl fstArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateId string) <> parenthesised fstArgFormatter <%+> braced gateBodyFormatter
+    singleParamGateDecl argFormatter gateBodyFormatter = fconst "gate" <%+> (accessed _gateId string) <> parenthesised argFormatter <%+> braced gateBodyFormatter
+
+    qubitRegCollAnnotation :: RegAccessFormatter
+    qubitRegCollAnnotation = fconst "Qbit" <> squared (viewed numOfRegs int)

@@ -57,7 +57,7 @@ instance Eq TermType where
   Qbit == Qbit = True
   Unit == Unit = True
   RegisterGroup x (WithContext v _) == RegisterGroup y (WithContext w _) = x == y && v == w
-  (Circuit leftArgs) == (Circuit rightArgs) = leftArgs == rightArgs
+  (Circuit args') == (Circuit args'') = args' == args''
   _ == _ = False
 
 data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, Eq)

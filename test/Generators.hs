@@ -33,7 +33,8 @@ module Generators(outOfScopeVar,
                  programThatResetsAQubit,
                  programThatResetsABit,
                  unscopedGateDeclAndApp,
-                 unscopedTwoQubitGateDecl)
+                 unscopedTwoQubitGateDecl,
+                 unscopedGateWithQuantumRegCollParam)
   where
 
 import Test.QuickCheck
@@ -595,20 +596,24 @@ gateThatTakesAQuantumRegColl = ((>**<) freshVariable freshVariable validRegCollA
 qubitRegCollAnnotation :: RegAccessFormatter
 qubitRegCollAnnotation = fconst "Qbit" <> squared (viewed numOfRegs int)
 
+-- Generates a program that contains the application of an
+-- unscoped gate that takes a quantum register collection to
+-- a quantum register collection
 unscopedGateWithQuantumRegCollParam :: Gen MetaQasmProgram
 
 unscopedGateWithQuantumRegCollParam = toProg <$> gateThatTakesAQuantumRegColl
   where
     toProg :: SingleParamGateInfo RegCollAccessSpec -> MetaQasmProgram
     toProg info@SingleParamGateInfo{_paramName} = formatToString (viewed paramInfo quantumRegCollDecl
-                                                                  `sepBySemicolon`
+                                                                  `sepBySemicolonOnNewLine`
                                                                   singleParamGateDecl gateParam (viewed paramInfo (genGateBody _paramName))
-                                                                 `sepBySemicolon`
+                                                                 `sepBySemicolonOnNewLine`
                                                                  singleParamGateApp (viewed gateId string) (viewed (paramInfo . regCollName) string)) info
 
     gateParam = viewed paramName string `sepByColon` viewed paramInfo qubitRegCollAnnotation
     genGateBody :: String -> RegAccessFormatter
     genGateBody  = set regCollName >>> (`mapf`  regCollAccess) >>> hadamardApp
     sepByColon = sepBy ":"
+    sepBySemicolonOnNewLine = sepBy ";\n"
     singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a) ->  MetaQasmProgramFormatter (SingleParamGateInfo a)
     singleParamGateDecl fstArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateId string) <> parenthesised fstArgFormatter <%+> braced gateBodyFormatter

@@ -41,7 +41,7 @@ reset {Reset}
 gate    {GateDec}
 '('     { LParen _}
 ')'     { RParen _ }
-annotation     {TypeAnnotation typ lineNum}
+simpleAnnotation     {SimpleTypeAnnotation typ lineNum}
 id      { Id name lineNum}
 nat     { Nat num lineNum}
 measure  {Measurement}
@@ -63,7 +63,11 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | reset arg {QubitReset $2}
 | gate id '(' gateArgs ')' '{' gateApp '}' {GateDecl (GateInfo (extractName $2) $4 $7)}
 
-gateArg : id ':' annotation {GateArg (extractName $1) (toTermType $3)}
+compoundType : simpleAnnotation '[' nat ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ toNat $3}
+type : simpleAnnotation {toTermType $1} | compoundType {$1}
+
+gateArg : id ':' type {GateArg (extractName $1) $3}
+
 gateArgs : gateArg {[$1]}
 | gateArg ',' gateArgs {$1 : $3}
 
@@ -75,8 +79,10 @@ arg : id             {(Var . toVar) $1 }
 | id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
 
 
-
 {
+
+toRegCollType :: TermType -> RegisterType
+toRegCollType Qbit = Quantum
 
 -- Converts a token representing a variable name to its
 -- corresponding term in the grammar
@@ -86,8 +92,8 @@ toVar (Id varName lineNum) = WithContext varName lineNum
 -- Takes a token representing a type annotation and converts it
 -- to the corresponding MetaQASM type
 toTermType :: Token -> TermType
-toTermType (TypeAnnotation "Qbit" _) = Qbit
-toTermType (TypeAnnotation "Bit" _) = Bit
+toTermType (SimpleTypeAnnotation "Qbit" _) = Qbit
+toTermType (SimpleTypeAnnotation "Bit" _) = Bit
 
 toIdx :: Token -> Idx
 toIdx (Nat num lineNum) = WithContext (NonNeg num) lineNum

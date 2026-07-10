@@ -50,7 +50,15 @@ data TermType
   | RegisterGroup RegisterType NatNum
   | Unit
   | Circuit{circuitArgs :: [TermType]}
-  deriving (Show, Eq)
+  deriving (Show)
+
+instance Eq TermType where
+  Bit == Bit = True
+  Qbit == Qbit = True
+  Unit == Unit = True
+  RegisterGroup x (WithContext v _) == RegisterGroup y (WithContext w _) = x == y && v == w
+  (Circuit args') == (Circuit args'') = args' == args''
+  _ == _ = False
 
 data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, Eq)
 

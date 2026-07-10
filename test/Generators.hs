@@ -34,7 +34,8 @@ module Generators(outOfScopeVar,
                  programThatResetsABit,
                  unscopedGateDeclAndApp,
                  unscopedTwoQubitGateDecl,
-                 multilineUnscopedGateWithQuantumRegCollParam)
+                 multilineUnscopedGateWithQuantumRegCollParam,
+                 unscopedGateThatTakesAnEmptyRegColl)
   where
 
 import Test.QuickCheck
@@ -613,11 +614,22 @@ multilineUnscopedGateWithQuantumRegCollParam = toProg <$> gateThatTakesAQuantumR
     gateApp = singleParamGateApp (viewed gateId string) $ viewed (paramInfo . regCollName) string
     genGateBody :: String -> RegAccessFormatter
     genGateBody  = set regCollName >>> (`mapf`  regCollAccess) >>> hadamardApp
-    sepByColon = sepBy ":"
     sepBySemicolonOnNewLine = sepBy "\n;"
-
-    singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a) ->  MetaQasmProgramFormatter (SingleParamGateInfo a)
-    singleParamGateDecl argFormatter gateBodyFormatter = fconst "gate" <%+> (accessed _gateId string) <> parenthesised argFormatter <%+> braced gateBodyFormatter
 
     qubitRegCollAnnotation :: RegAccessFormatter
     qubitRegCollAnnotation = fconst "Qbit" <> squared (viewed numOfRegs int)
+
+singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a) ->  MetaQasmProgramFormatter (SingleParamGateInfo a)
+singleParamGateDecl argFormatter gateBodyFormatter = fconst "gate" <%+> (accessed _gateId string) <> parenthesised argFormatter <%+> braced gateBodyFormatter
+
+sepByColon = sepBy ":"
+-- Generates a program consisting of a single parameter gate
+-- declaration where the parameter is an empty register collection
+unscopedGateThatTakesAnEmptyRegColl :: Gen MetaQasmProgram
+
+unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateThatTakesAQuantumRegColl
+  where
+    invalidGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
+    invalidGateDecl = singleParamGateDecl emptyQuantRegColl $ fconst "h(x)"
+    emptyQuantRegColl = viewed paramName string `sepByColon` emptyQuantumCollAnnotation
+    emptyQuantumCollAnnotation = fconst "Qbit[0]"

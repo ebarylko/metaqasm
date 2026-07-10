@@ -54,7 +54,8 @@ import Generators(outOfScopeVar,
                  programThatResetsABit,
                  unscopedGateDeclAndApp,
                  unscopedTwoQubitGateDecl,
-                 multilineUnscopedGateWithQuantumRegCollParam)
+                 multilineUnscopedGateWithQuantumRegCollParam,
+                 unscopedGateThatTakesAnEmptyRegColl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -194,6 +195,15 @@ prop_cannotSubstituteBitForQubit = prog_cannotSubstituteAForB Qbit Bit
 prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()
 prop_cannotSubstituteQubitForBit = prog_cannotSubstituteAForB Bit Qbit
 
+prop_cannotTakeEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
+prop_cannotTakeEmptyRegCollAsArg prog =
+  calcTypeOf prog `shouldBe` emptyDeclErr
+  where
+    emptyDeclErr = Left $ TypeErr $ WithContext (EmptyRegCollDecl regCollName) (LineNumber 1)
+    regCollName = extractRegCollName prog
+    extractRegCollName = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhile isBeforeTypeAnnotation
+    isNotPartOfArgList = (/= '(')
+    isBeforeTypeAnnotation =(/= ':')
 
 spec :: Spec
 spec =  do
@@ -308,3 +318,7 @@ spec =  do
   describe "Declaring a multiline unscoped gate that takes a quantum register collection of size N and applying it to such a collection" $ do
     prop "Is valid" $ do
       forAll multilineUnscopedGateWithQuantumRegCollParam prop_isValidProgram
+
+  describe "Declaring an unscoped gate that takes an empty quantum register collection" $ do
+    prop "Is invalid" $ do
+      forAll unscopedGateThatTakesAnEmptyRegColl prop_cannotTakeEmptyRegCollAsArg

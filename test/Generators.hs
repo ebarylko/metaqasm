@@ -34,7 +34,7 @@ module Generators(outOfScopeVar,
                  programThatResetsABit,
                  unscopedGateDeclAndApp,
                  unscopedTwoQubitGateDecl,
-                 unscopedGateWithQuantumRegCollParam)
+                 multilineUnscopedGateWithQuantumRegCollParam)
   where
 
 import Test.QuickCheck
@@ -598,9 +598,8 @@ gateThatTakesAQuantumRegColl = ((>**<) freshVariable freshVariable validRegCollA
 -- Generates a program that contains the application of an
 -- unscoped gate that takes a quantum register collection to
 -- a quantum register collection
-unscopedGateWithQuantumRegCollParam :: Gen MetaQasmProgram
-
-unscopedGateWithQuantumRegCollParam = toProg <$> gateThatTakesAQuantumRegColl
+multilineUnscopedGateWithQuantumRegCollParam :: Gen MetaQasmProgram
+multilineUnscopedGateWithQuantumRegCollParam = toProg <$> gateThatTakesAQuantumRegColl
   where
     toProg :: SingleParamGateInfo RegCollAccessSpec -> MetaQasmProgram
     toProg info@SingleParamGateInfo{_paramName} = formatToString (viewed paramInfo quantumRegCollDecl

@@ -54,7 +54,7 @@ import Generators(outOfScopeVar,
                  programThatResetsABit,
                  unscopedGateDeclAndApp,
                  unscopedTwoQubitGateDecl,
-                 unscopedGateWithQuantumRegCollParam)
+                 multilineUnscopedGateWithQuantumRegCollParam)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -305,6 +305,6 @@ spec =  do
     prop "Is itself valid" $ do
       forAll unscopedTwoQubitGateDecl prop_isValidProgram
 
-  describe "Declaring an unscoped gate that takes a quantum register collection of size N and applying it to such a collection" $ do
+  describe "Declaring a multiline unscoped gate that takes a quantum register collection of size N and applying it to such a collection" $ do
     prop "Is valid" $ do
-      forAll unscopedGateWithQuantumRegCollParam prop_isValidProgram
+      forAll multilineUnscopedGateWithQuantumRegCollParam prop_isValidProgram

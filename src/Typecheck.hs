@@ -198,7 +198,7 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
-      | NonNeg 0 == extractVal numOfRegs  = genEmptyRegCollDeclErr  RegCollInfo {..}
+      | NonNeg 0 == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
       | otherwise = return arg
 
     verifyTypeAnnotation x  = return x

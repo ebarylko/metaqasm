@@ -81,6 +81,14 @@ scopedRegCollDecl collType regCollName regCount innerExpr = ScopedRegCollDecl (r
 scopedQuantumRegCollDecl = scopedRegCollDecl Quantum
 scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 
+-- Takes the kind of the elements in a register collection, the name of the collection n,
+-- the number of elements in the collection N, and generates a type annotation noting that
+-- n is a N sized register collection of the given kind
+regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
+regCollAnnotation collKind collName numOfRegs = GateArg collName $ RegisterGroup collKind (index numOfRegs)
+quantumRegCollAnnotation  = regCollAnnotation Quantum
+classicalRegCollAnnotation = regCollAnnotation Classical
+
 spec :: Spec
 
 spec = do
@@ -114,7 +122,7 @@ spec = do
       it "Generates a term representing the declaration and its application" $ do
         let expectedGateArgs = [GateArg "x" Qbit,
                                 GateArg "z" Bit,
-                                GateArg "y" $ RegisterGroup Quantum (index 2)]
+                                quantumRegCollAnnotation "y" 2]
         let cnot = onLine1 "cx"
         let expectedGateBody = GateApp cnot [var "x" , var "z"]
         let fnName = onLine1 "f"
@@ -142,5 +150,5 @@ spec = do
         "gate f(x: Qbit, y: Bit[2]) {h(x)} " `shouldParseToCommand` GateDecl ( GateInfo
                                                                                "f"
                                                                                [GateArg "x" Qbit,
-                                                                                GateArg "y" $ RegisterGroup Classical (index 2)]
+                                                                                classicalRegCollAnnotation "y" 2]
                                                                                (GateApp hGate [var "x"]))

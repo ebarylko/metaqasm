@@ -189,11 +189,20 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQub
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
 verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult
-verifyGateDecl GateInfo{..} m = verifyGateApp gateDeclCtx gateBody
+verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
   where
-    gateDeclCtx = foldr extendCtxWithGateParam m args
+    gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
     extendCtxWithGateParam (GateArg{..}) = M.insert name argType
+
+    -- Checks that a type annotation is valid. Returns an error otherwise
+    verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
+    verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
+      | NonNeg 0 == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
+      | otherwise = return arg
+
+    verifyTypeAnnotation x  = return x
+
 
 -- Takes information about a gate declaration, the context under which to evaluate the
 -- declaration, a command, and evaluates the command with the gate type embedded in the context
@@ -242,8 +251,7 @@ isEmptyRegColl = getRegCount >>> (== NonNeg 0)
   where
     getRegCount =  numOfRegs >>> extractVal
 
-genEmptyRegCollDeclErr :: RegCollInfo -> TypeCalculationResult
-
+genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr RegCollInfo{..} = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)
 
 -- Takes the name and kind of a register collection along with the number of registers

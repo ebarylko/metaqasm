@@ -139,7 +139,8 @@ spec = do
     describe "Parsing unscoped gate declarations" $ do
       it "Generates a term containing information about the gate" $ do
         let hGate = (onLine1 "h")
-        "gate f(x: Qbit) {h(x)} " `shouldParseToCommand` GateDecl (GateInfo
-                                                                   "f"
-                                                                   [GateArg "x" Qbit]
-                                                                  (GateApp hGate [var "x"]))
+        "gate f(x: Qbit, y: Bit[2]) {h(x)} " `shouldParseToCommand` GateDecl ( GateInfo
+                                                                               "f"
+                                                                               [GateArg "x" Qbit,
+                                                                                GateArg "y" $ RegisterGroup Classical (index 2)]
+                                                                               (GateApp hGate [var "x"]))

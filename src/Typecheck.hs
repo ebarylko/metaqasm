@@ -195,10 +195,11 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
     extendCtxWithGateParam (GateArg{..}) = M.insert name argType
 
+    -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
-    verifyTypeAnnotation (GateArg x typ@(RegisterGroup regKind regCount))
-      | extractVal regCount == NonNeg 0 = genEmptyRegCollDeclErr $ RegCollInfo regKind x regCount
-      | otherwise = Right $ GateArg x typ
+    verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup regKind regCount))
+      | NonNeg 0 == extractVal regCount  = genEmptyRegCollDeclErr $ RegCollInfo regKind regCollName regCount
+      | otherwise = Right $ arg
 
     verifyTypeAnnotation x  = Right x
 
@@ -251,7 +252,6 @@ isEmptyRegColl = getRegCount >>> (== NonNeg 0)
     getRegCount =  numOfRegs >>> extractVal
 
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
-
 genEmptyRegCollDeclErr RegCollInfo{..} = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)
 
 -- Takes the name and kind of a register collection along with the number of registers

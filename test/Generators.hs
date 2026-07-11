@@ -623,7 +623,7 @@ singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQ
 singleParamGateDecl argFormatter gateBodyFormatter = fconst "gate" <%+> (accessed _gateId string) <> parenthesised argFormatter <%+> braced gateBodyFormatter
 
 sepByColon = sepBy ":"
--- Generates a program consisting of a single parameter gate
+-- Generates a invalid program consisting of a single parameter gate
 -- declaration where the parameter is an empty register collection
 unscopedGateThatTakesAnEmptyRegColl :: Gen MetaQasmProgram
 

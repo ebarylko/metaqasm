@@ -199,9 +199,9 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup regKind regCount))
       | NonNeg 0 == extractVal regCount  = genEmptyRegCollDeclErr $ RegCollInfo regKind regCollName regCount
-      | otherwise = Right $ arg
+      | otherwise = return arg
 
-    verifyTypeAnnotation x  = Right x
+    verifyTypeAnnotation x  = return x
 
 
 -- Takes information about a gate declaration, the context under which to evaluate the

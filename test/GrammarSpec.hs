@@ -81,9 +81,9 @@ scopedRegCollDecl collType regCollName regCount innerExpr = ScopedRegCollDecl (r
 scopedQuantumRegCollDecl = scopedRegCollDecl Quantum
 scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 
--- Takes the kind of the elements in a register collection, the name of the collection n,
+-- Takes the kind of the register collection k, the name of the collection n,
 -- the number of elements in the collection N, and generates a type annotation noting that
--- n is a N sized register collection of the given kind
+-- n is a N sized register collection of kind k
 regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
 regCollAnnotation collKind collName numOfRegs = GateArg collName $ RegisterGroup collKind (index numOfRegs)
 quantumRegCollAnnotation  = regCollAnnotation Quantum

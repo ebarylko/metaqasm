@@ -411,8 +411,8 @@ type InvalidProgram = (MetaQasmProgram, Expression)
 
 -- Given a formatter that generates MetaQASM programs that
 -- are invalid due to a misplaced bit/qubit, function that generates
--- the misplaced term, data for the formatter and function, and returns 
--- pairs of invalid programs and the misplaced term
+-- the misplaced term based on the input to the formatter, a data generator 
+--  for the formatter, returns pairs of invalid programs and the misplaced term
 genInvalidProgram' :: MetaQasmProgramFormatter a -> (a -> Expression) -> Gen a -> Gen InvalidProgram
 
 genInvalidProgram' invalidProgFmtter f gen = (&&&) (formatToString invalidProgFmtter) f <$> gen
@@ -634,7 +634,7 @@ multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> 
 singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a) ->  MetaQasmProgramFormatter (SingleParamGateInfo a)
 singleParamGateDecl argFormatter gateBodyFormatter = fconst "gate" <%+> (viewed gateId string) <> parenthesised argFormatter <%+> braced gateBodyFormatter
 
-sepByColon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
+sepByColon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 sepByColon = sepBy ":"
 -- Generates a invalid program consisting of a single parameter gate
 -- declaration where the parameter is an empty register collection

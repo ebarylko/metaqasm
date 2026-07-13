@@ -90,6 +90,8 @@ regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateA
 quantumRegCollAnnotation  = regCollAnnotation Quantum
 classicalRegCollAnnotation = regCollAnnotation Classical
 
+gate = onLine1
+
 spec :: Spec
 
 spec = do
@@ -146,10 +148,17 @@ spec = do
         "qreg x[1] ; qreg y[1]; qreg x[1]" `shouldParseToCommand` Sequence fstRegCollDecl (Sequence sndRegCollDecl fstRegCollDecl)
 
     describe "Parsing unscoped gate declarations" $ do
-      it "Generates a term containing information about the gate" $ do
-        let hGate = (onLine1 "h")
-        "gate f(x: Qbit, y: Bit[2]) {h(x)} " `shouldParseToCommand` GateDecl ( GateInfo
-                                                                               "f"
-                                                                               [GateArg "x" Qbit,
-                                                                                classicalRegCollAnnotation "y" 2]
-                                                                               (GateApp hGate [var "x"]))
+      describe "Parsing declarations that do take a circuit" $ do
+        it "Generates a term representing the declaration" $ do
+          "gate f(h: Circuit(Qbit, Qbit), y: Qbit) {h(y, y)}" `shouldParseToCommand` GateDecl (GateInfo
+                                                                                      "f"
+                                                                                      [GateArg "h" $ Circuit [Qbit, Qbit],
+                                                                                      GateArg "y" Qbit]
+                                                                                      (GateApp (gate "h") [var "y", var "y"]))
+      describe "Parsing declarations that do not take a circuit" $ do
+        it "Generates a term containing information about the gate" $ do
+          "gate f(x: Qbit, y: Bit[2]) {h(x)} " `shouldParseToCommand` GateDecl ( GateInfo
+                                                                                "f"
+                                                                                [GateArg "x" Qbit,
+                                                                                  classicalRegCollAnnotation "y" 2]
+                                                                                (GateApp (gate "h") [var "x"]))

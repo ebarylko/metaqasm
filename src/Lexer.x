@@ -33,6 +33,7 @@ tokens :-
   \:                                                       {ignoreInputAndReturn Colon}
   \;                                                       {ignoreInputAndReturn Semicolon}
   \,                                                       {ignoreInputAndReturn Comma}
+  Circuit                                                  {ignoreInputAndReturn Circ}
   Qbit                                                     {genToken SimpleTypeAnnotation (const "Qbit") }
   Bit                                                     {genToken SimpleTypeAnnotation (const "Bit") }
   [a-z]($digit|$alpha)*                                     { lexId }
@@ -59,6 +60,7 @@ data Token = LBracket LineNumber
   | Colon
   | Semicolon
   | Reset
+  | Circ
   | SimpleTypeAnnotation String LineNumber
   | Measurement
   | RightArrow

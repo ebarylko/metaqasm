@@ -410,12 +410,20 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
 type InvalidProgram = (MetaQasmProgram, Expression)
 
 -- Given a formatter that generates MetaQASM programs that
+-- are invalid due to a misplaced bit/qubit, function that generates
+-- the misplaced term, data for the formatter and function, and returns 
+-- pairs of invalid programs and the misplaced term
+genInvalidProgram' :: MetaQasmProgramFormatter a -> (a -> Expression) -> Gen a -> Gen InvalidProgram
+
+genInvalidProgram' invalidProgFmtter f gen = (&&&) (formatToString invalidProgFmtter) f <$> gen
+
+-- Given a formatter that generates MetaQASM programs that
 -- are invalid due to a misplaced bit/qubit, generates pairs
 -- of invalid programs and the bit/qubit responsible for
 -- making the program fail
 genInvalidProgram :: RegAccessFormatter -> Gen InvalidProgram
 
-genInvalidProgram invalidProgFmtter = (&&&) (formatToString invalidProgFmtter) toRegAccessOnLine1 <$> validRegCollAccess
+genInvalidProgram invalidProgFmtter = genInvalidProgram' invalidProgFmtter toRegAccessOnLine1 validRegCollAccess
 
 -- Generates pairs of invalid programs that apply a single
 -- qubit unitary to a bit and the misplaced bit
@@ -594,12 +602,12 @@ makeLenses ''SingleParamGateInfo
 -- collection
 gateThatTakesARegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 
-gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap ((uncurry3 SingleParamGateInfo) >>> changeParamNameToMatchRegColls)
+gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap ((uncurry3 SingleParamGateInfo) >>> changeParamNameToMatchRegColl)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
     regCollIsNotOvershadowed (gateName', _, RegCollAccessSpec{_regCollName}) = gateName' /= _regCollName
-    changeParamNameToMatchRegColls :: SingleParamGateInfo RegCollAccessSpec -> SingleParamGateInfo RegCollAccessSpec
-    changeParamNameToMatchRegColls x = x & view  paramName & flip (set (paramInfo . regCollName)) x
+    changeParamNameToMatchRegColl :: SingleParamGateInfo RegCollAccessSpec -> SingleParamGateInfo RegCollAccessSpec
+    changeParamNameToMatchRegColl x = x & view  paramName & flip (set (paramInfo . regCollName)) x
 
 -- Generates a program that contains the application of an
 -- unscoped gate that takes a quantum register collection to
@@ -636,20 +644,8 @@ unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateTha
   where
     invalidGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
     invalidGateDecl = singleParamGateDecl emptyQuantRegColl $ fconst "h(x)"
-    emptyQuantRegColl = viewed paramName string `sepByColon` emptyQuantumCollAnnotation
-    emptyQuantumCollAnnotation = fconst "Qbit[0]"
+    emptyQuantRegColl = viewed paramName string `sepByColon` fconst "Qbit[0]"
 
--- Given a gate that takes a register collection, changes the name of the parameter
-replaceRegCollName :: SingleParamGateInfo RegCollAccessSpec -> SingleParamGateInfo RegCollAccessSpec
-replaceRegCollName x = x & view  paramName & flip (set (paramInfo . regCollName)) x
-
--- Given a formatter that generates MetaQASM programs that
--- are invalid due to a misplaced bit/qubit, function that generates
--- the misplaced term, a generator, and returns pairs of invalid programs and
--- the misplaced term
-genInvalidProgram' :: MetaQasmProgramFormatter a -> (a -> Expression) -> Gen a -> Gen InvalidProgram
-
-genInvalidProgram' invalidProgFmtter f gen = (&&&) (formatToString invalidProgFmtter) f <$> gen
 
 -- Generates pairs of invalid programs that apply a unitary operation
 -- to an element of a classical register collection and the aforementioned

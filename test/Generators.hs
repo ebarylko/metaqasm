@@ -603,10 +603,16 @@ makeLenses ''SingleParamGateInfo
 -- collection
 gateThatTakesARegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 
-gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap ((uncurry3 SingleParamGateInfo) >>> changeParamNameToMatchRegColl)
+gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
     regCollIsNotOvershadowed (gateName', _, RegCollAccessSpec{_regCollName}) = gateName' /= _regCollName
+
+-- Generates information about a gate that only takes a quantum register
+-- collection 
+gateThatTakesARegColl' :: Gen (SingleParamGateInfo RegCollAccessSpec)
+gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl
+  where
     changeParamNameToMatchRegColl :: SingleParamGateInfo RegCollAccessSpec -> SingleParamGateInfo RegCollAccessSpec
     changeParamNameToMatchRegColl x = x & view  paramName & flip (set (paramInfo . regCollName)) x
 
@@ -614,7 +620,7 @@ gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) 
 -- unscoped gate that takes a quantum register collection to
 -- a quantum register collection
 multilineUnscopedGateWithQuantumRegCollParam :: Gen MetaQasmProgram
-multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> gateThatTakesARegColl
+multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> gateThatTakesARegColl'
   where
     multilineDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec )
     multilineDecl  =
@@ -641,7 +647,7 @@ sepByColon = sepBy ":"
 -- declaration where the parameter is an empty register collection
 unscopedGateThatTakesAnEmptyRegColl :: Gen MetaQasmProgram
 
-unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateThatTakesARegColl
+unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateThatTakesARegColl'
   where
     invalidGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
     invalidGateDecl = singleParamGateDecl emptyQuantRegColl $ fconst "h(x)"
@@ -652,7 +658,7 @@ unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateTha
 -- to an element of a classical register collection and the aforementioned
 -- element
 gateThatAppliesUnitaryToClassicalRegCollElem :: Gen InvalidProgram
-gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDecl genSelectedBit gateThatTakesARegColl
+gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDecl genSelectedBit gateThatTakesARegColl'
   where
     invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation') $ viewed paramInfo hadamardApp'
     genSelectedBit = _paramInfo >>> toRegAccessOnLine1
@@ -666,9 +672,10 @@ gateThatTakesAUnitaryAndAppliesIt :: Gen MetaQasmProgram
 gateThatTakesAUnitaryAndAppliesIt =  formatToString gateApp <$> gateThatTakesARegColl
   where
     unitaryTakingGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
-    unitaryTakingGateDecl = singleParamGateDecl (fconst "h: Circuit(Qbit)") $ viewed paramInfo hadamardApp'
+    unitaryTakingGateDecl = singleParamGateDecl (gateArg <> fconst ": Circuit(Qbit)") $ singleParamGateApp gateArg (viewed paramInfo regCollAccess)
     gateApp = viewed paramInfo quantumRegCollDecl
       `sepBySemicolon`
       unitaryTakingGateDecl
       `sepBySemicolon`
       singleParamGateApp (viewed gateId string) (fconst "h")
+    gateArg = viewed paramName string

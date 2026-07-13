@@ -36,7 +36,8 @@ module Generators(outOfScopeVar,
                  unscopedTwoQubitGateDecl,
                  multilineUnscopedGateWithQuantumRegCollParam,
                  unscopedGateThatTakesAnEmptyRegColl,
-                 gateThatAppliesUnitaryToClassicalRegCollElem)
+                 gateThatAppliesUnitaryToClassicalRegCollElem,
+                 gateThatTakesAUnitaryAndAppliesIt)
   where
 
 import Test.QuickCheck
@@ -657,3 +658,17 @@ gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDec
     genSelectedBit = _paramInfo >>> toRegAccessOnLine1
     classicalRegCollAnnotation' :: RegAccessFormatter
     classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)
+
+-- Generates an unscoped gate declaration that takes a single qubit unitary
+-- and applies it to an in-scope qubit
+gateThatTakesAUnitaryAndAppliesIt :: Gen MetaQasmProgram
+
+gateThatTakesAUnitaryAndAppliesIt =  formatToString gateApp <$> gateThatTakesARegColl
+  where
+    unitaryTakingGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
+    unitaryTakingGateDecl = singleParamGateDecl (fconst "h: Circuit(Qbit)") $ viewed paramInfo hadamardApp'
+    gateApp = viewed paramInfo quantumRegCollDecl
+      `sepBySemicolon`
+      unitaryTakingGateDecl
+      `sepBySemicolon`
+      singleParamGateApp (viewed gateId string) (fconst "h")

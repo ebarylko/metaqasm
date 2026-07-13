@@ -21,6 +21,7 @@ import qualified Vary
 import Data.Maybe(fromJust)
 import Generators (MetaQasmProgram)
 import Typecheck(Term)
+import Control.Arrow((>>>))
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -81,6 +82,14 @@ scopedRegCollDecl collType regCollName regCount innerExpr = ScopedRegCollDecl (r
 scopedQuantumRegCollDecl = scopedRegCollDecl Quantum
 scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 
+-- Takes the kind of the register collection k, the name of the collection n,
+-- the number of elements in the collection N, and generates a type annotation noting that
+-- n is a N sized register collection of kind k
+regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
+regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateArg collName
+quantumRegCollAnnotation  = regCollAnnotation Quantum
+classicalRegCollAnnotation = regCollAnnotation Classical
+
 spec :: Spec
 
 spec = do
@@ -114,7 +123,7 @@ spec = do
       it "Generates a term representing the declaration and its application" $ do
         let expectedGateArgs = [GateArg "x" Qbit,
                                 GateArg "z" Bit,
-                                GateArg "y" $ RegisterGroup Quantum (index 2)]
+                                quantumRegCollAnnotation "y" 2]
         let cnot = onLine1 "cx"
         let expectedGateBody = GateApp cnot [var "x" , var "z"]
         let fnName = onLine1 "f"
@@ -139,7 +148,8 @@ spec = do
     describe "Parsing unscoped gate declarations" $ do
       it "Generates a term containing information about the gate" $ do
         let hGate = (onLine1 "h")
-        "gate f(x: Qbit) {h(x)} " `shouldParseToCommand` GateDecl (GateInfo
-                                                                   "f"
-                                                                   [GateArg "x" Qbit]
-                                                                  (GateApp hGate [var "x"]))
+        "gate f(x: Qbit, y: Bit[2]) {h(x)} " `shouldParseToCommand` GateDecl ( GateInfo
+                                                                               "f"
+                                                                               [GateArg "x" Qbit,
+                                                                                classicalRegCollAnnotation "y" 2]
+                                                                               (GateApp hGate [var "x"]))

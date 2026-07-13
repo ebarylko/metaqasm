@@ -83,6 +83,7 @@ arg : id             {(Var . toVar) $1 }
 
 toRegCollType :: TermType -> RegisterType
 toRegCollType Qbit = Quantum
+toRegCollType Bit = Classical
 
 -- Converts a token representing a variable name to its
 -- corresponding term in the grammar

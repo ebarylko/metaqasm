@@ -35,7 +35,8 @@ module Generators(outOfScopeVar,
                  unscopedGateDeclAndApp,
                  unscopedTwoQubitGateDecl,
                  multilineUnscopedGateWithQuantumRegCollParam,
-                 unscopedGateThatTakesAnEmptyRegColl)
+                 unscopedGateThatTakesAnEmptyRegColl,
+                 gateThatAppliesUnitaryToClassicalRegCollElem)
   where
 
 import Test.QuickCheck
@@ -52,7 +53,7 @@ import Lexer(LineNumber(..))
 import Control.Arrow((&&&),
                      (>>>))
 import Test.QuickCheck.Instances.Tuple ((>**<), (>*<))
-import Data.Function((&), on)
+import Data.Function(on)
 import Typecheck(TypeEvaluationError(..))
 import Control.Monad(replicateM)
 import Data.List(nub)
@@ -95,7 +96,7 @@ outOfScopeExpr = oneof [freshVariable, outOfScopeRegAccess]
 
 -- This data type represents a request to access a register in a register collection. However, the
 -- request can be invalid if the wanted register is outside of the bounds of the collection
-data RegCollAccessSpec = RegCollAccessSpec{_regCollName :: Identifier, _numOfRegs :: Int, _wantedRegIdx :: Int}
+data RegCollAccessSpec = RegCollAccessSpec{_regCollName :: Identifier, _numOfRegs :: Int, _wantedRegIdx :: Int} deriving (Show)
 makeLenses ''RegCollAccessSpec
 
 uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
@@ -136,7 +137,7 @@ type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmP
 -- Formats the access of a register in a register collection,
 -- generating a string of the form 'regName[regIdx]'
 regCollAccess :: RegAccessFormatter
-regCollAccess = (accessed _regCollName string) <> squared (accessed _wantedRegIdx int)
+regCollAccess = (viewed regCollName string) <> squared (viewed wantedRegIdx int)
 
 toFormatter :: String -> Format r (a -> r)
 toFormatter = fconst . fromString
@@ -144,7 +145,7 @@ toFormatter = fconst . fromString
 -- Takes the type of collection being declared and
 -- generates strings of the form "regCollType regCollName[numOfRegs]"
 regCollDecl :: String -> RegAccessFormatter
-regCollDecl regCollType = toFormatter regCollType  <%+>  (accessed _regCollName string) <> squared (accessed _numOfRegs int)
+regCollDecl regCollType = toFormatter regCollType  <%+>  (viewed regCollName string) <> squared (viewed numOfRegs int)
 
 -- Takes a name for a quantum register collection, the number of registers in
 -- the collection, and generates a string of the form 'qreg collName[numOfRegisters]'
@@ -190,7 +191,7 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
 
 emptyRegCollDecl :: RegAccessFormatter
 
-emptyRegCollDecl = fconst "qreg" <%+> accessed _regCollName string <> fconst "[0]"
+emptyRegCollDecl = fconst "qreg" <%+> viewed regCollName string <> fconst "[0]"
 
 -- Generates metaQASM code where an empty
 -- register collection is declared
@@ -237,6 +238,15 @@ programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> validRegCollAccess
     toProgWithTDaggerGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithTDaggerGateApp  = formatToString (appGateToQubits tDaggerGateApp)
 
+-- Takes a separator, two formatters, and generates a formatter that separates the
+-- results obtained by both formatters by the separator
+sepBy :: String -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+
+sepBy separator f g = f <> toFormatter separator <%+> g
+
+sepByComma :: MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+sepByComma = sepBy ","
+
 twoParamGateApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter = gateNameFormatter <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter)
 
@@ -256,6 +266,7 @@ programWithCNotGateApp  = formatToString toCnotGateApp <$> validRegCollAccess
 -- This data type represents the information known about a two arg gate declaration, namely the name of the
 -- gate and the parameters
 data TwoArgGateDeclInfo = TwoArgGateDeclInfo{_gateName :: String, _fstArg:: String, _sndArg :: String}
+makeLenses ''TwoArgGateDeclInfo
 
 twoArgGateDeclInfo :: Gen TwoArgGateDeclInfo
 
@@ -276,17 +287,23 @@ nonShadowingRegCollAccess :: Gen TwoQubitGateDeclAndAppInfo
 nonShadowingRegCollAccess = twoArgGateDeclInfo >*< validRegCollAccess `suchThat` isNotBeingOverShadowedByRegAcc
   where
     isNotBeingOverShadowedByRegAcc  :: (TwoArgGateDeclInfo, RegCollAccessSpec) -> Bool
-    isNotBeingOverShadowedByRegAcc  (TwoArgGateDeclInfo gateName _ _, RegCollAccessSpec regCollName _ _) = regCollName /= gateName
+    isNotBeingOverShadowedByRegAcc  (TwoArgGateDeclInfo gateName' _ _, RegCollAccessSpec regCollName' _ _) = regCollName' /= gateName'
 
 qubitAnnotation = later (<> ": Qbit")
 bitAnnotation = later (<> ": Bit")
 
 fstParam :: MetaQasmProgramFormatter TwoArgGateDeclInfo
 
-fstParam = accessed _fstArg string
+fstParam = viewed fstArg string
 
 sndParam :: MetaQasmProgramFormatter  TwoArgGateDeclInfo
-sndParam = accessed _sndArg string
+sndParam = viewed sndArg string
+
+-- Takes two formatters for the types of the arguments to the gate, a formatter for the gate body, and
+-- returns a formatter that generates a two arg gate declaration with the argument types dictated by
+-- the first two formatters and the body by the remaining one
+gateDecl ::  MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo
+gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (viewed gateName string) <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter) <%+> braced gateBodyFormatter
 
 -- Generates a two qubit gate declaration that applies a cnot gate to its parameters
 cnotGateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo
@@ -305,7 +322,7 @@ fmtGateDeclAndApp :: ScopeModifier TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
 fmtGateDeclAndApp modifier gateDeclFormatter gateAppFormatter info@(TwoArgGateDeclInfo{_gateName}, _)
   = formatToString fmtter info
   where
-    fmtter = modifier (accessed fst gateDeclFormatter) $ accessed snd $ gateAppFormatter (toFormatter _gateName)
+    fmtter = modifier (viewed _1 gateDeclFormatter) $ viewed _2 $ gateAppFormatter (toFormatter _gateName)
 
 -- Takes a formatter for the application of a two qubit gate, the information needed for the application,
 -- and generates a program with a scoped two qubit gate declaration and subsequent application
@@ -319,14 +336,6 @@ scopedTwoQubitGate :: Gen MetaQasmProgram
 scopedTwoQubitGate =  toScopedTwoQubitGateDeclAndApp twoQubitGateApp <$> nonShadowingRegCollAccess where
     twoQubitGateApp gate = twoParamGateApp gate regCollAccess regCollAccess
 
--- Takes a separator, two formatters, and generates a formatter that separates the
--- results obtained by both formatters by the separator
-sepBy :: String -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-
-sepBy separator f g = f <> toFormatter separator <%+> g
-
-sepByComma :: MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-sepByComma = sepBy ","
 
 -- Generates programs where a two qubit gate is applied to
 -- three qubits
@@ -344,7 +353,8 @@ programWithTooFewParamsInGateApp = toScopedTwoQubitGateDeclAndApp  (flip singleP
 
 -- This type represents the information needed to create a MetaQASMProgram
 -- that measures a qubit and stores the measurement in a bit
-data QubitMeasurementSpec = QubitMeasurementSpec{quantumRegCollInfo :: RegCollAccessSpec, classicRegCollInfo :: RegCollAccessSpec}
+data QubitMeasurementSpec = QubitMeasurementSpec{_quantumRegCollInfo :: RegCollAccessSpec, _classicRegCollInfo :: RegCollAccessSpec}
+makeLenses ''QubitMeasurementSpec
 
 -- Generates pairs of specifications
 -- for valid bit and qbit accesses where
@@ -379,8 +389,8 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
   where
     toQubitMeasurement :: QubitMeasurementSpec -> MetaQasmProgram
 
-    toQubitMeasurement = formatToString $ scopedDecl (accessed classicRegCollInfo classicRegCollDecl) $ scopedDecl (accessed quantumRegCollInfo quantumRegCollDecl) measureQubit
-    measureQubit = formatMeasurement (accessed quantumRegCollInfo regCollAccess) (accessed classicRegCollInfo regCollAccess)
+    toQubitMeasurement = formatToString $ scopedDecl (viewed classicRegCollInfo classicRegCollDecl) $ scopedDecl (viewed quantumRegCollInfo quantumRegCollDecl) measureQubit
+    measureQubit = formatMeasurement (viewed quantumRegCollInfo regCollAccess) (viewed classicRegCollInfo regCollAccess)
 
 -- Takes a specification for a valid register access
 -- and generates a MetaQASM term corresponding to
@@ -400,12 +410,20 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
 type InvalidProgram = (MetaQasmProgram, Expression)
 
 -- Given a formatter that generates MetaQASM programs that
+-- are invalid due to a misplaced bit/qubit, function that generates
+-- the misplaced term based on the input to the formatter, a data generator 
+--  for the formatter, returns pairs of invalid programs and the misplaced term
+genInvalidProgram' :: MetaQasmProgramFormatter a -> (a -> Expression) -> Gen a -> Gen InvalidProgram
+
+genInvalidProgram' invalidProgFmtter f gen = (&&&) (formatToString invalidProgFmtter) f <$> gen
+
+-- Given a formatter that generates MetaQASM programs that
 -- are invalid due to a misplaced bit/qubit, generates pairs
 -- of invalid programs and the bit/qubit responsible for
 -- making the program fail
 genInvalidProgram :: RegAccessFormatter -> Gen InvalidProgram
 
-genInvalidProgram invalidProgFmtter = (&&&) (formatToString invalidProgFmtter) toRegAccessOnLine1 <$> validRegCollAccess
+genInvalidProgram invalidProgFmtter = genInvalidProgram' invalidProgFmtter toRegAccessOnLine1 validRegCollAccess
 
 -- Generates pairs of invalid programs that apply a single
 -- qubit unitary to a bit and the misplaced bit
@@ -451,7 +469,7 @@ programThatTreatsRegCollsAsGates :: Gen InvalidRegCollApp
 programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString invalidRegCollApp) toRegCollOnLine1 toQuantRegColl <$> validRegCollAccess
   where
     invalidRegCollApp = scopedDecl quantumRegCollDecl regCollApp
-    regCollApp = accessed _regCollName string  <> parenthesised regCollAccess
+    regCollApp = singleParamGateApp (viewed regCollName string)  regCollAccess
 
 -- Generates an erroneous program that
 -- measures a bit instead of a qubit
@@ -474,22 +492,16 @@ programThatStoresQubitMeasurementInAQubit = genInvalidProgram invalidMeasurement
 -- This data type represents the information needed to construct a scoped gate that
 -- takes a qubit and bit
 data GateThatTakesQubitAndBit = GateThatTakesQubitAndBit{_gateInfo :: TwoArgGateDeclInfo, _measurementComponents :: QubitMeasurementSpec}
+makeLenses ''GateThatTakesQubitAndBit
 
 gateThatTakesQubitAndBit :: Gen GateThatTakesQubitAndBit
 
 gateThatTakesQubitAndBit = uncurry GateThatTakesQubitAndBit <$> (twoArgGateDeclInfo >*< qubitMeasurementSpec ) `suchThat` gateDoesNotOvershadowRegColls
   where
     gateDoesNotOvershadowRegColls :: (TwoArgGateDeclInfo, QubitMeasurementSpec) -> Bool
-    gateDoesNotOvershadowRegColls (declSpec, measurementInfo) = _gateName declSpec `notElem` [getQuantumRegCollName measurementInfo, getClassicalRegCollName measurementInfo]
-    getQuantumRegCollName = _regCollName . quantumRegCollInfo
-    getClassicalRegCollName = _regCollName . classicRegCollInfo
-
-
--- Takes two formatters for the types of the arguments to the gate, a formatter for the gate body, and
--- returns a formatter that generates a two qubit gate declaration with the argument types dictated by
--- the first formatter and the body by the other
-gateDecl :: MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo -> MetaQasmProgramFormatter TwoArgGateDeclInfo
-gateDecl fstArgFormatter sndArgFormatter gateBodyFormatter  =  (fconst "gate") <%+> (accessed _gateName string) <> parenthesised (fstArgFormatter `sepByComma` sndArgFormatter) <%+> braced gateBodyFormatter
+    gateDoesNotOvershadowRegColls (declSpec, measurementInfo) = view gateName declSpec `notElem` [getQuantumRegCollName measurementInfo, getClassicalRegCollName measurementInfo]
+    getQuantumRegCollName = view  $ quantumRegCollInfo . regCollName
+    getClassicalRegCollName = view  $ classicRegCollInfo . regCollName
 
 
 -- Generates a declaration for a gate that takes a qubit
@@ -499,16 +511,15 @@ scopedGateThatAppliesHadamardGateToOneArg :: Gen MetaQasmProgram
 scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateThatTakesQubitAndBit
   where
     scopedGate = scopedDecl qregColl $ scopedDecl cregColl $ scopedDecl gate gateApp
-    qregColl = accessed quantumMeasurementComponent quantumRegCollDecl
-    cregColl = accessed classicalMeasurementComponent classicRegCollDecl
-    gate = accessed _gateInfo gateDecl'
+    qregColl = viewed quantumMeasurementComponent quantumRegCollDecl
+    cregColl = viewed classicalMeasurementComponent classicRegCollDecl
+    gate = viewed gateInfo gateDecl'
     gateDecl' = gateDecl (qubitAnnotation %. fstParam) (bitAnnotation %. sndParam) (hadamardApp fstParam)
-    gateApp = twoParamGateApp (accessed (_gateName . _gateInfo) string) qubit bit
-    qubit = accessed quantumMeasurementComponent regCollAccess
-    bit = accessed classicalMeasurementComponent regCollAccess
-    quantumMeasurementComponent = quantumRegCollInfo . _measurementComponents
-    classicalMeasurementComponent = classicRegCollInfo . _measurementComponents
-
+    gateApp = twoParamGateApp (viewed (gateInfo . gateName) string) qubit bit
+    qubit = viewed quantumMeasurementComponent regCollAccess
+    bit = viewed classicalMeasurementComponent regCollAccess
+    quantumMeasurementComponent = measurementComponents . quantumRegCollInfo
+    classicalMeasurementComponent = measurementComponents . classicRegCollInfo
 
 sepBySemicolon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
 
@@ -541,10 +552,10 @@ programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl `sepBySe
 programThatSequencesUnscopedClassicRegColl :: Gen MetaQasmProgram
 programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl' `sepBySemicolon`  quantumRegCollDecl' `sepBySemicolon`  formatMeasurement qubit' bit') <$>  qubitMeasurementSpec
   where
-    quantumRegCollDecl' = accessed quantumRegCollInfo quantumRegCollDecl
-    classicRegCollDecl' = accessed classicRegCollInfo classicRegCollDecl
-    qubit' = accessed quantumRegCollInfo regCollAccess
-    bit' = accessed classicRegCollInfo regCollAccess
+    quantumRegCollDecl' = viewed quantumRegCollInfo quantumRegCollDecl
+    classicRegCollDecl' = viewed classicRegCollInfo classicRegCollDecl
+    qubit' = viewed quantumRegCollInfo regCollAccess
+    bit' = viewed classicRegCollInfo regCollAccess
 
 -- Generates MetaQASM programs that are comprised of one
 -- valid unrelated command sequenced with another valid command
@@ -584,52 +595,65 @@ unscopedTwoQubitGateDecl :: Gen MetaQasmProgram
 unscopedTwoQubitGateDecl = formatToString cnotGateDecl <$> twoArgGateDeclInfo
 
 -- This data type represents a gate that can take any kind of parameter
-data SingleParamGateInfo a = SingleParamGateInfo{_gateId :: String, _paramName :: String, _paramInfo :: a}
+data SingleParamGateInfo a = SingleParamGateInfo{_gateId :: String, _paramName :: String, _paramInfo :: a} deriving (Show)
 makeLenses ''SingleParamGateInfo
 
 -- Generates information about a gate that only takes a quantum register
 -- collection
-gateThatTakesAQuantumRegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
+gateThatTakesARegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 
-gateThatTakesAQuantumRegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
+gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap ((uncurry3 SingleParamGateInfo) >>> changeParamNameToMatchRegColl)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
-    regCollIsNotOvershadowed (gateName, _, RegCollAccessSpec{_regCollName}) = gateName /= _regCollName
+    regCollIsNotOvershadowed (gateName', _, RegCollAccessSpec{_regCollName}) = gateName' /= _regCollName
+    changeParamNameToMatchRegColl :: SingleParamGateInfo RegCollAccessSpec -> SingleParamGateInfo RegCollAccessSpec
+    changeParamNameToMatchRegColl x = x & view  paramName & flip (set (paramInfo . regCollName)) x
 
 -- Generates a program that contains the application of an
 -- unscoped gate that takes a quantum register collection to
 -- a quantum register collection
 multilineUnscopedGateWithQuantumRegCollParam :: Gen MetaQasmProgram
-multilineUnscopedGateWithQuantumRegCollParam = toProg <$> gateThatTakesAQuantumRegColl
+multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> gateThatTakesARegColl
   where
-    toProg :: SingleParamGateInfo RegCollAccessSpec -> MetaQasmProgram
-    toProg info@SingleParamGateInfo{_paramName} = formatToString (viewed paramInfo quantumRegCollDecl
-                                                                  `sepBySemicolonOnNewLine`
-                                                                  singleParamGateDecl gateParam (viewed paramInfo (genGateBody _paramName))
-                                                                 `sepBySemicolonOnNewLine`
-                                                                 gateApp) info
-
+    multilineDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec )
+    multilineDecl  =
+      viewed paramInfo quantumRegCollDecl
+      `sepBySemicolonOnNewLine`
+      singleParamGateDecl gateParam gateBody
+      `sepBySemicolonOnNewLine`
+      gateApp
 
     gateParam = viewed paramName string `sepByColon` viewed paramInfo qubitRegCollAnnotation
+    gateBody = viewed paramInfo  $ hadamardApp regCollAccess
     gateApp = singleParamGateApp (viewed gateId string) $ viewed (paramInfo . regCollName) string
-    genGateBody :: String -> RegAccessFormatter
-    genGateBody  = set regCollName >>> (`mapf`  regCollAccess) >>> hadamardApp
     sepBySemicolonOnNewLine = sepBy "\n;"
 
     qubitRegCollAnnotation :: RegAccessFormatter
     qubitRegCollAnnotation = fconst "Qbit" <> squared (viewed numOfRegs int)
 
 singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a) ->  MetaQasmProgramFormatter (SingleParamGateInfo a)
-singleParamGateDecl argFormatter gateBodyFormatter = fconst "gate" <%+> (accessed _gateId string) <> parenthesised argFormatter <%+> braced gateBodyFormatter
+singleParamGateDecl argFormatter gateBodyFormatter = fconst "gate" <%+> (viewed gateId string) <> parenthesised argFormatter <%+> braced gateBodyFormatter
 
+sepByColon :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 sepByColon = sepBy ":"
 -- Generates a invalid program consisting of a single parameter gate
 -- declaration where the parameter is an empty register collection
 unscopedGateThatTakesAnEmptyRegColl :: Gen MetaQasmProgram
 
-unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateThatTakesAQuantumRegColl
+unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateThatTakesARegColl
   where
     invalidGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
     invalidGateDecl = singleParamGateDecl emptyQuantRegColl $ fconst "h(x)"
-    emptyQuantRegColl = viewed paramName string `sepByColon` emptyQuantumCollAnnotation
-    emptyQuantumCollAnnotation = fconst "Qbit[0]"
+    emptyQuantRegColl = viewed paramName string `sepByColon` fconst "Qbit[0]"
+
+
+-- Generates pairs of invalid programs that apply a unitary operation
+-- to an element of a classical register collection and the aforementioned
+-- element
+gateThatAppliesUnitaryToClassicalRegCollElem :: Gen InvalidProgram
+gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDecl genSelectedBit gateThatTakesARegColl
+  where
+    invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation') $ viewed paramInfo hadamardApp'
+    genSelectedBit = _paramInfo >>> toRegAccessOnLine1
+    classicalRegCollAnnotation' :: RegAccessFormatter
+    classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)

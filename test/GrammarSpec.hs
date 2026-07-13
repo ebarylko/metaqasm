@@ -21,6 +21,7 @@ import qualified Vary
 import Data.Maybe(fromJust)
 import Generators (MetaQasmProgram)
 import Typecheck(Term)
+import Control.Arrow((>>>))
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -85,7 +86,7 @@ scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 -- the number of elements in the collection N, and generates a type annotation noting that
 -- n is a N sized register collection of kind k
 regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
-regCollAnnotation collKind collName numOfRegs = GateArg collName $ RegisterGroup collKind (index numOfRegs)
+regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateArg collName
 quantumRegCollAnnotation  = regCollAnnotation Quantum
 classicalRegCollAnnotation = regCollAnnotation Classical
 

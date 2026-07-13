@@ -55,7 +55,8 @@ import Generators(outOfScopeVar,
                  unscopedGateDeclAndApp,
                  unscopedTwoQubitGateDecl,
                  multilineUnscopedGateWithQuantumRegCollParam,
-                 unscopedGateThatTakesAnEmptyRegColl)
+                 unscopedGateThatTakesAnEmptyRegColl,
+                 gateThatAppliesUnitaryToClassicalRegColl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -322,3 +323,7 @@ spec =  do
   describe "Declaring an unscoped gate that takes an empty quantum register collection" $ do
     prop "Is invalid" $ do
       forAll unscopedGateThatTakesAnEmptyRegColl prop_cannotTakeEmptyRegCollAsArg
+
+  describe "Declaring a gate that takes an n-sized classical register collection and applying a unitary to an element of it" $ do
+    prop "Is invalid" $ do
+      forAll gateThatAppliesUnitaryToClassicalRegColl prop_cannotSubstituteBitForQubit

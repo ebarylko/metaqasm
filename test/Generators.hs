@@ -37,7 +37,7 @@ module Generators(outOfScopeVar,
                  multilineUnscopedGateWithQuantumRegCollParam,
                  unscopedGateThatTakesAnEmptyRegColl,
                  gateThatAppliesUnitaryToClassicalRegCollElem,
-                 gateThatTakesAUnitaryAndAppliesIt)
+                 higherOrderedGateDeclAndApp)
   where
 
 import Test.QuickCheck
@@ -608,8 +608,6 @@ gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) 
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
     regCollIsNotOvershadowed (gateName', _, RegCollAccessSpec{_regCollName}) = gateName' /= _regCollName
 
--- Generates information about a gate that only takes a quantum register
--- collection 
 gateThatTakesARegColl' :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl
   where
@@ -665,14 +663,13 @@ gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDec
     classicalRegCollAnnotation' :: RegAccessFormatter
     classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)
 
--- Generates an unscoped gate declaration that takes a single qubit unitary
--- and applies it to an in-scope qubit
-gateThatTakesAUnitaryAndAppliesIt :: Gen MetaQasmProgram
-
-gateThatTakesAUnitaryAndAppliesIt =  formatToString gateApp <$> gateThatTakesARegColl
+-- Generates a valid higher ordered gate which is then
+-- applied to a single qubit unitary
+higherOrderedGateDeclAndApp :: Gen MetaQasmProgram
+higherOrderedGateDeclAndApp =  formatToString gateApp <$> gateThatTakesARegColl
   where
     unitaryTakingGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
-    unitaryTakingGateDecl = singleParamGateDecl (gateArg <> fconst ": Circuit(Qbit)") $ singleParamGateApp gateArg (viewed paramInfo regCollAccess)
+    unitaryTakingGateDecl = singleParamGateDecl (gateArg <> fconst ": Circuit(Qbit)") $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
     gateApp = viewed paramInfo quantumRegCollDecl
       `sepBySemicolon`
       unitaryTakingGateDecl

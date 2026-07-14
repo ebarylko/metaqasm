@@ -126,10 +126,8 @@ spec = do
         let expectedGateArgs = [GateArg "x" Qbit,
                                 GateArg "z" Bit,
                                 quantumRegColl "y" 2]
-        let cnot = onLine1 "cx"
-        let expectedGateBody = GateApp cnot [var "x" , var "z"]
-        let fnName = onLine1 "f"
-        let expectedGateApp = Gate $ GateApp fnName [var "a", var "b"]
+        let expectedGateBody = GateApp (gate "cx") [var "x" , var "z"]
+        let expectedGateApp = Gate $ GateApp (gate "f") [var "a", var "b"]
         "gate f(x: Qbit, z: Bit, y: Qbit[2]) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl (GateInfo "f" expectedGateArgs expectedGateBody) expectedGateApp
 
     describe "Parsing qubit resets" $ do

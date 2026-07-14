@@ -155,3 +155,7 @@ spec = do
                                                                       "f"
                                                                       [classicalRegColl "y" 2]
                                                                       (GateApp (gate "h") [var "y"]))
+
+    describe "Parsing a conditional gate execution" $ do
+      it "Generates a term representing the execution of a gate contingent on the guard" $ do
+        "if (x == 1) {h(x)}" `shouldParseToCommand` ConditionalGateExec (var "x") (GateApp (gate "h") [var "x"])

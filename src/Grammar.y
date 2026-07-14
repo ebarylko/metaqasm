@@ -67,9 +67,10 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 compoundType :
 simpleAnnotation '[' nat ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ toNat $3}
 | Circuit '(' types ')' {Circuit $3}
-type : simpleAnnotation {toTermType $1} | compoundType {$1}
+
 types : type {[$1]}
 | type ',' types {$1 : $3}
+type : simpleAnnotation {toTermType $1} | compoundType {$1}
 
 gateArg : id ':' type {GateArg (extractName $1) $3}
 

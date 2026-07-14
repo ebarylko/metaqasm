@@ -87,8 +87,8 @@ scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 -- n is a N sized register collection of kind k
 regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
 regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateArg collName
-quantumRegCollAnnotation  = regCollAnnotation Quantum
-classicalRegCollAnnotation = regCollAnnotation Classical
+quantumRegColl  = regCollAnnotation Quantum
+classicalRegColl = regCollAnnotation Classical
 
 gate = onLine1
 
@@ -125,7 +125,7 @@ spec = do
       it "Generates a term representing the declaration and its application" $ do
         let expectedGateArgs = [GateArg "x" Qbit,
                                 GateArg "z" Bit,
-                                quantumRegCollAnnotation "y" 2]
+                                quantumRegColl "y" 2]
         let cnot = onLine1 "cx"
         let expectedGateBody = GateApp cnot [var "x" , var "z"]
         let fnName = onLine1 "f"
@@ -148,17 +148,12 @@ spec = do
         "qreg x[1] ; qreg y[1]; qreg x[1]" `shouldParseToCommand` Sequence fstRegCollDecl (Sequence sndRegCollDecl fstRegCollDecl)
 
     describe "Parsing unscoped gate declarations" $ do
-      describe "Parsing declarations that do take a circuit" $ do
-        it "Generates a term representing the declaration" $ do
-          "gate f(h: Circuit(Qbit, Qbit), y: Qbit) {h(y, y)}" `shouldParseToCommand` GateDecl (GateInfo
-                                                                                      "f"
-                                                                                      [GateArg "h" $ Circuit [Qbit, Qbit],
-                                                                                      GateArg "y" Qbit]
-                                                                                      (GateApp (gate "h") [var "y", var "y"]))
-      describe "Parsing declarations that do not take a circuit" $ do
-        it "Generates a term containing information about the gate" $ do
-          "gate f(x: Qbit, y: Bit[2]) {h(x)} " `shouldParseToCommand` GateDecl ( GateInfo
-                                                                                "f"
-                                                                                [GateArg "x" Qbit,
-                                                                                  classicalRegCollAnnotation "y" 2]
-                                                                                (GateApp (gate "h") [var "x"]))
+      it "Generates a term representing the declaration" $ do
+        "gate f(h: Circuit(Qbit, Qbit)) {h(y, y)}" `shouldParseToCommand` GateDecl (GateInfo
+                                                                                    "f"
+                                                                                    [GateArg "h" $ Circuit [Qbit, Qbit]]
+                                                                                    (GateApp (gate "h") [var "y", var "y"]))
+        "gate f(y: Bit[2]) {h(y)} " `shouldParseToCommand` GateDecl ( GateInfo
+                                                                      "f"
+                                                                      [classicalRegColl "y" 2]
+                                                                      (GateApp (gate "h") [var "y"]))

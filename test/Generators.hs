@@ -659,20 +659,20 @@ gateThatAppliesUnitaryToClassicalRegCollElem :: Gen InvalidProgram
 gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDecl genSelectedBit gateThatTakesARegColl'
   where
     invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation') $ viewed paramInfo hadamardApp'
-    genSelectedBit = _paramInfo >>> toRegAccessOnLine1
+    genSelectedBit = view paramInfo >>> toRegAccessOnLine1
     classicalRegCollAnnotation' :: RegAccessFormatter
     classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)
 
 -- Generates a valid higher ordered gate which is then
 -- applied to a single qubit unitary
 higherOrderedGateDeclAndApp :: Gen MetaQasmProgram
-higherOrderedGateDeclAndApp =  formatToString gateApp <$> gateThatTakesARegColl
+higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesARegColl
   where
-    unitaryTakingGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
-    unitaryTakingGateDecl = singleParamGateDecl (gateArg <> fconst ": Circuit(Qbit)") $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
-    gateApp = viewed paramInfo quantumRegCollDecl
+    higherOrderedUnitaryDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
+    higherOrderedUnitaryDecl = singleParamGateDecl (gateArg <> fconst ": Circuit(Qbit)") $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
+    gateDeclAndApp = viewed paramInfo quantumRegCollDecl
       `sepBySemicolon`
-      unitaryTakingGateDecl
+      higherOrderedUnitaryDecl
       `sepBySemicolon`
       singleParamGateApp (viewed gateId string) (fconst "h")
     gateArg = viewed paramName string

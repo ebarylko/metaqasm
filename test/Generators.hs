@@ -36,7 +36,8 @@ module Generators(outOfScopeVar,
                  unscopedTwoQubitGateDecl,
                  multilineUnscopedGateWithQuantumRegCollParam,
                  unscopedGateThatTakesAnEmptyRegColl,
-                 gateThatAppliesUnitaryToClassicalRegCollElem)
+                 gateThatAppliesUnitaryToClassicalRegCollElem,
+                 higherOrderedGateDeclAndApp)
   where
 
 import Test.QuickCheck
@@ -602,10 +603,14 @@ makeLenses ''SingleParamGateInfo
 -- collection
 gateThatTakesARegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 
-gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap ((uncurry3 SingleParamGateInfo) >>> changeParamNameToMatchRegColl)
+gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
     regCollIsNotOvershadowed (gateName', _, RegCollAccessSpec{_regCollName}) = gateName' /= _regCollName
+
+gateThatTakesARegColl' :: Gen (SingleParamGateInfo RegCollAccessSpec)
+gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl
+  where
     changeParamNameToMatchRegColl :: SingleParamGateInfo RegCollAccessSpec -> SingleParamGateInfo RegCollAccessSpec
     changeParamNameToMatchRegColl x = x & view  paramName & flip (set (paramInfo . regCollName)) x
 
@@ -613,7 +618,7 @@ gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) 
 -- unscoped gate that takes a quantum register collection to
 -- a quantum register collection
 multilineUnscopedGateWithQuantumRegCollParam :: Gen MetaQasmProgram
-multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> gateThatTakesARegColl
+multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> gateThatTakesARegColl'
   where
     multilineDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec )
     multilineDecl  =
@@ -640,7 +645,7 @@ sepByColon = sepBy ":"
 -- declaration where the parameter is an empty register collection
 unscopedGateThatTakesAnEmptyRegColl :: Gen MetaQasmProgram
 
-unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateThatTakesARegColl
+unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateThatTakesARegColl'
   where
     invalidGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
     invalidGateDecl = singleParamGateDecl emptyQuantRegColl $ fconst "h(x)"
@@ -651,9 +656,23 @@ unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateTha
 -- to an element of a classical register collection and the aforementioned
 -- element
 gateThatAppliesUnitaryToClassicalRegCollElem :: Gen InvalidProgram
-gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDecl genSelectedBit gateThatTakesARegColl
+gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDecl genSelectedBit gateThatTakesARegColl'
   where
     invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation') $ viewed paramInfo hadamardApp'
-    genSelectedBit = _paramInfo >>> toRegAccessOnLine1
+    genSelectedBit = view paramInfo >>> toRegAccessOnLine1
     classicalRegCollAnnotation' :: RegAccessFormatter
     classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)
+
+-- Generates a valid higher ordered gate which is then
+-- applied to a single qubit unitary
+higherOrderedGateDeclAndApp :: Gen MetaQasmProgram
+higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesARegColl
+  where
+    higherOrderedUnitaryDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
+    higherOrderedUnitaryDecl = singleParamGateDecl (gateArg <> fconst ": Circuit(Qbit)") $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
+    gateDeclAndApp = viewed paramInfo quantumRegCollDecl
+      `sepBySemicolon`
+      higherOrderedUnitaryDecl
+      `sepBySemicolon`
+      singleParamGateApp (viewed gateId string) (fconst "h")
+    gateArg = viewed paramName string

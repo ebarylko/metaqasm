@@ -676,3 +676,23 @@ higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesAR
       `sepBySemicolon`
       singleParamGateApp (viewed gateId string) (fconst "h")
     gateArg = viewed paramName string
+
+
+-- This type represents the information needed to construct a MetaQASM program that conditionally
+-- executes a gate if the given bit has a certain value
+data ConditionalGateExecInfo = ConditionalGateExecInfo{_expectedValue :: Int, _bitBeingTested :: RegCollAccessSpec}
+makeLenses ''ConditionalGateExecInfo
+
+conditionalGateExecutionInfo :: Gen ConditionalGateExecInfo
+conditionalGateExecutionInfo = (>*<) arbitrarySizedNatural validRegCollAccess & fmap (uncurry ConditionalGateExecInfo)
+
+-- Generates a program that conditionally executes
+-- a gate depending on the value of a guard
+conditionalGateExecution :: Gen MetaQasmProgram
+conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateExecutionInfo
+  where
+    potentialGateExec :: MetaQasmProgramFormatter ConditionalGateExecInfo
+    potentialGateExec = viewed bitBeingTested classicRegCollDecl `sepBySemicolon` execGateIf (viewed expectedValue int) (viewed bitBeingTested regCollAccess) (viewed bitBeingTested hadamardApp')
+    execGateIf :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+    execGateIf expectedBitVal actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal) <%+> braced gate
+    eq = sepBy "=="

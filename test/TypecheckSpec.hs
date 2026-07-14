@@ -57,7 +57,8 @@ import Generators(outOfScopeVar,
                  multilineUnscopedGateWithQuantumRegCollParam,
                  unscopedGateThatTakesAnEmptyRegColl,
                  gateThatAppliesUnitaryToClassicalRegCollElem,
-                 higherOrderedGateDeclAndApp)
+                 higherOrderedGateDeclAndApp,
+                 conditionalGateExecution)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -332,3 +333,7 @@ spec =  do
   describe "Applying a valid gate that takes a single qubit unitary to the Hadamard gate" $ do
     prop "Is valid" $ do
       forAll higherOrderedGateDeclAndApp prop_isValidProgram
+
+  describe "Conditionally applying a valid gate if the guard is valid" $ do
+    prop "Is itself valid" $ do
+      forAll conditionalGateExecution prop_isValidProgram

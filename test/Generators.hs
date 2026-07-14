@@ -700,7 +700,7 @@ conditionalGateInfo = (>*<) validGuard validRegCollAccess `suchThat` isGateNotOv
     isGateNotOvershadowingGuard  = liftA2 (/=) (view (_1 . bitBeingTested . regCollName)) $ view (_2 . regCollName)
 
 -- Generates a program that conditionally executes
--- a gate depending on the value of a guard
+-- a gate depending on the value of the guard
 conditionalGateExecution :: Gen MetaQasmProgram
 conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateInfo
   where
@@ -710,8 +710,13 @@ conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateI
       `sepBySemicolon`
       viewed gateData quantumRegCollDecl
       `sepBySemicolon`
-      execGateIf (viewed (guardInfo . expectedValue) int) (viewed testedBit regCollAccess) (viewed gateData hadamardApp')
+      execGateIf
+      expectedBitVal
+      (viewed testedBit regCollAccess)
+      (viewed gateData hadamardApp')
+
     testedBit = guardInfo . bitBeingTested
+    expectedBitVal = viewed (guardInfo . expectedValue) int
     execGateIf :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-    execGateIf expectedBitVal actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal) <%+> braced gate
+    execGateIf expectedBitVal' actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal') <%+> braced gate
     eq = sepBy "=="

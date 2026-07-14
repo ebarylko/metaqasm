@@ -334,6 +334,6 @@ spec =  do
     prop "Is valid" $ do
       forAll higherOrderedGateDeclAndApp prop_isValidProgram
 
-  describe "Conditionally applying a valid gate if the guard is valid" $ do
+  describe "Applying a valid gate contingent on a valid guard" $ do
     prop "Is itself valid" $ do
       forAll conditionalGateExecution prop_isValidProgram

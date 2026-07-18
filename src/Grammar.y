@@ -34,10 +34,12 @@ import Control.Arrow((>>>))
 qreg    {Qreg}
 creg    {Creg}
 in      {In}
+if      {If}
 Circuit {Circ}
 ','     {Comma}
 ':'     {Colon}
 ';'     {Semicolon}
+"=="     {Eq}
 reset {Reset}
 gate    {GateDec}
 '('     { LParen _}
@@ -63,6 +65,7 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | command ';' command {Sequence $1 $3}
 | reset arg {QubitReset $2}
 | gate id '(' gateArgs ')' '{' gateApp '}' {GateDecl (GateInfo (extractName $2) $4 $7)}
+| if '(' arg  "==" nat ')' '{' gateApp '}' {ConditionalGateExec $3 $8}
 
 compoundType :
 simpleAnnotation '[' nat ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ toNat $3}

@@ -43,6 +43,10 @@ shouldParseToCommand text expected = (fmap toCommand . parseText) text `shouldBe
 toGateWithinCommand :: LineNumber -> String -> [Expression] -> Command
 toGateWithinCommand line gateName'= Gate . GateApp (WithContext gateName' line)
 
+gateApp :: Identifier -> [Expression] -> GateApp
+gateApp gateId gateArgs = GateApp (gate gateId) gateArgs
+
+
 gateOnLine1 = toGateWithinCommand (LineNumber 1)
 
 line1 :: LineNumber
@@ -126,8 +130,8 @@ spec = do
         let expectedGateArgs = [GateArg "x" Qbit,
                                 GateArg "z" Bit,
                                 quantumRegColl "y" 2]
-        let expectedGateBody = GateApp (gate "cx") [var "x" , var "z"]
-        let expectedGateApp = Gate $ GateApp (gate "f") [var "a", var "b"]
+        let expectedGateBody = gateApp "cx" [var "x" , var "z"]
+        let expectedGateApp = Gate $ gateApp "f" [var "a", var "b"]
         "gate f(x: Qbit, z: Bit, y: Qbit[2]) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl (GateInfo "f" expectedGateArgs expectedGateBody) expectedGateApp
 
     describe "Parsing qubit resets" $ do
@@ -150,8 +154,12 @@ spec = do
         "gate f(h: Circuit(Qbit, Qbit)) {h(y, y)}" `shouldParseToCommand` GateDecl (GateInfo
                                                                                     "f"
                                                                                     [GateArg "h" $ Circuit [Qbit, Qbit]]
-                                                                                    (GateApp (gate "h") [var "y", var "y"]))
+                                                                                    (gateApp "h" [var "y", var "y"]))
         "gate f(y: Bit[2]) {h(y)} " `shouldParseToCommand` GateDecl ( GateInfo
                                                                       "f"
                                                                       [classicalRegColl "y" 2]
-                                                                      (GateApp (gate "h") [var "y"]))
+                                                                      (gateApp "h" [var "y"]))
+
+    describe "Parsing a conditional gate execution" $ do
+      it "Generates a term representing the execution of a gate contingent on the guard" $ do
+        "if (x == 1) {h(x)}" `shouldParseToCommand` ConditionalGateExec (var "x") (gateApp "h" [var "x"])

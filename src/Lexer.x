@@ -28,7 +28,9 @@ tokens :-
   in                                                       {ignoreInputAndReturn In}
   gate                                                     {ignoreInputAndReturn GateDec}
   measure                                              {ignoreInputAndReturn Measurement}
+  if                                                   {ignoreInputAndReturn If}
   reset                                                {ignoreInputAndReturn Reset}
+  "=="                                                  {ignoreInputAndReturn Eq}
   "->"                                                   {ignoreInputAndReturn RightArrow}
   \:                                                       {ignoreInputAndReturn Colon}
   \;                                                       {ignoreInputAndReturn Semicolon}
@@ -55,6 +57,8 @@ data Token = LBracket LineNumber
   | Qreg
   | Creg
   | In
+  | If
+  | Eq
   | Comma
   | GateDec
   | Colon

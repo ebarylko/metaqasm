@@ -79,4 +79,5 @@ data Command = Gate GateApp -- Apply a gate to one or more qubits
   | QubitMeasurement{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
   | QubitReset{toReset :: Expression}
   | GateDecl GateInfo
+  | ConditionalGateExec{bitToTest :: Expression, toBeExecuted :: GateApp}
    deriving (Show, Eq)

@@ -37,7 +37,8 @@ module Generators(outOfScopeVar,
                  multilineUnscopedGateWithQuantumRegCollParam,
                  unscopedGateThatTakesAnEmptyRegColl,
                  gateThatAppliesUnitaryToClassicalRegCollElem,
-                 higherOrderedGateDeclAndApp)
+                 higherOrderedGateDeclAndApp,
+                 conditionalGateExecution)
   where
 
 import Test.QuickCheck
@@ -676,3 +677,46 @@ higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesAR
       `sepBySemicolon`
       singleParamGateApp (viewed gateId string) (fconst "h")
     gateArg = viewed paramName string
+
+
+-- This type represents the information in a guard
+-- for a conditional gate execution
+data GateGuard = GateGuard{_expectedValue :: Int, _bitBeingTested :: RegCollAccessSpec}
+makeLenses ''GateGuard
+
+validGuard :: Gen GateGuard
+validGuard = (>*<) arbitrarySizedNatural validRegCollAccess & fmap (uncurry GateGuard)
+
+-- This data type represents the information needed to construct a MetaQASM program
+-- that conditionally executes a gate
+data ConditionalGateInfo = ConditionalGateInfo{_guardInfo :: GateGuard, _gateData :: RegCollAccessSpec}
+makeLenses ''ConditionalGateInfo
+
+conditionalGateInfo :: Gen ConditionalGateInfo
+
+conditionalGateInfo = (>*<) validGuard validRegCollAccess `suchThat` isGateNotOvershadowingGuard & fmap (uncurry ConditionalGateInfo)
+  where
+    isGateNotOvershadowingGuard :: (GateGuard, RegCollAccessSpec) -> Bool
+    isGateNotOvershadowingGuard  = liftA2 (/=) (view (_1 . bitBeingTested . regCollName)) $ view (_2 . regCollName)
+
+-- Generates a program that conditionally executes
+-- a gate depending on the value of the guard
+conditionalGateExecution :: Gen MetaQasmProgram
+conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateInfo
+  where
+    potentialGateExec :: MetaQasmProgramFormatter ConditionalGateInfo
+    potentialGateExec =
+      viewed testedBit classicRegCollDecl
+      `sepBySemicolon`
+      viewed gateData quantumRegCollDecl
+      `sepBySemicolon`
+      execGateIf
+      expectedBitVal
+      (viewed testedBit regCollAccess)
+      (viewed gateData hadamardApp')
+
+    testedBit = guardInfo . bitBeingTested
+    expectedBitVal = viewed (guardInfo . expectedValue) int
+    execGateIf :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+    execGateIf expectedBitVal' actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal') <%+> braced gate
+    eq = sepBy "=="

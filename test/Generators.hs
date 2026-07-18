@@ -720,3 +720,21 @@ conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateI
     execGateIf :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
     execGateIf expectedBitVal' actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal') <%+> braced gate
     eq = sepBy "=="
+
+
+qubitRegCollAnnotation :: RegAccessFormatter
+qubitRegCollAnnotation = viewed regCollName string <> fconst ": Qbit" <> squared (viewed numOfRegs int)
+
+-- Generates a MetaQASM program that applies a gate taking a
+-- register collection of size N to a register collection of size N + 1
+gateAppToRegCollThatIsBiggerThanExpected ::  Gen MetaQasmProgram
+
+gateAppToRegCollThatIsBiggerThanExpected = formatToString gateApp <$> gateThatTakesARegColl'
+  where
+    gateApp =
+      singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) (viewed paramInfo hadamardApp')
+      `sepBySemicolon`
+      mapf incRegCount  (viewed paramInfo quantumRegCollDecl)
+      `sepBySemicolon`
+      singleParamGateApp (viewed gateId string) (viewed paramName string)
+    incRegCount = over (paramInfo . numOfRegs) (+ 1)

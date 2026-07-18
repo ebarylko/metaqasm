@@ -115,7 +115,7 @@ verifyGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCa
 verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
   | gateIsAppliedToTooManyArgs = unexpectedNumOfArgsErr
   | gateIsAppliedToTooFewArgs = unexpectedNumOfArgsErr
-  | expectedArgTypes == actualArgTypes  = Right Unit
+  | expectedAndActualArgTypesMatch  = Right Unit
   | otherwise = gateArgMismatchErr
   where
     numOfExpectedTypes = length expectedArgTypes
@@ -124,6 +124,11 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
     unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes} line
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
+    expectedAndActualArgTypesMatch = all (uncurry isSupertypeOrEq) $ zip expectedArgTypes actualArgTypes
+    isSupertypeOrEq :: TermType -> TermType -> Bool
+    isSupertypeOrEq (RegisterGroup collTy numOfRegs) (RegisterGroup collTy' numOfRegs') = collTy == collTy' && extractVal numOfRegs <= extractVal numOfRegs'
+    isSupertypeOrEq (Circuit left) (Circuit right) = all id $ zipWith isSupertypeOrEq right left
+    isSupertypeOrEq x y = x == y
 
 -- Takes the current context, an expression, and calculates its type
 -- under the given context

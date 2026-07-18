@@ -608,7 +608,7 @@ gateThatTakesARegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
-    regCollIsNotOvershadowed (gateName', _, RegCollAccessSpec{_regCollName}) = gateName' /= _regCollName
+    regCollIsNotOvershadowed (gateName', paramName', RegCollAccessSpec{_regCollName}) = _regCollName `notElem` [gateName', paramName']
 
 gateThatTakesARegColl' :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl

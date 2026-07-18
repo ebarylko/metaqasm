@@ -127,7 +127,7 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     expectedAndActualArgTypesMatch = all (uncurry isSupertypeOrEq) $ zip expectedArgTypes actualArgTypes
     isSupertypeOrEq :: TermType -> TermType -> Bool
     isSupertypeOrEq (RegisterGroup collTy numOfRegs) (RegisterGroup collTy' numOfRegs') = collTy == collTy' && extractVal numOfRegs <= extractVal numOfRegs'
-    isSupertypeOrEq (Circuit left) (Circuit right) = all id $ zipWith isSupertypeOrEq right left
+    --isSupertypeOrEq (Circuit left) (Circuit right) = all id $ zipWith isSupertypeOrEq right left
     isSupertypeOrEq x y = x == y
 
 -- Takes the current context, an expression, and calculates its type

@@ -58,7 +58,8 @@ import Generators(outOfScopeVar,
                  unscopedGateThatTakesAnEmptyRegColl,
                  gateThatAppliesUnitaryToClassicalRegCollElem,
                  higherOrderedGateDeclAndApp,
-                 conditionalGateExecution)
+                 conditionalGateExecution,
+                 gateAppToRegCollSubType)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -337,3 +338,7 @@ spec =  do
   describe "Applying a valid gate contingent on a valid guard" $ do
     prop "Is itself valid" $ do
       forAll conditionalGateExecution prop_isValidProgram
+
+  describe "Applying a valid gate that takes an N size register collection to a larger register collection" $ do
+    prop "Is valid" $ do
+      forAll gateAppToRegCollSubType prop_isValidProgram

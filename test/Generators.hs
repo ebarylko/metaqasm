@@ -38,7 +38,8 @@ module Generators(outOfScopeVar,
                  unscopedGateThatTakesAnEmptyRegColl,
                  gateThatAppliesUnitaryToClassicalRegCollElem,
                  higherOrderedGateDeclAndApp,
-                 conditionalGateExecution)
+                 conditionalGateExecution,
+                 gateAppToRegCollSubType)
   where
 
 import Test.QuickCheck
@@ -727,9 +728,9 @@ qubitRegCollAnnotation = viewed regCollName string <> fconst ": Qbit" <> squared
 
 -- Generates a MetaQASM program that applies a gate taking a
 -- register collection of size N to a register collection of size N + 1
-gateAppToRegCollThatIsBiggerThanExpected ::  Gen MetaQasmProgram
+gateAppToRegCollSubType ::  Gen MetaQasmProgram
 
-gateAppToRegCollThatIsBiggerThanExpected = formatToString gateApp <$> gateThatTakesARegColl'
+gateAppToRegCollSubType = formatToString gateApp <$> gateThatTakesARegColl'
   where
     gateApp =
       singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) (viewed paramInfo hadamardApp')

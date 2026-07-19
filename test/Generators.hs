@@ -757,10 +757,11 @@ programWithGateAppToSubtypeOfExpectedRegColl = formatToString gateApp <$> gateTh
 -- Generates a valid program that applies a sequence of gates
 -- to a register collection
 programThatSequencesGates :: Gen MetaQasmProgram
-programThatSequencesGates = formatToString gateSequence <$> gateThatTakesARegColl'
+programThatSequencesGates = formatToString gateSequenceApp <$> gateThatTakesARegColl'
   where
-    gateSequence =
-      viewed paramInfo quantumRegCollDecl `sepBySemicolon`
+    gateSequenceApp =
+      viewed paramInfo quantumRegCollDecl
+      `sepBySemicolon`
       oneLineSingleParamGateDeclAndApp param gateBody (viewed (paramInfo . regCollName) string)
 
     gateBody = viewed paramInfo hadamardApp' `sepBySemicolon` viewed paramInfo tDaggerGateApp

@@ -675,7 +675,8 @@ higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesAR
       `sepBySemicolon`
       higherOrderedUnitaryDecl
       `sepBySemicolon`
-      singleParamGateApp (viewed gateId string) (fconst "h")
+      singleParamGateApp (viewed gateId string) hGate
+    hGate = fconst "h"
     gateArg = viewed paramName string
 
 
@@ -720,7 +721,6 @@ conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateI
     execGateIf :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
     execGateIf expectedBitVal' actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal') <%+> braced gate
     eq = sepBy "=="
-
 
 
 -- Generates a MetaQASM program that applies a gate taking a

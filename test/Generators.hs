@@ -39,7 +39,8 @@ module Generators(outOfScopeVar,
                  gateThatAppliesUnitaryToClassicalRegCollElem,
                  higherOrderedGateDeclAndApp,
                  conditionalGateExecution,
-                 programWithGateAppToSubtypeOfExpectedRegColl)
+                 programWithGateAppToSubtypeOfExpectedRegColl,
+                 programThatSequencesGates)
   where
 
 import Test.QuickCheck
@@ -752,3 +753,15 @@ programWithGateAppToSubtypeOfExpectedRegColl = formatToString gateApp <$> gateTh
     gateBody = viewed paramInfo hadamardApp'
     gateAppTo = viewed paramName string
     incRegCount = over (paramInfo . numOfRegs) (+ 1)
+
+-- Generates a valid program that applies a sequence of gates
+-- to a register collection
+programThatSequencesGates :: Gen MetaQasmProgram
+programThatSequencesGates = formatToString gateSequence <$> gateThatTakesARegColl'
+  where
+    gateSequence =
+      viewed paramInfo quantumRegCollDecl `sepBySemicolon`
+      oneLineSingleParamGateDeclAndApp param gateBody (viewed (paramInfo . regCollName) string)
+
+    gateBody = viewed paramInfo hadamardApp' `sepBySemicolon` viewed paramInfo tDaggerGateApp
+    param = viewed paramInfo qubitRegCollAnnotation

@@ -162,6 +162,9 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
     genIsNotGateErr :: TermType -> TypeErrAt
     genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
 
+verifyGateApp m (GateSequence a b)
+  = verifyGateApp m a *> verifyGateApp m b
+
 type Term = Vary '[Expression, GateApp, Command]
 
 verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult

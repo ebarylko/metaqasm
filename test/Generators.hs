@@ -65,7 +65,7 @@ import Control.Applicative(liftA3)
 import Control.Lens hiding (elements)
 
 reservedKeywords :: [String]
-reservedKeywords = ["h", "cx", "t", "tdg", "in"]
+reservedKeywords = ["h", "cx", "t", "tdg", "in", "if"]
 
 freshVariable :: Gen String
 freshVariable = ((:) <$> lowerCaseLetter <*> listOf alphaNumeric) `suchThat` (`notElem` reservedKeywords)
@@ -272,12 +272,11 @@ data TwoArgGateDeclInfo = TwoArgGateDeclInfo{_gateName :: String, _fstArg:: Stri
 makeLenses ''TwoArgGateDeclInfo
 
 twoArgGateDeclInfo :: Gen TwoArgGateDeclInfo
+allNamesAreUnique :: [String] -> Bool
+allNamesAreUnique = nub >>> length >>> (== 3)
 
 -- Generates information for a two qubit gate declaration such that the names of the parameters and gate are unique
 twoArgGateDeclInfo = replicateM 3 freshVariable `suchThat` allNamesAreUnique & fmap (\[x, y, z] -> TwoArgGateDeclInfo x y z)
-  where
-    allNamesAreUnique :: [String] -> Bool
-    allNamesAreUnique = nub >>> length >>> (== 3)
 
 -- This type represents pairs of specifications about gate declarations and
 -- register collection accesses such that the reigster name does not overshadow
@@ -608,7 +607,7 @@ gateThatTakesARegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
-    regCollIsNotOvershadowed (gateName', paramName', RegCollAccessSpec{_regCollName}) = _regCollName `notElem` [gateName', paramName']
+    regCollIsNotOvershadowed (gateName', paramName', RegCollAccessSpec{_regCollName}) = allNamesAreUnique [_regCollName, gateName', paramName']
 
 gateThatTakesARegColl' :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl

@@ -81,6 +81,7 @@ gateArgs : gateArg {[$1]}
 | gateArg ',' gateArgs {$1 : $3}
 
 gateApp : id '(' args ')' {GateApp (toVar $1) $3}
+| gateApp ';' gateApp {GateSequence $1 $3}
 
 args : arg {[$1]} | arg ',' args {$1 : $3}
 

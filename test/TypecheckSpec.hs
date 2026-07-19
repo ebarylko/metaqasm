@@ -59,7 +59,7 @@ import Generators(outOfScopeVar,
                  gateThatAppliesUnitaryToClassicalRegCollElem,
                  higherOrderedGateDeclAndApp,
                  conditionalGateExecution,
-                 gateAppToRegCollSubType)
+                 programWithGateAppToSubtypeOfExpectedRegColl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -341,4 +341,4 @@ spec =  do
 
   describe "Applying a valid gate that takes an N size register collection to a larger register collection" $ do
     prop "Is valid" $ do
-      forAll gateAppToRegCollSubType prop_isValidProgram
+      forAll programWithGateAppToSubtypeOfExpectedRegColl prop_isValidProgram

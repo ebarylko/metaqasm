@@ -160,6 +160,13 @@ spec = do
                                                                       [classicalRegColl "y" 2]
                                                                       (gateApp "h" [var "y"]))
 
+    describe "Parsing gate sequencing" $ do
+      it "Generates a term representing the combining of gates" $ do
+        "gate f(x: Qbit) {h(x) ; t(x)}" `shouldParseToCommand` GateDecl (GateInfo
+                                                                         "f"
+                                                                         [GateArg "x" Qbit]
+                                                                         (GateSequence (gateApp "h" [var "x"]) (gateApp "t" [var "x"])))
+
     describe "Parsing a conditional gate execution" $ do
       it "Generates a term representing the execution of a gate contingent on the guard" $ do
         "if (x == 1) {h(x)}" `shouldParseToCommand` ConditionalGateExec (var "x") (gateApp "h" [var "x"])

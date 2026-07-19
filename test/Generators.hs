@@ -618,6 +618,8 @@ gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl
 qubitRegCollAnnotation :: RegAccessFormatter
 qubitRegCollAnnotation = viewed regCollName string <> fconst ": Qbit" <> squared (viewed numOfRegs int)
 
+fmtGateName = viewed gateId string
+
 -- Generates a program that contains the application of an
 -- unscoped gate that takes a quantum register collection to
 -- a quantum register collection
@@ -634,7 +636,7 @@ multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> 
 
     gateParam = viewed paramInfo qubitRegCollAnnotation
     gateBody = viewed paramInfo  $ hadamardApp regCollAccess
-    gateApp = singleParamGateApp (viewed gateId string) $ viewed (paramInfo . regCollName) string
+    gateApp = singleParamGateApp fmtGateName $ viewed (paramInfo . regCollName) string
     sepBySemicolonOnNewLine = sepBy "\n;"
 
 singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a) ->  MetaQasmProgramFormatter (SingleParamGateInfo a)
@@ -675,7 +677,7 @@ higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesAR
       `sepBySemicolon`
       higherOrderedUnitaryDecl
       `sepBySemicolon`
-      singleParamGateApp (viewed gateId string) hGate
+      singleParamGateApp fmtGateName hGate
     hGate = fconst "h"
     gateArg = viewed paramName string
 
@@ -734,5 +736,5 @@ gateAppToRegCollSubType = formatToString gateApp <$> gateThatTakesARegColl'
       `sepBySemicolon`
       mapf incRegCount  (viewed paramInfo quantumRegCollDecl)
       `sepBySemicolon`
-      singleParamGateApp (viewed gateId string) (viewed paramName string)
+      singleParamGateApp fmtGateName (viewed paramName string)
     incRegCount = over (paramInfo . numOfRegs) (+ 1)

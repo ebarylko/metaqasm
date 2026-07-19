@@ -112,7 +112,7 @@ isValidGateApp :: [TermType] -> [TermType] -> Bool
 isValidGateApp expectedArgTypes  = zip expectedArgTypes >>> all (uncurry isSupertypeOf)
   where
     isSupertypeOf :: TermType -> TermType -> Bool
-    isSupertypeOf (RegisterGroup collTy numOfRegs) (RegisterGroup collTy' numOfRegs') = collTy == collTy' && extractVal numOfRegs <= extractVal numOfRegs'
+    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' && extractVal expectedNumOfRegs <= extractVal actualNumOfRegs
     isSupertypeOf x y = x == y
 
 -- Takes the line where a gate was applied,

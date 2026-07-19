@@ -615,6 +615,9 @@ gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl
     changeParamNameToMatchRegColl :: SingleParamGateInfo RegCollAccessSpec -> SingleParamGateInfo RegCollAccessSpec
     changeParamNameToMatchRegColl x = x & view  paramName & flip (set (paramInfo . regCollName)) x
 
+qubitRegCollAnnotation :: RegAccessFormatter
+qubitRegCollAnnotation = viewed regCollName string <> fconst ": Qbit" <> squared (viewed numOfRegs int)
+
 -- Generates a program that contains the application of an
 -- unscoped gate that takes a quantum register collection to
 -- a quantum register collection
@@ -629,13 +632,10 @@ multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> 
       `sepBySemicolonOnNewLine`
       gateApp
 
-    gateParam = viewed paramName string `sepByColon` viewed paramInfo qubitRegCollAnnotation
+    gateParam = viewed paramInfo qubitRegCollAnnotation
     gateBody = viewed paramInfo  $ hadamardApp regCollAccess
     gateApp = singleParamGateApp (viewed gateId string) $ viewed (paramInfo . regCollName) string
     sepBySemicolonOnNewLine = sepBy "\n;"
-
-    qubitRegCollAnnotation :: RegAccessFormatter
-    qubitRegCollAnnotation = fconst "Qbit" <> squared (viewed numOfRegs int)
 
 singleParamGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a) ->  MetaQasmProgramFormatter (SingleParamGateInfo a)
 singleParamGateDecl argFormatter gateBodyFormatter = fconst "gate" <%+> (viewed gateId string) <> parenthesised argFormatter <%+> braced gateBodyFormatter
@@ -722,8 +722,6 @@ conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateI
     eq = sepBy "=="
 
 
-qubitRegCollAnnotation :: RegAccessFormatter
-qubitRegCollAnnotation = viewed regCollName string <> fconst ": Qbit" <> squared (viewed numOfRegs int)
 
 -- Generates a MetaQASM program that applies a gate taking a
 -- register collection of size N to a register collection of size N + 1

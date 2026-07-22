@@ -60,7 +60,7 @@ import Test.QuickCheck.Instances.Tuple ((>**<), (>*<))
 import Data.Function(on)
 import Typecheck(TypeEvaluationError(..))
 import Control.Monad(replicateM)
-import Data.List(nub)
+import Data.List(nub, sort, (\\), null)
 import Data.Text.Lazy.Builder(fromString)
 import Control.Applicative(liftA3)
 import Control.Lens hiding (elements)
@@ -766,3 +766,61 @@ programThatSequencesGates = formatToString gateSequenceApp <$> gateThatTakesAReg
 
     gateBody = viewed paramInfo hadamardApp' `sepBySemicolon` viewed paramInfo tDaggerGateApp
     param = viewed paramInfo qubitRegCollAnnotation
+
+type GateThatTakesARegColl = SingleParamGateInfo RegCollAccessSpec
+
+type HigherOrderedGate = SingleParamGateInfo GateThatTakesARegColl
+
+higherOrderedGate :: Gen HigherOrderedGate
+
+extractGateAndParamNames :: Fold HigherOrderedGate Identifier
+extractGateAndParamNames =  folding $ \s -> s ^.. extractGateAndParamName <>  s ^.. (paramInfo . extractGateAndRegCollName)
+  where
+
+    extractGateAndParamName :: Fold (SingleParamGateInfo a) Identifier
+    extractGateAndParamName = folding $ \s -> [view gateId s, view paramName s]
+    extractGateAndRegCollName :: Fold GateThatTakesARegColl Identifier
+    extractGateAndRegCollName = folding getNames
+    getNames :: GateThatTakesARegColl -> [Identifier]
+    getNames x = x ^.. extractGateAndParamName <> x ^.. (paramInfo . regCollName)
+
+higherOrderedGate = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesARegColl )`suchThat` declIsNotBeingOvershadowed
+  where
+    declIsNotBeingOvershadowed :: HigherOrderedGate -> Bool
+    declIsNotBeingOvershadowed  = toListOf extractGateAndParamNames >>> doesNotContainDuplicates
+    doesNotContainDuplicates :: [Identifier] -> Bool
+    doesNotContainDuplicates = (&&&) id nub >>> uncurry  (\\) >>> null
+
+circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
+circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "circuit" <> parenthesised circuitTypes
+
+-- Generates a MetaQASM program that applies a gate
+-- expecting a circuit of type K to a circuit of type
+-- K', where K' is a subtype of K
+programThatAppliesGateToCircSubType :: Gen MetaQasmProgram
+programThatAppliesGateToCircSubType = formatToString gateApp <$> higherOrderedGate
+  where
+    gateApp :: MetaQasmProgramFormatter HigherOrderedGate
+    gateApp =
+      viewed (paramInfo . paramInfo) quantumRegCollDecl
+      `sepBySemicolon`
+      singleParamGateDecl higherOrdGate (singleParamGateApp (viewed paramName string) (viewed (paramInfo . paramInfo . regCollName) string))
+      `sepBySemicolon`
+      --singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation') (tDaggerGateApp' $ viewed (paramInfo . paramName) string)
+      mapf (view paramInfo ) (singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) (viewed paramInfo tDaggerGateApp))
+      --oneLineSingleParamGateDeclAndApp (viewed paramInfo qubitRegCollAnnotation') (tDaggerGateApp' $ viewed (paramInfo . paramName) string) (fconst "x")
+
+    higherOrdGate = circuitAnnotation (viewed paramName string) (viewed (paramInfo . paramInfo) nSizedQuantColl)
+    nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
+    nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
+
+
+tDaggerGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
+tDaggerGateApp' f = fconst "tdg" <> parenthesised f
+
+
+qubitRegCollAnnotation' :: MetaQasmProgramFormatter GateThatTakesARegColl
+qubitRegCollAnnotation' = viewed paramName string <> fconst ": Qbit" <> squared (viewed (paramInfo . numOfRegs) int)
+
+-- qreg x[3]; gate f(a : Circuit(Qbit[3])) {a(x)} ; gate h(a : Qbit[2]) {t(a[0])}; f(h)
+--

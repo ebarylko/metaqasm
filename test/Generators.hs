@@ -798,7 +798,7 @@ circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "circuit" 
 -- expecting a circuit of type K to a circuit of type
 -- K', where K' is a subtype of K
 programThatAppliesGateToCircSubType :: Gen MetaQasmProgram
-programThatAppliesGateToCircSubType = formatToString gateApp <$> higherOrderedGate
+programThatAppliesGateToCircSubType = formatToString gateApp <$> incRegCount <$> higherOrderedGate
   where
     gateApp :: MetaQasmProgramFormatter HigherOrderedGate
     gateApp =
@@ -806,21 +806,12 @@ programThatAppliesGateToCircSubType = formatToString gateApp <$> higherOrderedGa
       `sepBySemicolon`
       singleParamGateDecl higherOrdGate (singleParamGateApp (viewed paramName string) (viewed (paramInfo . paramInfo . regCollName) string))
       `sepBySemicolon`
-      --singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation') (tDaggerGateApp' $ viewed (paramInfo . paramName) string)
-      mapf (view paramInfo ) (singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) (viewed paramInfo tDaggerGateApp))
-      --oneLineSingleParamGateDeclAndApp (viewed paramInfo qubitRegCollAnnotation') (tDaggerGateApp' $ viewed (paramInfo . paramName) string) (fconst "x")
+      mapf (view paramInfo >>> decRegCount) (singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) (viewed paramInfo tDaggerGateApp))
+      `sepBySemicolon`
+      singleParamGateApp (viewed gateId string) (viewed (paramInfo . gateId) string)
 
     higherOrdGate = circuitAnnotation (viewed paramName string) (viewed (paramInfo . paramInfo) nSizedQuantColl)
     nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
     nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
-
-
-tDaggerGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
-tDaggerGateApp' f = fconst "tdg" <> parenthesised f
-
-
-qubitRegCollAnnotation' :: MetaQasmProgramFormatter GateThatTakesARegColl
-qubitRegCollAnnotation' = viewed paramName string <> fconst ": Qbit" <> squared (viewed (paramInfo . numOfRegs) int)
-
--- qreg x[3]; gate f(a : Circuit(Qbit[3])) {a(x)} ; gate h(a : Qbit[2]) {t(a[0])}; f(h)
---
+    incRegCount = over (paramInfo . paramInfo . numOfRegs) (+1)
+    decRegCount = over (paramInfo . numOfRegs) (subtract 1)

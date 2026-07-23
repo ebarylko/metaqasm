@@ -740,6 +740,7 @@ conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateI
     execGateIf expectedBitVal' actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal') <%+> braced gate
     eq = sepBy "=="
 
+incRegCount = over (paramInfo . numOfRegs) (+ 1)
 
 -- Generates a MetaQASM program that applies a gate taking a
 -- register collection of size N to a register collection of size N + 1
@@ -776,8 +777,10 @@ type HigherOrderedGate = SingleParamGateInfo GateThatTakesARegColl
 summing :: Fold s a -> Fold s a  -> Fold s a
 summing f g = folding $ \s -> s ^.. f ++ s ^.. g
 
+-- Takes the information describing a gate f that takes
+-- another gate g and for both gates returns its name
+-- and the name of the given parameter
 extractGateAndParamNames :: Fold HigherOrderedGate Identifier
---extractGateAndParamNames =  folding $ \s -> s ^.. extractGateAndParamName <>  s ^.. (paramInfo . extractGateAndRegCollName)
 extractGateAndParamNames =  extractGateAndParamName `summing` (paramInfo . extractGateAndRegCollName)
   where
 
@@ -787,12 +790,13 @@ extractGateAndParamNames =  extractGateAndParamName `summing` (paramInfo . extra
     extractGateAndRegCollName = extractGateAndParamName `summing` (paramInfo . regCollName)
 
 higherOrderedGateInfo :: Gen HigherOrderedGate
-higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesARegColl )`suchThat` declIsNotBeingOvershadowed
+higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesANonSingletonRegColl )`suchThat` declIsNotBeingOvershadowed
   where
     declIsNotBeingOvershadowed :: HigherOrderedGate -> Bool
     declIsNotBeingOvershadowed  = toListOf extractGateAndParamNames >>> doesNotContainDuplicates
     doesNotContainDuplicates :: [Identifier] -> Bool
     doesNotContainDuplicates = (&&&) id nub >>> uncurry  (\\) >>> null
+    gateThatTakesANonSingletonRegColl = incRegCount <$> gateThatTakesARegColl
 
 circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "Circuit" <> parenthesised circuitTypes
@@ -801,7 +805,7 @@ circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "Circuit" 
 -- expecting a circuit of type K to a circuit of type
 -- K', where K' is a subtype of K
 programThatAppliesGateToCircSubType :: Gen MetaQasmProgram
-programThatAppliesGateToCircSubType = formatToString gateApp <$> incRegCount <$> higherOrderedGateInfo
+programThatAppliesGateToCircSubType = formatToString gateApp <$>  higherOrderedGateInfo
   where
     gateApp :: MetaQasmProgramFormatter HigherOrderedGate
     gateApp =

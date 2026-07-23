@@ -221,7 +221,7 @@ programWithOutOfBoundsRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithI
     toProgWithInvalidAccess = formatToString (appGateToQubits hadamardApp')
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
-    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
+    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId $ Const $ (NonNeg regIdx')
 
 tGateApp :: RegAccessFormatter
 tGateApp = singleParamGateApp (fconst "t") regCollAccess

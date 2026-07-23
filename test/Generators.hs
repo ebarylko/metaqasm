@@ -275,11 +275,12 @@ data TwoArgGateDeclInfo = TwoArgGateDeclInfo{_gateName :: String, _fstArg:: Stri
 makeLenses ''TwoArgGateDeclInfo
 
 twoArgGateDeclInfo :: Gen TwoArgGateDeclInfo
-allNamesAreUnique :: [String] -> Bool
-allNamesAreUnique = nub >>> length >>> (== 3)
+
+doesNotContainDuplicates :: Eq a => [a] -> Bool
+doesNotContainDuplicates = (&&&) id nub >>> uncurry  (\\) >>> null
 
 -- Generates information for a two qubit gate declaration such that the names of the parameters and gate are unique
-twoArgGateDeclInfo = replicateM 3 freshVariable `suchThat` allNamesAreUnique & fmap (\[x, y, z] -> TwoArgGateDeclInfo x y z)
+twoArgGateDeclInfo = replicateM 3 freshVariable `suchThat` doesNotContainDuplicates & fmap (\[x, y, z] -> TwoArgGateDeclInfo x y z)
 
 -- This type represents pairs of specifications about gate declarations and
 -- register collection accesses such that the reigster name does not overshadow
@@ -610,7 +611,7 @@ gateThatTakesARegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
-    regCollIsNotOvershadowed (gateName', paramName', RegCollAccessSpec{_regCollName}) = allNamesAreUnique [_regCollName, gateName', paramName']
+    regCollIsNotOvershadowed (gateName', paramName', RegCollAccessSpec{_regCollName}) = doesNotContainDuplicates [_regCollName, gateName', paramName']
 
 gateThatTakesARegColl' :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl
@@ -780,8 +781,8 @@ summing f g = folding $ \s -> s ^.. f ++ s ^.. g
 -- Takes the information describing a gate f that takes
 -- another gate g and for both gates returns its name
 -- and the name of the given parameter
-extractGateAndParamNames :: Fold HigherOrderedGate Identifier
-extractGateAndParamNames =  extractGateAndParamName `summing` (paramInfo . extractGateAndRegCollName)
+gateAndParamNames :: Fold HigherOrderedGate Identifier
+gateAndParamNames =  extractGateAndParamName `summing` (paramInfo . extractGateAndRegCollName)
   where
 
     extractGateAndParamName :: Fold (SingleParamGateInfo a) Identifier
@@ -790,10 +791,10 @@ extractGateAndParamNames =  extractGateAndParamName `summing` (paramInfo . extra
     extractGateAndRegCollName = extractGateAndParamName `summing` (paramInfo . regCollName)
 
 higherOrderedGateInfo :: Gen HigherOrderedGate
-higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesANonSingletonRegColl )`suchThat` declIsNotBeingOvershadowed
+higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesANonSingletonRegColl )`suchThat` gateDeclsAreNotBeingOvershadowed
   where
-    declIsNotBeingOvershadowed :: HigherOrderedGate -> Bool
-    declIsNotBeingOvershadowed  = toListOf extractGateAndParamNames >>> doesNotContainDuplicates
+    gateDeclsAreNotBeingOvershadowed :: HigherOrderedGate -> Bool
+    gateDeclsAreNotBeingOvershadowed  = toListOf gateAndParamNames >>> doesNotContainDuplicates
     doesNotContainDuplicates :: [Identifier] -> Bool
     doesNotContainDuplicates = (&&&) id nub >>> uncurry  (\\) >>> null
     gateThatTakesANonSingletonRegColl = incRegCount <$> gateThatTakesARegColl

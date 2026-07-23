@@ -9,7 +9,6 @@ module Syntax(Expression(..),
           TermType(..),
           RegCollInfo(..),
           RegisterType(..),
-          NonNeg(..),
           Command(..),
           GateArg(..)) where
 
@@ -23,11 +22,8 @@ data WithContext a ctx = WithContext a ctx deriving (Eq, Show)
 
 type Id = WithContext Identifier LineNumber
 
--- Represents a nonnegative number
-newtype NonNeg = NonNeg Int deriving (Eq, Show, Ord)
-
 data Index =
-  Const NonNeg
+  Const Int
   | Sum Index Index
   deriving (Eq, Show)
 

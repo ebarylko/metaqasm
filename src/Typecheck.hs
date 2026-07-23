@@ -21,10 +21,10 @@ import Syntax(Identifier,
               GateInfo(..),
               GateArg(..),
               Idx,
-              NonNeg(..),
               GateApp(..),
               RegisterType(..),
-              Command(..), RegCollInfo)
+              Command(..),
+              RegCollInfo)
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
@@ -43,7 +43,7 @@ type EvaluationContext = M.Map Identifier TermType
 data TypeEvaluationError = VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
-  | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg}
+  | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
   | ExpectedAGate{actualType :: TermType, problemTerm :: Id}
   deriving (Show, Eq)
@@ -140,7 +140,7 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     numOfActualTypes = length actualArgTypes
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
-    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes} line
+    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = Const numOfExpectedTypes, actualNumOfParams = Const numOfActualTypes} line
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
@@ -271,7 +271,7 @@ extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x
 
 zero :: Index
-zero = Const $ NonNeg 0
+zero = Const  0
 
 isEmptyRegColl :: RegCollInfo -> Bool
 isEmptyRegColl = getRegCount >>> (== zero)

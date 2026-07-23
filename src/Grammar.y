@@ -11,7 +11,6 @@ import Syntax(Expression(..),
               GateInfo(..),
               RegisterType(..),
               RegCollInfo(..),
-              NonNeg(..),
               GateApp(..),
               GateArg(..),
               Command(..),
@@ -88,7 +87,7 @@ gateApp : id '(' args ')' {GateApp (toVar $1) $3}
 args : arg {[$1]} | arg ',' args {$1 : $3}
 
 idx : nat {toIdx $1}
-| nat '+' nat {toIdxSum (extractLineNum $2) (toIndex $1) (toIndex $3)}
+| idx '+' idx {toIdxSum (extractLineNum $2) (extractVal $1) (extractVal $3)}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' idx ']' { RegisterAccess (toVar $1) $3 }
@@ -112,16 +111,15 @@ toTermType (SimpleTypeAnnotation "Qbit" _) = Qbit
 toTermType (SimpleTypeAnnotation "Bit" _) = Bit
 
 toConstIdx :: Int -> Index
-toConstIdx = Const . NonNeg
+toConstIdx = Const 
 
-
---extractVal (WithContext x _) = x
-
-toIndex :: Token -> Index
-toIndex (Nat num _) = toConstIdx  num
+extractVal (WithContext x _) = x
 
 toIdx :: Token -> Idx
 toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
+  where
+    toIndex :: Token -> Index
+    toIndex (Nat num _) = toConstIdx  num
 
 extractLineNum :: Token -> LineNumber
 extractLineNum (Plus line) = line

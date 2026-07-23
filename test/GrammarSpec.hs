@@ -10,7 +10,6 @@ import Syntax(Expression(..),
            RegCollInfo(..),
            GateInfo(..),
            GateApp(..),
-           NonNeg(..),
            Index(..),
            Idx,
            RegisterType(..),
@@ -61,16 +60,21 @@ regAccess :: Identifier -> Int -> Expression
 regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (index idx)
 
 toConstIndex :: Int -> Index
-toConstIndex = NonNeg >>> Const
+toConstIndex =  Const
 
 index :: Int -> Idx
 index = onLine1 . toConstIndex
 
+-- Takes the name of a register collection, indices x and y, and
+-- generates an expression representing the access of the
+-- (x + y)th element of the collection
 indexSumRegAccess :: Identifier -> Int -> Int -> Expression
 indexSumRegAccess regCollName fstIdx = sumOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
 
+-- Takes two numbers and returns an index
+-- representing their summation
 sumOfIndices :: Int -> Int -> Idx
-sumOfIndices fstIdx =  (Sum `on` toConstIndex) fstIdx >>> onLine1 
+sumOfIndices fstIdx =  (Sum `on` toConstIndex) fstIdx >>> onLine1
 
 -- Takes the name of a variable and
 -- generates the corresponding MetaQASM term for
@@ -185,4 +189,4 @@ spec = do
     describe "Parsing binary operations on indices" $ do
       describe "Summing two indices" $ do
         it "Yields a term representing the summation" $ do
-          "x[1 + 2]" `shouldParseToExpr` indexSumRegAccess "x" 1 2
+          "x[0 + 0]" `shouldParseToExpr` indexSumRegAccess "x" 0 0

@@ -683,13 +683,16 @@ gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDec
     classicalRegCollAnnotation' :: RegAccessFormatter
     classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)
 
+circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "Circuit" <> parenthesised circuitTypes
+
 -- Generates a valid higher ordered gate which is then
 -- applied to a single qubit unitary
 higherOrderedGateDeclAndApp :: Gen MetaQasmProgram
 higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesARegColl
   where
     higherOrderedUnitaryDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
-    higherOrderedUnitaryDecl = singleParamGateDecl (gateArg <> fconst ": Circuit(Qbit)") $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
+    higherOrderedUnitaryDecl = singleParamGateDecl (circuitAnnotation gateArg  (fconst "Qbit")) $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
     gateDeclAndApp = viewed paramInfo quantumRegCollDecl
       `sepBySemicolon`
       higherOrderedUnitaryDecl
@@ -741,6 +744,8 @@ conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateI
     execGateIf expectedBitVal' actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal') <%+> braced gate
     eq = sepBy "=="
 
+type GateThatTakesARegColl = SingleParamGateInfo RegCollAccessSpec
+incRegCount :: GateThatTakesARegColl -> GateThatTakesARegColl
 incRegCount = over (paramInfo . numOfRegs) (+ 1)
 
 -- Generates a MetaQASM program that applies a gate taking a
@@ -756,7 +761,6 @@ programWithGateAppToSubtypeOfExpectedRegColl = formatToString gateApp <$> gateTh
     gateArg = viewed paramInfo qubitRegCollAnnotation
     gateBody = viewed paramInfo hadamardApp'
     gateAppTo = viewed paramName string
-    incRegCount = over (paramInfo . numOfRegs) (+ 1)
 
 -- Generates a valid program that applies a sequence of gates
 -- to a register collection
@@ -771,7 +775,6 @@ programThatSequencesGates = formatToString gateSequenceApp <$> gateThatTakesAReg
     gateBody = viewed paramInfo hadamardApp' `sepBySemicolon` viewed paramInfo tDaggerGateApp
     param = viewed paramInfo qubitRegCollAnnotation
 
-type GateThatTakesARegColl = SingleParamGateInfo RegCollAccessSpec
 
 type HigherOrderedGate = SingleParamGateInfo GateThatTakesARegColl
 
@@ -790,6 +793,8 @@ gateAndParamNames =  extractGateAndParamName `summing` (paramInfo . extractGateA
     extractGateAndRegCollName :: Fold GateThatTakesARegColl Identifier
     extractGateAndRegCollName = extractGateAndParamName `summing` (paramInfo . regCollName)
 
+-- Generates information about a higher ordered gate which takes a
+-- gate that expects a collection with at least two elements
 higherOrderedGateInfo :: Gen HigherOrderedGate
 higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesANonSingletonRegColl )`suchThat` gateDeclsAreNotBeingOvershadowed
   where
@@ -799,8 +804,6 @@ higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable
     doesNotContainDuplicates = (&&&) id nub >>> uncurry  (\\) >>> null
     gateThatTakesANonSingletonRegColl = incRegCount <$> gateThatTakesARegColl
 
-circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "Circuit" <> parenthesised circuitTypes
 
 -- Generates a MetaQASM program that applies a gate
 -- expecting a circuit of type K to a circuit of type
@@ -810,17 +813,18 @@ programThatAppliesGateToCircSubType = formatToString gateApp <$>  higherOrderedG
   where
     gateApp :: MetaQasmProgramFormatter HigherOrderedGate
     gateApp =
-      viewed (paramInfo . paramInfo) quantumRegCollDecl
+      viewed innerArg quantumRegCollDecl
       `sepBySemicolon`
       singleParamGateDecl gateArg body
       `sepBySemicolon`
-      mapf (view paramInfo >>> decRegCount) (singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) (viewed paramInfo tDaggerGateApp))
+      mapf (view paramInfo >>> decRegCount) gateSubTypeDecl
       `sepBySemicolon`
       singleParamGateApp (viewed gateId string) (viewed (paramInfo . gateId) string)
 
-    gateArg = circuitAnnotation (viewed paramName string) (viewed (paramInfo . paramInfo) nSizedQuantColl)
+    gateArg = circuitAnnotation (viewed paramName string) $ viewed innerArg nSizedQuantColl
+    gateSubTypeDecl = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) $ viewed paramInfo tDaggerGateApp
     body = singleParamGateApp (viewed paramName string) $ viewed (paramInfo . paramInfo . regCollName) string
     nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
     nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
-    incRegCount = over (paramInfo . paramInfo . numOfRegs) (+1)
-    decRegCount = over (paramInfo . numOfRegs) (subtract 1)
+    decRegCount = over (paramInfo . numOfRegs) $ subtract 1
+    innerArg = paramInfo . paramInfo

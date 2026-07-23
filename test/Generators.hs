@@ -824,11 +824,12 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
 
     higherOrdGateDecl = singleParamGateDecl gateArg body
     gateArg = circuitAnnotation (viewed paramName string) $ viewed innerArg nSizedQuantColl
-    body = singleParamGateApp (viewed paramName string) $ viewed (paramInfo . paramInfo . regCollName) string
+    body = singleParamGateApp (viewed paramName string) $ viewed (innerArg . regCollName) string
     nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
     nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
 
     gateSubTypeDecl = mapf (view paramInfo >>> decRegCount) gateDecl'
     gateDecl' = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) $ viewed paramInfo tDaggerGateApp
     decRegCount = over (paramInfo . numOfRegs) $ subtract 1
+    innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
     innerArg = paramInfo . paramInfo

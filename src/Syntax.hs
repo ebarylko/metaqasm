@@ -1,16 +1,14 @@
 module Syntax(Expression(..),
           WithContext(..),
           Identifier,
-          Index,
+          Index(..),
           Idx,
           GateInfo(..),
           Id,
           GateApp(..),
-          NatNum,
           TermType(..),
           RegCollInfo(..),
           RegisterType(..),
-          NonNeg(..),
           Command(..),
           GateArg(..)) where
 
@@ -24,10 +22,11 @@ data WithContext a ctx = WithContext a ctx deriving (Eq, Show)
 
 type Id = WithContext Identifier LineNumber
 
--- Represents a nonnegative number
-newtype NonNeg = NonNeg Int deriving (Eq, Show, Ord)
+data Index =
+  Const Int
+  | Sum Index Index
+  deriving (Eq, Show)
 
-type Index = NonNeg
 
 type Idx = WithContext Index LineNumber
 
@@ -44,15 +43,13 @@ data GateApp =
   | GateSequence GateApp GateApp
   deriving (Show, Eq)
 
-type NatNum = WithContext NonNeg LineNumber
-
 -- This data type represents that a register can contain either a classical or a quantum bit
 data RegisterType = Quantum | Classical deriving (Show, Eq)
 
 data TermType
   = Bit
   | Qbit
-  | RegisterGroup RegisterType NatNum
+  | RegisterGroup RegisterType Idx
   | Unit
   | Circuit{circuitArgs :: [TermType]}
   deriving (Show)
@@ -69,7 +66,7 @@ data GateArg = GateArg{name :: Identifier, argType :: TermType} deriving (Show, 
 
 -- This data type represents the information that characterizes a register collection, being its name,
 -- the kind of elements present, and the number of registers
-data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifier, numOfRegs :: NatNum} deriving (Eq, Show)
+data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifier, numOfRegs :: Idx} deriving (Eq, Show)
 
 -- This type represents information known about a gate, namely its name, the arguments it takes,
 -- and the body of the gate

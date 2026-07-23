@@ -10,8 +10,8 @@ import Syntax(Expression(..),
            RegCollInfo(..),
            GateInfo(..),
            GateApp(..),
-           NonNeg(..),
-           NatNum,
+           Index(..),
+           Idx,
            RegisterType(..),
            Command(..),
            GateArg(..),
@@ -22,6 +22,7 @@ import Data.Maybe(fromJust)
 import Generators (MetaQasmProgram)
 import Typecheck(Term)
 import Control.Arrow((>>>))
+import Data.Function(on)
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -56,10 +57,24 @@ onLine1 :: a -> WithContext a LineNumber
 onLine1 = flip WithContext line1
 
 regAccess :: Identifier -> Int -> Expression
-regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (onLine1 (NonNeg idx))
+regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (index idx)
 
-index :: Int -> NatNum
-index = onLine1 . NonNeg
+toConstIndex :: Int -> Index
+toConstIndex =  Const
+
+index :: Int -> Idx
+index = onLine1 . toConstIndex
+
+-- Takes the name of a register collection, indices x and y, and
+-- generates an expression representing the access of the
+-- (x + y)th element of the collection
+indexSumRegAccess :: Identifier -> Int -> Int -> Expression
+indexSumRegAccess regCollName fstIdx = sumOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
+
+-- Takes two numbers and returns an index
+-- representing their summation
+sumOfIndices :: Int -> Int -> Idx
+sumOfIndices fstIdx =  (Sum `on` toConstIndex) fstIdx >>> onLine1
 
 -- Takes the name of a variable and
 -- generates the corresponding MetaQASM term for
@@ -170,3 +185,8 @@ spec = do
     describe "Parsing a conditional gate execution" $ do
       it "Generates a term representing the execution of a gate contingent on the guard" $ do
         "if (x == 1) {h(x)}" `shouldParseToCommand` ConditionalGateExec (var "x") (gateApp "h" [var "x"])
+
+    describe "Parsing binary operations on indices" $ do
+      describe "Summing two indices" $ do
+        it "Yields a term representing the summation" $ do
+          "x[0 + 0]" `shouldParseToExpr` indexSumRegAccess "x" 0 0

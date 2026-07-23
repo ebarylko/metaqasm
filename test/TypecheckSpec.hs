@@ -13,7 +13,7 @@ import Typecheck(TypeEvaluationError(..),
 import Syntax(Identifier,
               TermType(..),
               WithContext(..),
-              NonNeg(..))
+              Index(..))
 import Lexer(LineNumber(..))
 import Grammar(parseText)
 import Test.QuickCheck(forAll)
@@ -61,7 +61,8 @@ import Generators(outOfScopeVar,
                  conditionalGateExecution,
                  programWithGateAppToSubtypeOfExpectedRegColl,
                  programThatSequencesGates,
-                 programThatAppliesGateToCircSubType)
+                 programThatAppliesGateToCircSubType,
+                 hadamardAppToValidRegAccMadeUsingSumOfIndices)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -144,7 +145,7 @@ genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
   Left $ TypeErr $ WithContext (toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs) (LineNumber 1)
   where
     toUnexpectedNumOfArgsErr :: Int -> Int -> TypeEvaluationError
-    toUnexpectedNumOfArgsErr = ExpectedNParams `on` NonNeg
+    toUnexpectedNumOfArgsErr = ExpectedNParams `on` Const
 
 -- Checks that a MetaQASM program that applies a two qubit gate
 -- to three qubits is invalid
@@ -352,3 +353,11 @@ spec =  do
   describe "Applying a gate that takes a circuit of type K to a circuit of type K' where K' is a subtype of K" $ do
     prop "Is valid" $ do
       forAll programThatAppliesGateToCircSubType prop_isValidProgram
+
+  describe "Applying a gate that takes a circuit of type K to a circuit of type K' where K' is a subtype of K" $ do
+    prop "Is valid" $ do
+      forAll programThatAppliesGateToCircSubType prop_isValidProgram
+
+  describe "Applying a hadamard gate to a valid register accessed using a summation of indices" $ do
+    prop "Is valid" $ do
+      forAll hadamardAppToValidRegAccMadeUsingSumOfIndices prop_isValidProgram

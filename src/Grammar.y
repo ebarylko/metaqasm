@@ -5,13 +5,12 @@ import Lexer
 import Syntax(Expression(..),
               WithContext(..),
               Identifier,
+              Index(..),
               Idx,
               Id,
               GateInfo(..),
               RegisterType(..),
               RegCollInfo(..),
-              NatNum,
-              NonNeg(..),
               GateApp(..),
               GateArg(..),
               Command(..),
@@ -19,6 +18,7 @@ import Syntax(Expression(..),
 import qualified Vary
 import Typecheck(Term)
 import Control.Arrow((>>>))
+import Data.Function((&), on)
 }
 
 %name parseTokens
@@ -39,6 +39,7 @@ Circuit {Circ}
 ','     {Comma}
 ':'     {Colon}
 ';'     {Semicolon}
+'+'     {Plus lineNum}
 "=="     {Eq}
 reset {Reset}
 gate    {GateDec}
@@ -55,10 +56,10 @@ measure  {Measurement}
 term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
 
-command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Quantum (extractName $2) (toNat $4)) $8}
-| creg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Classical (extractName $2) (toNat $4)) $8}
-| qreg id '[' nat ']' {RegCollDecl (RegCollInfo Quantum (extractName $2) (toNat $4))}
-| creg id '[' nat ']' {RegCollDecl (RegCollInfo Classical (extractName $2) (toNat $4))}
+command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Quantum (extractName $2) (toIdx $4)) $8}
+| creg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Classical (extractName $2) (toIdx $4)) $8}
+| qreg id '[' nat ']' {RegCollDecl (RegCollInfo Quantum (extractName $2) (toIdx $4))}
+| creg id '[' nat ']' {RegCollDecl (RegCollInfo Classical (extractName $2) (toIdx $4))}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (GateInfo (extractName $2) $4 $7) $11}
 | measure arg "->" arg {QubitMeasurement $2 $4}
@@ -68,7 +69,7 @@ command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | if '(' arg  "==" nat ')' '{' gateApp '}' {ConditionalGateExec $3 $8}
 
 compoundType :
-simpleAnnotation '[' nat ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ toNat $3}
+simpleAnnotation '[' nat ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ toIdx $3}
 | Circuit '(' types ')' {Circuit $3}
 
 types : type {[$1]}
@@ -85,8 +86,11 @@ gateApp : id '(' args ')' {GateApp (toVar $1) $3}
 
 args : arg {[$1]} | arg ',' args {$1 : $3}
 
+idx : nat {toIdx $1}
+| idx '+' idx {(toIdxSum (extractLineNum $2) `on` extractVal) $1  $3}
+
 arg : id             {(Var . toVar) $1 }
-| id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
+| id '[' idx ']' { RegisterAccess (toVar $1) $3 }
 
 
 {
@@ -106,16 +110,28 @@ toTermType :: Token -> TermType
 toTermType (SimpleTypeAnnotation "Qbit" _) = Qbit
 toTermType (SimpleTypeAnnotation "Bit" _) = Bit
 
+extractVal :: WithContext a b -> a
+extractVal (WithContext x _) = x
+
 toIdx :: Token -> Idx
-toIdx (Nat num lineNum) = WithContext (NonNeg num) lineNum
+toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
+  where
+    toIndex :: Token -> Index
+    toIndex (Nat num _) = Const  num
+
+extractLineNum :: Token -> LineNumber
+extractLineNum (Plus line) = line
+
+-- Takes the context for when a summation occurred,
+-- the tokens representing the operands, and returns
+-- a term that represents the summation of both operands
+toIdxSum :: LineNumber -> Index -> Index -> Idx
+toIdxSum line num1 = flip WithContext line . Sum num1
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name
 extractName :: Token -> Identifier
 extractName (Id name _) = name
-
-toNat :: Token -> NatNum
-toNat (Nat num ctx) =  WithContext (NonNeg num) ctx
 
 type ParseResult  = Either String
 

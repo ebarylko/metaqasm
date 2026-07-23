@@ -1,5 +1,7 @@
 {-# LANGUAGE GHC2024 #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Typecheck
     (determineType,
       TypeEvaluationError(..),
@@ -14,15 +16,15 @@ import Syntax(Identifier,
               TermType(..),
               WithContext(..),
               Id,
-              Index,
+              Index(..),
               RegCollInfo(..),
               GateInfo(..),
               GateArg(..),
               Idx,
-              NonNeg(..),
               GateApp(..),
               RegisterType(..),
-              Command(..), RegCollInfo)
+              Command(..),
+              RegCollInfo)
 import Lexer(LineNumber(..))
 import Vary (Vary)
 import qualified Vary
@@ -30,6 +32,7 @@ import Data.Function ((&), on)
 import Data.Functor(($>))
 import Data.List(findIndex)
 import Data.Maybe(fromJust)
+import qualified Control.Lens as L hiding (Control.Lens.Index)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -40,7 +43,7 @@ type EvaluationContext = M.Map Identifier TermType
 data TypeEvaluationError = VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
-  | ExpectedNParams{expectedNumOfParams :: NonNeg, actualNumOfParams :: NonNeg}
+  | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
   | ExpectedAGate{actualType :: TermType, problemTerm :: Id}
   deriving (Show, Eq)
@@ -62,14 +65,25 @@ findTypeWithinScope (WithContext varName lineNum) = M.lookup varName >>> maybe l
 eitherFromPred :: (a -> Bool) -> (a -> err) -> Either err a -> Either err a
 eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Left (errFn x))
 
+
+extractVal :: WithContext a b -> a
+extractVal (WithContext x _) = x
+
+L.makePrisms ''Index
+
+-- Takes an index and returns the value represented by it
+simplifyIdx :: Index -> Int
+simplifyIdx (Const num) = num
+simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
+
+extractIdx :: Idx -> Int
+extractIdx = simplifyIdx . extractVal
+
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
 -- a valid register is selected. Returns the type of the register if so or an
 -- error otherwise
 verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
-
-extractVal :: WithContext a b -> a
-extractVal (WithContext x _) = x
 
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
@@ -77,7 +91,7 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
   & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractVal) regIdx' numOfRegs
+    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractIdx) regIdx' numOfRegs
 
     determineRegElemType :: TermType -> TermType
     determineRegElemType (RegisterGroup Quantum _) = Qbit
@@ -105,6 +119,7 @@ findTypeMismatch actualArgs expectedArgTypes actualArgTypes =
     [expectedType, actualType] = map (!! mismatchIdx) [expectedArgTypes, actualArgTypes]
     erroneousTerm = actualArgs !! mismatchIdx
 
+
 -- Takes the expected and actual argument types to a gate and
 -- returns true if the expected types correspond to the actual types.
 -- Returns false otherwise
@@ -112,7 +127,7 @@ isValidGateApp :: [TermType] -> [TermType] -> Bool
 isValidGateApp expectedArgTypes  = zip expectedArgTypes >>> all (uncurry isSupertypeOf)
   where
     isSupertypeOf :: TermType -> TermType -> Bool
-    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' && extractVal expectedNumOfRegs <= extractVal actualNumOfRegs
+    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' && ((<=) `on` (L.preview _Const . extractVal)) expectedNumOfRegs actualNumOfRegs
     isSupertypeOf (Circuit left) (Circuit right) = all id (zipWith isSupertypeOf right left)
     isSupertypeOf x y = x == y
 
@@ -133,7 +148,7 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     numOfActualTypes = length actualArgTypes
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
-    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = NonNeg numOfExpectedTypes, actualNumOfParams = NonNeg numOfActualTypes} line
+    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = Const numOfExpectedTypes, actualNumOfParams = Const numOfActualTypes} line
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
@@ -215,7 +230,7 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
-      | NonNeg 0 == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
+      | zero == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
       | otherwise = return arg
 
     verifyTypeAnnotation x  = return x
@@ -263,8 +278,11 @@ evalIfRegCollDeclIsValid ctx declInfo toEval
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x
 
+zero :: Index
+zero = Const  0
+
 isEmptyRegColl :: RegCollInfo -> Bool
-isEmptyRegColl = getRegCount >>> (== NonNeg 0)
+isEmptyRegColl = getRegCount >>> (== zero)
   where
     getRegCount =  numOfRegs >>> extractVal
 

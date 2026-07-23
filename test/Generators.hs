@@ -42,19 +42,19 @@ module Generators(outOfScopeVar,
                  conditionalGateExecution,
                  programWithGateAppToSubtypeOfExpectedRegColl,
                  programThatSequencesGates,
-                 programThatAppliesGateToCircSubType)
+                 programThatAppliesGateToCircSubType,
+                 hadamardAppToValidRegAccMadeUsingSumOfIndices)
   where
 
 import Test.QuickCheck
 import Formatting
 import Syntax(Identifier,
-              NonNeg(..),
               Expression(..),
               WithContext(..),
               TermType(..),
+              Index(..),
               Id,
-              RegisterType(..),
-              NonNeg(..))
+              RegisterType(..))
 import Lexer(LineNumber(..))
 import Control.Arrow((&&&),
                      (>>>))
@@ -65,7 +65,7 @@ import Control.Monad(replicateM)
 import Data.List(nub, (\\))
 import Data.Text.Lazy.Builder(fromString)
 import Control.Applicative(liftA3)
-import Control.Lens hiding (elements)
+import Control.Lens hiding (elements, Const)
 
 reservedKeywords :: [String]
 reservedKeywords = ["h", "cx", "t", "tdg", "in", "if"]
@@ -220,7 +220,7 @@ programWithOutOfBoundsRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithI
     toProgWithInvalidAccess = formatToString (appGateToQubits hadamardApp')
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
-    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId (NonNeg regIdx')
+    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId $ Const regIdx'
 
 tGateApp :: RegAccessFormatter
 tGateApp = singleParamGateApp (fconst "t") regCollAccess
@@ -407,7 +407,7 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
   RegisterAccess{registerName, registerNumber}
   where
     registerName = WithContext _regCollName line1
-    registerNumber = WithContext (NonNeg _wantedRegIdx) line1
+    registerNumber = WithContext (Const _wantedRegIdx) line1
     line1 = LineNumber 1
 
 -- Represents pairs of invalid programs and an
@@ -459,9 +459,9 @@ toRegCollOnLine1 RegCollAccessSpec{_regCollName}  =  WithContext _regCollName (L
 toRegCollType :: RegisterType -> RegCollAccessSpec -> TermType
 
 toRegCollType collType accessInfo =
-  RegisterGroup collType $ WithContext registerCount (LineNumber 1)
+  RegisterGroup collType $ WithContext  registerCount (LineNumber 1)
   where
-    registerCount = (NonNeg . _numOfRegs) accessInfo
+    registerCount = (Const . _numOfRegs) accessInfo
 
 toQuantRegColl :: RegCollAccessSpec -> TermType
 toQuantRegColl = toRegCollType Quantum
@@ -833,3 +833,15 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     decRegCount = over (paramInfo . numOfRegs) $ subtract 1
     innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
     innerArg = paramInfo . paramInfo
+
+-- Generates a MetaQASM program consisting of a hadamard gate application to
+-- a valid register access that uses a sum of indices
+-- validHadamardAppToRegAccMadeUsingSumOfIndices
+hadamardAppToValidRegAccMadeUsingSumOfIndices :: Gen MetaQasmProgram
+hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over (numOfRegs) (* 2) <$> validRegCollAccess
+  where
+    gateApp :: RegAccessFormatter
+    gateApp = quantumRegCollDecl `sepBySemicolon` hadamardApp accessThatUsesSumOfIndices
+    accessThatUsesSumOfIndices :: RegAccessFormatter
+    accessThatUsesSumOfIndices = viewed regCollName string <> squared (targetIdx <%+> fconst "+" <%+> targetIdx)
+    targetIdx = viewed wantedRegIdx int

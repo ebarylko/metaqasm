@@ -18,7 +18,7 @@ import Syntax(Expression(..),
 import qualified Vary
 import Typecheck(Term)
 import Control.Arrow((>>>))
-import Data.Function((&))
+import Data.Function((&), on)
 }
 
 %name parseTokens
@@ -87,7 +87,7 @@ gateApp : id '(' args ')' {GateApp (toVar $1) $3}
 args : arg {[$1]} | arg ',' args {$1 : $3}
 
 idx : nat {toIdx $1}
-| idx '+' idx {toIdxSum (extractLineNum $2) (extractVal $1) $ extractVal $3}
+| idx '+' idx {(toIdxSum (extractLineNum $2) `on` extractVal) $1  $3}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' idx ']' { RegisterAccess (toVar $1) $3 }

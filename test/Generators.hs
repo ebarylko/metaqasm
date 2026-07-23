@@ -800,8 +800,6 @@ higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable
   where
     gateDeclsAreNotBeingOvershadowed :: HigherOrderedGate -> Bool
     gateDeclsAreNotBeingOvershadowed  = toListOf gateAndParamNames >>> doesNotContainDuplicates
-    doesNotContainDuplicates :: [Identifier] -> Bool
-    doesNotContainDuplicates = (&&&) id nub >>> uncurry  (\\) >>> null
     gateThatTakesANonSingletonRegColl = incRegCount <$> gateThatTakesARegColl
 
 
@@ -809,22 +807,28 @@ higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable
 -- expecting a circuit of type K to a circuit of type
 -- K', where K' is a subtype of K
 programThatAppliesGateToCircSubType :: Gen MetaQasmProgram
-programThatAppliesGateToCircSubType = formatToString gateApp <$>  higherOrderedGateInfo
+programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGateInfo
   where
-    gateApp :: MetaQasmProgramFormatter HigherOrderedGate
-    gateApp =
+    prog :: MetaQasmProgramFormatter HigherOrderedGate
+    prog =
       viewed innerArg quantumRegCollDecl
       `sepBySemicolon`
-      singleParamGateDecl gateArg body
+      higherOrdGateDecl
       `sepBySemicolon`
-      mapf (view paramInfo >>> decRegCount) gateSubTypeDecl
+      gateSubTypeDecl
       `sepBySemicolon`
-      singleParamGateApp (viewed gateId string) (viewed (paramInfo . gateId) string)
+      singleParamGateApp higherOrdGateName gateSubtypeName
 
+    higherOrdGateName = viewed gateId string
+    gateSubtypeName = viewed (paramInfo . gateId) string
+
+    higherOrdGateDecl = singleParamGateDecl gateArg body
     gateArg = circuitAnnotation (viewed paramName string) $ viewed innerArg nSizedQuantColl
-    gateSubTypeDecl = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) $ viewed paramInfo tDaggerGateApp
     body = singleParamGateApp (viewed paramName string) $ viewed (paramInfo . paramInfo . regCollName) string
     nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
     nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
+
+    gateSubTypeDecl = mapf (view paramInfo >>> decRegCount) gateDecl'
+    gateDecl' = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) $ viewed paramInfo tDaggerGateApp
     decRegCount = over (paramInfo . numOfRegs) $ subtract 1
     innerArg = paramInfo . paramInfo

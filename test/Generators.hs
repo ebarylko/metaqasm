@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Generators(outOfScopeVar,
                   outOfScopeExpr,
@@ -40,7 +41,8 @@ module Generators(outOfScopeVar,
                  higherOrderedGateDeclAndApp,
                  conditionalGateExecution,
                  programWithGateAppToSubtypeOfExpectedRegColl,
-                 programThatSequencesGates)
+                 programThatSequencesGates,
+                 programThatAppliesGateToCircSubType)
   where
 
 import Test.QuickCheck
@@ -60,7 +62,7 @@ import Test.QuickCheck.Instances.Tuple ((>**<), (>*<))
 import Data.Function(on)
 import Typecheck(TypeEvaluationError(..))
 import Control.Monad(replicateM)
-import Data.List(nub)
+import Data.List(nub, (\\))
 import Data.Text.Lazy.Builder(fromString)
 import Control.Applicative(liftA3)
 import Control.Lens hiding (elements)
@@ -273,11 +275,12 @@ data TwoArgGateDeclInfo = TwoArgGateDeclInfo{_gateName :: String, _fstArg:: Stri
 makeLenses ''TwoArgGateDeclInfo
 
 twoArgGateDeclInfo :: Gen TwoArgGateDeclInfo
-allNamesAreUnique :: [String] -> Bool
-allNamesAreUnique = nub >>> length >>> (== 3)
+
+doesNotContainDuplicates :: Eq a => [a] -> Bool
+doesNotContainDuplicates = (&&&) id nub >>> uncurry  (\\) >>> null
 
 -- Generates information for a two qubit gate declaration such that the names of the parameters and gate are unique
-twoArgGateDeclInfo = replicateM 3 freshVariable `suchThat` allNamesAreUnique & fmap (\[x, y, z] -> TwoArgGateDeclInfo x y z)
+twoArgGateDeclInfo = replicateM 3 freshVariable `suchThat` doesNotContainDuplicates & fmap (\[x, y, z] -> TwoArgGateDeclInfo x y z)
 
 -- This type represents pairs of specifications about gate declarations and
 -- register collection accesses such that the reigster name does not overshadow
@@ -608,7 +611,7 @@ gateThatTakesARegColl :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl = ((>**<) freshVariable freshVariable validRegCollAccess) `suchThat` regCollIsNotOvershadowed & fmap (uncurry3 SingleParamGateInfo)
   where
     regCollIsNotOvershadowed :: (String, String, RegCollAccessSpec) -> Bool
-    regCollIsNotOvershadowed (gateName', paramName', RegCollAccessSpec{_regCollName}) = allNamesAreUnique [_regCollName, gateName', paramName']
+    regCollIsNotOvershadowed (gateName', paramName', RegCollAccessSpec{_regCollName}) = doesNotContainDuplicates [_regCollName, gateName', paramName']
 
 gateThatTakesARegColl' :: Gen (SingleParamGateInfo RegCollAccessSpec)
 gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl
@@ -680,13 +683,16 @@ gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDec
     classicalRegCollAnnotation' :: RegAccessFormatter
     classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)
 
+circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "Circuit" <> parenthesised circuitTypes
+
 -- Generates a valid higher ordered gate which is then
 -- applied to a single qubit unitary
 higherOrderedGateDeclAndApp :: Gen MetaQasmProgram
 higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesARegColl
   where
     higherOrderedUnitaryDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
-    higherOrderedUnitaryDecl = singleParamGateDecl (gateArg <> fconst ": Circuit(Qbit)") $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
+    higherOrderedUnitaryDecl = singleParamGateDecl (circuitAnnotation gateArg  (fconst "Qbit")) $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
     gateDeclAndApp = viewed paramInfo quantumRegCollDecl
       `sepBySemicolon`
       higherOrderedUnitaryDecl
@@ -738,6 +744,9 @@ conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateI
     execGateIf expectedBitVal' actualBitVal gate = fconst "if" <%+> parenthesised (actualBitVal `eq` expectedBitVal') <%+> braced gate
     eq = sepBy "=="
 
+type GateThatTakesARegColl = SingleParamGateInfo RegCollAccessSpec
+incRegCount :: GateThatTakesARegColl -> GateThatTakesARegColl
+incRegCount = over (paramInfo . numOfRegs) (+ 1)
 
 -- Generates a MetaQASM program that applies a gate taking a
 -- register collection of size N to a register collection of size N + 1
@@ -752,7 +761,6 @@ programWithGateAppToSubtypeOfExpectedRegColl = formatToString gateApp <$> gateTh
     gateArg = viewed paramInfo qubitRegCollAnnotation
     gateBody = viewed paramInfo hadamardApp'
     gateAppTo = viewed paramName string
-    incRegCount = over (paramInfo . numOfRegs) (+ 1)
 
 -- Generates a valid program that applies a sequence of gates
 -- to a register collection
@@ -766,3 +774,62 @@ programThatSequencesGates = formatToString gateSequenceApp <$> gateThatTakesAReg
 
     gateBody = viewed paramInfo hadamardApp' `sepBySemicolon` viewed paramInfo tDaggerGateApp
     param = viewed paramInfo qubitRegCollAnnotation
+
+
+type HigherOrderedGate = SingleParamGateInfo GateThatTakesARegColl
+
+summing :: Fold s a -> Fold s a  -> Fold s a
+summing f g = folding $ \s -> s ^.. f ++ s ^.. g
+
+-- Takes the information describing a gate f that takes
+-- another gate g and for both gates returns its name
+-- and the name of the given parameter
+gateAndParamNames :: Fold HigherOrderedGate Identifier
+gateAndParamNames =  extractGateAndParamName `summing` (paramInfo . extractGateAndRegCollName)
+  where
+
+    extractGateAndParamName :: Fold (SingleParamGateInfo a) Identifier
+    extractGateAndParamName =  gateId `summing` paramName
+    extractGateAndRegCollName :: Fold GateThatTakesARegColl Identifier
+    extractGateAndRegCollName = extractGateAndParamName `summing` (paramInfo . regCollName)
+
+-- Generates information about a higher ordered gate which takes a
+-- gate that expects a collection with at least two elements
+higherOrderedGateInfo :: Gen HigherOrderedGate
+higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesANonSingletonRegColl )`suchThat` gateDeclsAreNotBeingOvershadowed
+  where
+    gateDeclsAreNotBeingOvershadowed :: HigherOrderedGate -> Bool
+    gateDeclsAreNotBeingOvershadowed  = toListOf gateAndParamNames >>> doesNotContainDuplicates
+    gateThatTakesANonSingletonRegColl = incRegCount <$> gateThatTakesARegColl
+
+
+-- Generates a MetaQASM program that applies a gate
+-- expecting a circuit of type K to a circuit of type
+-- K', where K' is a subtype of K
+programThatAppliesGateToCircSubType :: Gen MetaQasmProgram
+programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGateInfo
+  where
+    prog :: MetaQasmProgramFormatter HigherOrderedGate
+    prog =
+      viewed innerArg quantumRegCollDecl
+      `sepBySemicolon`
+      higherOrdGateDecl
+      `sepBySemicolon`
+      gateSubTypeDecl
+      `sepBySemicolon`
+      singleParamGateApp higherOrdGateName gateSubtypeName
+
+    higherOrdGateName = viewed gateId string
+    gateSubtypeName = viewed (paramInfo . gateId) string
+
+    higherOrdGateDecl = singleParamGateDecl gateArg body
+    gateArg = circuitAnnotation (viewed paramName string) $ viewed innerArg nSizedQuantColl
+    body = singleParamGateApp (viewed paramName string) $ viewed (innerArg . regCollName) string
+    nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
+    nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
+
+    gateSubTypeDecl = mapf (view paramInfo >>> decRegCount) gateDecl'
+    gateDecl' = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) $ viewed paramInfo tDaggerGateApp
+    decRegCount = over (paramInfo . numOfRegs) $ subtract 1
+    innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
+    innerArg = paramInfo . paramInfo

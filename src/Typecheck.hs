@@ -71,6 +71,14 @@ extractVal (WithContext x _) = x
 
 L.makePrisms ''Index
 
+-- Takes an index and returns the value represented by it
+simplifyIdx :: Index -> Int
+simplifyIdx (Const num) = num
+simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
+
+extractIdx :: Idx -> Int
+extractIdx = simplifyIdx . extractVal
+
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
 -- a valid register is selected. Returns the type of the register if so or an
@@ -83,7 +91,7 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
   & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on`(L.preview _Const . extractVal)) regIdx' numOfRegs
+    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractIdx) regIdx' numOfRegs
 
     determineRegElemType :: TermType -> TermType
     determineRegElemType (RegisterGroup Quantum _) = Qbit

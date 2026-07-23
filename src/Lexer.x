@@ -32,6 +32,7 @@ tokens :-
   reset                                                {ignoreInputAndReturn Reset}
   "=="                                                  {ignoreInputAndReturn Eq}
   "->"                                                   {ignoreInputAndReturn RightArrow}
+  "+"                                                   {lexPlus}
   \:                                                       {ignoreInputAndReturn Colon}
   \;                                                       {ignoreInputAndReturn Semicolon}
   \,                                                       {ignoreInputAndReturn Comma}
@@ -58,6 +59,7 @@ data Token = LBracket LineNumber
   | Creg
   | In
   | If
+  | Plus LineNumber
   | Eq
   | Comma
   | GateDec
@@ -97,6 +99,9 @@ ignoreInputAndReturn tok _ _ = tok
 genToken :: (a -> LineNumber -> Token) -> (String -> a) -> TokenGenerator
 
 genToken tokFn f = \lineInfo text -> tokFn (f text) (getLineNumber lineInfo)
+
+-- Generates a token corresponding to the "+" symbol
+lexPlus = genToken (const Plus) id
 
 -- Takes an id and generates the corresponding token for it
 lexId = genToken Id id

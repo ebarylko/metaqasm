@@ -19,6 +19,7 @@ import Syntax(Expression(..),
 import qualified Vary
 import Typecheck(Term)
 import Control.Arrow((>>>))
+import Data.Function(on, (&))
 }
 
 %name parseTokens
@@ -39,6 +40,7 @@ Circuit {Circ}
 ','     {Comma}
 ':'     {Colon}
 ';'     {Semicolon}
+'+'     {Plus lineNum}
 "=="     {Eq}
 reset {Reset}
 gate    {GateDec}
@@ -85,8 +87,11 @@ gateApp : id '(' args ')' {GateApp (toVar $1) $3}
 
 args : arg {[$1]} | arg ',' args {$1 : $3}
 
+idx : nat {toIdx $1}
+| nat '+' nat {toIdxSum (extractLineNum $2) (toIndex $1) (toIndex $3)}
+
 arg : id             {(Var . toVar) $1 }
-| id '[' nat ']' { RegisterAccess (toVar $1) (toIdx $3) }
+| id '[' idx ']' { RegisterAccess (toVar $1) $3 }
 
 
 {
@@ -106,8 +111,23 @@ toTermType :: Token -> TermType
 toTermType (SimpleTypeAnnotation "Qbit" _) = Qbit
 toTermType (SimpleTypeAnnotation "Bit" _) = Bit
 
+toConstIdx :: Int -> Index
+toConstIdx = Const . NonNeg
+
+
+--extractVal (WithContext x _) = x
+
+toIndex :: Token -> Index
+toIndex (Nat num _) = toConstIdx  num
+
 toIdx :: Token -> Idx
-toIdx (Nat num lineNum) = WithContext ((Const . NonNeg) num) lineNum
+toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
+
+extractLineNum :: Token -> LineNumber
+extractLineNum (Plus line) = line
+
+toIdxSum :: LineNumber -> Index -> Index -> Idx
+toIdxSum line num1 = flip WithContext line . Sum num1
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

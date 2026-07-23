@@ -18,7 +18,7 @@ import Syntax(Expression(..),
 import qualified Vary
 import Typecheck(Term)
 import Control.Arrow((>>>))
-import Data.Function(on, (&))
+import Data.Function((&))
 }
 
 %name parseTokens
@@ -87,7 +87,7 @@ gateApp : id '(' args ')' {GateApp (toVar $1) $3}
 args : arg {[$1]} | arg ',' args {$1 : $3}
 
 idx : nat {toIdx $1}
-| idx '+' idx {toIdxSum (extractLineNum $2) (extractVal $1) (extractVal $3)}
+| idx '+' idx {toIdxSum (extractLineNum $2) (extractVal $1) $ extractVal $3}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' idx ']' { RegisterAccess (toVar $1) $3 }
@@ -110,20 +110,21 @@ toTermType :: Token -> TermType
 toTermType (SimpleTypeAnnotation "Qbit" _) = Qbit
 toTermType (SimpleTypeAnnotation "Bit" _) = Bit
 
-toConstIdx :: Int -> Index
-toConstIdx = Const 
-
+extractVal :: WithContext a b -> a
 extractVal (WithContext x _) = x
 
 toIdx :: Token -> Idx
 toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
   where
     toIndex :: Token -> Index
-    toIndex (Nat num _) = toConstIdx  num
+    toIndex (Nat num _) = Const  num
 
 extractLineNum :: Token -> LineNumber
 extractLineNum (Plus line) = line
 
+-- Takes the context for when a summation occurred,
+-- the tokens representing the operands, and returns
+-- a term that represents the summation of both operands
 toIdxSum :: LineNumber -> Index -> Index -> Idx
 toIdxSum line num1 = flip WithContext line . Sum num1
 

@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Generators(outOfScopeVar,
                   outOfScopeExpr,
@@ -61,7 +62,7 @@ import Test.QuickCheck.Instances.Tuple ((>**<), (>*<))
 import Data.Function(on)
 import Typecheck(TypeEvaluationError(..))
 import Control.Monad(replicateM)
-import Data.List(nub, sort, (\\), null)
+import Data.List(nub, (\\))
 import Data.Text.Lazy.Builder(fromString)
 import Control.Applicative(liftA3)
 import Control.Lens hiding (elements)
@@ -772,17 +773,18 @@ type GateThatTakesARegColl = SingleParamGateInfo RegCollAccessSpec
 
 type HigherOrderedGate = SingleParamGateInfo GateThatTakesARegColl
 
+summing :: Fold s a -> Fold s a  -> Fold s a
+summing f g = folding $ \s -> s ^.. f ++ s ^.. g
 
 extractGateAndParamNames :: Fold HigherOrderedGate Identifier
-extractGateAndParamNames =  folding $ \s -> s ^.. extractGateAndParamName <>  s ^.. (paramInfo . extractGateAndRegCollName)
+--extractGateAndParamNames =  folding $ \s -> s ^.. extractGateAndParamName <>  s ^.. (paramInfo . extractGateAndRegCollName)
+extractGateAndParamNames =  extractGateAndParamName `summing` (paramInfo . extractGateAndRegCollName)
   where
 
     extractGateAndParamName :: Fold (SingleParamGateInfo a) Identifier
-    extractGateAndParamName = folding $ \s -> [view gateId s, view paramName s]
+    extractGateAndParamName =  gateId `summing` paramName
     extractGateAndRegCollName :: Fold GateThatTakesARegColl Identifier
-    extractGateAndRegCollName = folding getNames
-    getNames :: GateThatTakesARegColl -> [Identifier]
-    getNames x = x ^.. extractGateAndParamName <> x ^.. (paramInfo . regCollName)
+    extractGateAndRegCollName = extractGateAndParamName `summing` (paramInfo . regCollName)
 
 higherOrderedGateInfo :: Gen HigherOrderedGate
 higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesARegColl )`suchThat` declIsNotBeingOvershadowed

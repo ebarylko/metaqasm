@@ -66,7 +66,7 @@ import Control.Monad(replicateM)
 import Data.List(nub, (\\))
 import Data.Text.Lazy.Builder(fromString)
 import Control.Applicative(liftA3)
-import Control.Lens hiding (elements)
+import Control.Lens hiding (elements, Const)
 
 reservedKeywords :: [String]
 reservedKeywords = ["h", "cx", "t", "tdg", "in", "if"]
@@ -408,7 +408,7 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
   RegisterAccess{registerName, registerNumber}
   where
     registerName = WithContext _regCollName line1
-    registerNumber = WithContext (NonNeg _wantedRegIdx) line1
+    registerNumber = WithContext (Const (NonNeg _wantedRegIdx)) line1
     line1 = LineNumber 1
 
 -- Represents pairs of invalid programs and an
@@ -460,9 +460,9 @@ toRegCollOnLine1 RegCollAccessSpec{_regCollName}  =  WithContext _regCollName (L
 toRegCollType :: RegisterType -> RegCollAccessSpec -> TermType
 
 toRegCollType collType accessInfo =
-  RegisterGroup collType $ WithContext registerCount (LineNumber 1)
+  RegisterGroup collType $ WithContext  registerCount (LineNumber 1)
   where
-    registerCount = (NonNeg . _numOfRegs) accessInfo
+    registerCount = (Const . NonNeg . _numOfRegs) accessInfo
 
 toQuantRegColl :: RegCollAccessSpec -> TermType
 toQuantRegColl = toRegCollType Quantum

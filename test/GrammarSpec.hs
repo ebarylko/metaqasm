@@ -60,7 +60,7 @@ regAccess :: Identifier -> Int -> Expression
 regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (index idx)
 
 index :: Int -> Idx
-index = onLine1 . NonNeg
+index = onLine1 . Const . NonNeg
 
 -- Takes the name of a variable and
 -- generates the corresponding MetaQASM term for

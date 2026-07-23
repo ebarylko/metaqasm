@@ -23,6 +23,7 @@ import Data.Maybe(fromJust)
 import Generators (MetaQasmProgram)
 import Typecheck(Term)
 import Control.Arrow((>>>))
+import Data.Function(on)
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -59,8 +60,17 @@ onLine1 = flip WithContext line1
 regAccess :: Identifier -> Int -> Expression
 regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (index idx)
 
+toConstIndex :: Int -> Index
+toConstIndex = NonNeg >>> Const
+
 index :: Int -> Idx
-index = onLine1 . Const . NonNeg
+index = onLine1 . toConstIndex
+
+indexSumRegAccess :: Identifier -> Int -> Int -> Expression
+indexSumRegAccess regCollName fstIdx = sumOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
+
+sumOfIndices :: Int -> Int -> Idx
+sumOfIndices fstIdx =  (Sum `on` toConstIndex) fstIdx >>> onLine1 
 
 -- Takes the name of a variable and
 -- generates the corresponding MetaQASM term for
@@ -175,4 +185,4 @@ spec = do
     describe "Parsing binary operations on indices" $ do
       describe "Summing two indices" $ do
         it "Yields a term representing the summation" $ do
-          "x[1 + 2]" `shouldParseToExpr` regAccess "x" 3
+          "x[1 + 2]" `shouldParseToExpr` indexSumRegAccess "x" 1 2

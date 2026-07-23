@@ -40,7 +40,8 @@ module Generators(outOfScopeVar,
                  higherOrderedGateDeclAndApp,
                  conditionalGateExecution,
                  programWithGateAppToSubtypeOfExpectedRegColl,
-                 programThatSequencesGates)
+                 programThatSequencesGates,
+                 programThatAppliesGateToCircSubType)
   where
 
 import Test.QuickCheck
@@ -771,7 +772,6 @@ type GateThatTakesARegColl = SingleParamGateInfo RegCollAccessSpec
 
 type HigherOrderedGate = SingleParamGateInfo GateThatTakesARegColl
 
-higherOrderedGate :: Gen HigherOrderedGate
 
 extractGateAndParamNames :: Fold HigherOrderedGate Identifier
 extractGateAndParamNames =  folding $ \s -> s ^.. extractGateAndParamName <>  s ^.. (paramInfo . extractGateAndRegCollName)
@@ -784,33 +784,35 @@ extractGateAndParamNames =  folding $ \s -> s ^.. extractGateAndParamName <>  s 
     getNames :: GateThatTakesARegColl -> [Identifier]
     getNames x = x ^.. extractGateAndParamName <> x ^.. (paramInfo . regCollName)
 
-higherOrderedGate = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesARegColl )`suchThat` declIsNotBeingOvershadowed
+higherOrderedGateInfo :: Gen HigherOrderedGate
+higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable <*> gateThatTakesARegColl )`suchThat` declIsNotBeingOvershadowed
   where
     declIsNotBeingOvershadowed :: HigherOrderedGate -> Bool
     declIsNotBeingOvershadowed  = toListOf extractGateAndParamNames >>> doesNotContainDuplicates
     doesNotContainDuplicates :: [Identifier] -> Bool
     doesNotContainDuplicates = (&&&) id nub >>> uncurry  (\\) >>> null
 
-circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
-circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "circuit" <> parenthesised circuitTypes
+circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "Circuit" <> parenthesised circuitTypes
 
 -- Generates a MetaQASM program that applies a gate
 -- expecting a circuit of type K to a circuit of type
 -- K', where K' is a subtype of K
 programThatAppliesGateToCircSubType :: Gen MetaQasmProgram
-programThatAppliesGateToCircSubType = formatToString gateApp <$> incRegCount <$> higherOrderedGate
+programThatAppliesGateToCircSubType = formatToString gateApp <$> incRegCount <$> higherOrderedGateInfo
   where
     gateApp :: MetaQasmProgramFormatter HigherOrderedGate
     gateApp =
       viewed (paramInfo . paramInfo) quantumRegCollDecl
       `sepBySemicolon`
-      singleParamGateDecl higherOrdGate (singleParamGateApp (viewed paramName string) (viewed (paramInfo . paramInfo . regCollName) string))
+      singleParamGateDecl gateArg body
       `sepBySemicolon`
       mapf (view paramInfo >>> decRegCount) (singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) (viewed paramInfo tDaggerGateApp))
       `sepBySemicolon`
       singleParamGateApp (viewed gateId string) (viewed (paramInfo . gateId) string)
 
-    higherOrdGate = circuitAnnotation (viewed paramName string) (viewed (paramInfo . paramInfo) nSizedQuantColl)
+    gateArg = circuitAnnotation (viewed paramName string) (viewed (paramInfo . paramInfo) nSizedQuantColl)
+    body = singleParamGateApp (viewed paramName string) $ viewed (paramInfo . paramInfo . regCollName) string
     nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
     nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
     incRegCount = over (paramInfo . paramInfo . numOfRegs) (+1)

@@ -60,7 +60,8 @@ import Generators(outOfScopeVar,
                  higherOrderedGateDeclAndApp,
                  conditionalGateExecution,
                  programWithGateAppToSubtypeOfExpectedRegColl,
-                 programThatSequencesGates)
+                 programThatSequencesGates,
+                 programThatAppliesGateToCircSubType)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -347,3 +348,7 @@ spec =  do
   describe "Sequencing two valid gates" $ do
     prop "Produces a third valid gate" $ do
       forAll programThatSequencesGates prop_isValidProgram
+
+  describe "Applying a gate that takes a circuit of type K to a circuit of type K' where K' is a subtype of K" $ do
+    prop "Is valid" $ do
+      forAll programThatAppliesGateToCircSubType prop_isValidProgram

@@ -11,7 +11,8 @@ import Syntax(Expression(..),
            GateInfo(..),
            GateApp(..),
            NonNeg(..),
-           NatNum,
+           Index(..),
+           Idx,
            RegisterType(..),
            Command(..),
            GateArg(..),
@@ -56,9 +57,9 @@ onLine1 :: a -> WithContext a LineNumber
 onLine1 = flip WithContext line1
 
 regAccess :: Identifier -> Int -> Expression
-regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (onLine1 (NonNeg idx))
+regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (index idx)
 
-index :: Int -> NatNum
+index :: Int -> Idx
 index = onLine1 . NonNeg
 
 -- Takes the name of a variable and
@@ -170,3 +171,8 @@ spec = do
     describe "Parsing a conditional gate execution" $ do
       it "Generates a term representing the execution of a gate contingent on the guard" $ do
         "if (x == 1) {h(x)}" `shouldParseToCommand` ConditionalGateExec (var "x") (gateApp "h" [var "x"])
+
+    describe "Parsing binary operations on indices" $ do
+      describe "Summing two indices" $ do
+        it "Yields a term representing the summation" $ do
+          "x[1 + 2]" `shouldParseToExpr` regAccess "x" 3

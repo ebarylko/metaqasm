@@ -52,6 +52,7 @@ import Syntax(Identifier,
               Expression(..),
               WithContext(..),
               TermType(..),
+              Index(..),
               Id,
               RegisterType(..),
               NonNeg(..))

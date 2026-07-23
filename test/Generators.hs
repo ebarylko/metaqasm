@@ -43,7 +43,7 @@ module Generators(outOfScopeVar,
                  programWithGateAppToSubtypeOfExpectedRegColl,
                  programThatSequencesGates,
                  programThatAppliesGateToCircSubType,
-                 regCollAccessMadeUsingSumOfIndices)
+                 hadamardAppToValidRegAccMadeUsingSumOfIndices)
   where
 
 import Test.QuickCheck
@@ -835,9 +835,10 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     innerArg = paramInfo . paramInfo
 
 -- Generates a MetaQASM program consisting of a hadamard gate application to
--- a valid register access that uses a sum of indices 
-regCollAccessMadeUsingSumOfIndices :: Gen MetaQasmProgram
-regCollAccessMadeUsingSumOfIndices = formatToString gateApp <$> over (numOfRegs) (* 2) <$> validRegCollAccess
+-- a valid register access that uses a sum of indices
+-- validHadamardAppToRegAccMadeUsingSumOfIndices
+hadamardAppToValidRegAccMadeUsingSumOfIndices :: Gen MetaQasmProgram
+hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over (numOfRegs) (* 2) <$> validRegCollAccess
   where
     gateApp :: RegAccessFormatter
     gateApp = quantumRegCollDecl `sepBySemicolon` hadamardApp accessThatUsesSumOfIndices

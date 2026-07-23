@@ -62,7 +62,7 @@ import Generators(outOfScopeVar,
                  programWithGateAppToSubtypeOfExpectedRegColl,
                  programThatSequencesGates,
                  programThatAppliesGateToCircSubType,
-                 regCollAccessMadeUsingSumOfIndices)
+                 hadamardAppToValidRegAccMadeUsingSumOfIndices)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -360,4 +360,4 @@ spec =  do
 
   describe "Applying a hadamard gate to a valid register accessed using a summation of indices" $ do
     prop "Is valid" $ do
-      forAll regCollAccessMadeUsingSumOfIndices prop_isValidProgram
+      forAll hadamardAppToValidRegAccMadeUsingSumOfIndices prop_isValidProgram

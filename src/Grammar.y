@@ -56,9 +56,10 @@ measure  {Measurement}
 term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
 
-command : qreg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Quantum (extractName $2) (toIdx $4)) $8}
+
+command : qreg id '[' idx ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Quantum (extractName $2) $4) $8}
 | creg id '[' nat ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Classical (extractName $2) (toIdx $4)) $8}
-| qreg id '[' nat ']' {RegCollDecl (RegCollInfo Quantum (extractName $2) (toIdx $4))}
+| qreg id '[' idx ']' {RegCollDecl (RegCollInfo Quantum (extractName $2) $4)}
 | creg id '[' nat ']' {RegCollDecl (RegCollInfo Classical (extractName $2) (toIdx $4))}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (GateInfo (extractName $2) $4 $7) $11}

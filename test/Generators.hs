@@ -43,7 +43,8 @@ module Generators(outOfScopeVar,
                  programWithGateAppToSubtypeOfExpectedRegColl,
                  programThatSequencesGates,
                  programThatAppliesGateToCircSubType,
-                 hadamardAppToValidRegAccMadeUsingSumOfIndices)
+                 hadamardAppToValidRegAccMadeUsingSumOfIndices,
+                 validRegCollDeclUsingSumOfIndices)
   where
 
 import Test.QuickCheck
@@ -845,3 +846,13 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
     accessThatUsesSumOfIndices :: RegAccessFormatter
     accessThatUsesSumOfIndices = viewed regCollName string <> squared (targetIdx <%+> fconst "+" <%+> targetIdx)
     targetIdx = viewed wantedRegIdx int
+
+
+-- Generates a program that declares a valid collection using
+-- a sum of indices
+validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
+validRegCollDeclUsingSumOfIndices = formatToString regDecl <$> validRegCollAccess
+  where
+    regDecl :: RegAccessFormatter
+    regDecl = fconst "qreg" <%+> viewed regCollName string <> squared (numOfElems <%+> fconst "+" <%+> numOfElems)
+    numOfElems = viewed numOfRegs int

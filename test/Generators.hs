@@ -210,11 +210,12 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
 
-quantumRegCollDecl' = flip regCollDecl' "qreg"
 
 emptyRegCollDecl :: RegAccessFormatter
 
 emptyRegCollDecl = quantumRegCollDecl' $ fconst "0"
+  where
+    quantumRegCollDecl' = flip regCollDecl' "qreg"
 
 -- Generates metaQASM code where an empty
 -- register collection is declared
@@ -872,10 +873,10 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
 -- Generates a program that declares a valid collection using
 -- a sum of indices
 validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
-validRegCollDeclUsingSumOfIndices = formatToString <$> quantumRegCollDecl' <*> validRegCollAccess
+validRegCollDeclUsingSumOfIndices = formatToString <$> collDecl <*> validRegCollAccess
   where
-    quantumRegCollDecl' :: Gen RegAccessFormatter
-    quantumRegCollDecl' = regCollDecl' (numOfElems `plus` numOfElems) <$> registerType
+    collDecl :: Gen RegAccessFormatter
+    collDecl = regCollDecl' (numOfElems `plus` numOfElems) <$> registerType
     numOfElems = viewed numOfRegs int
     registerType :: Gen String
     registerType = elements ["creg", "qreg"]

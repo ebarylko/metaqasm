@@ -860,17 +860,19 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices :: Gen MetaQasmProgram
 hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over (numOfRegs) (* 2) <$> validRegCollAccess
   where
     gateApp :: RegAccessFormatter
-    gateApp = quantumRegCollDecl `sepBySemicolon` hadamardApp accessThatUsesSumOfIndices
-    accessThatUsesSumOfIndices :: RegAccessFormatter
-    accessThatUsesSumOfIndices = regCollAccess $ targetIdx `plus` targetIdx
+    gateApp = quantumRegCollDecl `sepBySemicolon` hadamardApp regAccessThatUsesSumOfIndices
+    regAccessThatUsesSumOfIndices :: RegAccessFormatter
+    regAccessThatUsesSumOfIndices = regCollAccess $ targetIdx `plus` targetIdx
     targetIdx = viewed wantedRegIdx int
 
 
 -- Generates a program that declares a valid collection using
 -- a sum of indices
 validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
-validRegCollDeclUsingSumOfIndices = formatToString quantumRegCollDecl' <$> validRegCollAccess
+validRegCollDeclUsingSumOfIndices = formatToString <$> quantumRegCollDecl' <*> validRegCollAccess
   where
-    quantumRegCollDecl' :: RegAccessFormatter
-    quantumRegCollDecl' = regCollDecl' (numOfElems `plus` numOfElems) "qreg"
+    quantumRegCollDecl' :: Gen RegAccessFormatter
+    quantumRegCollDecl' = regCollDecl' (numOfElems `plus` numOfElems) <$> registerType
     numOfElems = viewed numOfRegs int
+    registerType :: Gen String
+    registerType = elements ["creg", "qreg"]

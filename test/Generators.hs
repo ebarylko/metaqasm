@@ -576,9 +576,9 @@ emptyUnscopedRegCollDecl = formatToString <$> emptyRegCollDecl <*> validRegCollA
 -- Generates a program that declares an empty quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
-programThatSequencesEmptyRegCollDecl = formatToString <$> (sepBySemicolon <$> emptyQuantumRegColl' <*> pure  hadamardApp') <*> validRegCollAccess
+programThatSequencesEmptyRegCollDecl = formatToString <$> (sepBySemicolon <$> emptyQuantumRegColl <*> pure  hadamardApp') <*> validRegCollAccess
   where
-    emptyQuantumRegColl' = replaced (pack "creg") (pack "qreg") <$> emptyRegCollDecl 
+    emptyQuantumRegColl = replaced (pack "creg") (pack "qreg") <$> emptyRegCollDecl
 
 -- Generates a program that first declares a classic register collection
 -- before sequencing it with a valid command that uses it

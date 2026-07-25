@@ -44,7 +44,8 @@ module Generators(outOfScopeVar,
                  programThatSequencesGates,
                  programThatAppliesGateToCircSubType,
                  hadamardAppToValidRegAccMadeUsingSumOfIndices,
-                 validRegCollDeclUsingSumOfIndices)
+                 validRegCollDeclUsingSumOfIndices,
+                 invalidRegAccessOnGate)
   where
 
 import Test.QuickCheck
@@ -209,9 +210,12 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
 
+
 emptyRegCollDecl :: RegAccessFormatter
 
-emptyRegCollDecl = fconst "qreg" <%+> viewed regCollName string <> fconst "[0]"
+emptyRegCollDecl = quantumRegCollDecl' $ fconst "0"
+  where
+    quantumRegCollDecl' = flip regCollDecl' "qreg"
 
 -- Generates metaQASM code where an empty
 -- register collection is declared
@@ -869,10 +873,18 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
 -- Generates a program that declares a valid collection using
 -- a sum of indices
 validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
-validRegCollDeclUsingSumOfIndices = formatToString <$> quantumRegCollDecl' <*> validRegCollAccess
+validRegCollDeclUsingSumOfIndices = formatToString <$> collDecl <*> validRegCollAccess
   where
-    quantumRegCollDecl' :: Gen RegAccessFormatter
-    quantumRegCollDecl' = regCollDecl' (numOfElems `plus` numOfElems) <$> registerType
+    collDecl :: Gen RegAccessFormatter
+    collDecl = regCollDecl' (numOfElems `plus` numOfElems) <$> registerType
     numOfElems = viewed numOfRegs int
     registerType :: Gen String
     registerType = elements ["creg", "qreg"]
+
+-- Generates a program that treats a single qubit unitary
+-- as a register collection and attempts to accesses the first element
+-- of it
+invalidRegAccessOnGate :: Gen InvalidProgram
+invalidRegAccessOnGate = pure ("h[0]", hGate)
+  where
+    hGate = Var $ WithContext "h" (LineNumber 1)

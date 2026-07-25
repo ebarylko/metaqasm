@@ -234,6 +234,8 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
       | otherwise = return arg
 
     verifyTypeAnnotation x  = return x
+    zero :: Index
+    zero = Const  0
 
 
 -- Takes information about a gate declaration, the context under which to evaluate the
@@ -278,13 +280,11 @@ evalIfRegCollDeclIsValid ctx declInfo toEval
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x
 
-zero :: Index
-zero = Const  0
 
 isEmptyRegColl :: RegCollInfo -> Bool
-isEmptyRegColl = getRegCount >>> (== zero)
+isEmptyRegColl = getRegCount >>> (== 0)
   where
-    getRegCount =  numOfRegs >>> extractVal
+    getRegCount =  numOfRegs >>> extractVal >>> simplifyIdx
 
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr RegCollInfo{..} = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)

@@ -64,7 +64,8 @@ import Generators(outOfScopeVar,
                  programThatAppliesGateToCircSubType,
                  hadamardAppToValidRegAccMadeUsingSumOfIndices,
                  validRegCollDeclUsingSumOfIndices,
-                 invalidRegAccessOnGate)
+                 invalidRegAccessOnGate,
+                 emptyRegCollDeclUsingSumOfIndices)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -386,3 +387,7 @@ spec =  do
   describe "Treating a single qubit unitary as a register collection and attempting to access the first element of it" $ do
     prop "Is invalid" $ do
       forAll invalidRegAccessOnGate prop_cannotTreatSingleQubitUnitaryAsRegColl
+
+  describe "Declaring an empty register collection of size i + i' where i + i = 0"  $ do
+    prop "Is invalid" $ do
+      forAll emptyRegCollDeclUsingSumOfIndices prop_cannotDeclareEmptyRegColl

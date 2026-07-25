@@ -45,7 +45,8 @@ module Generators(outOfScopeVar,
                  programThatAppliesGateToCircSubType,
                  hadamardAppToValidRegAccMadeUsingSumOfIndices,
                  validRegCollDeclUsingSumOfIndices,
-                 invalidRegAccessOnGate)
+                 invalidRegAccessOnGate,
+                 emptyRegCollDeclUsingSumOfIndices)
   where
 
 import Test.QuickCheck
@@ -210,12 +211,12 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
 
+quantumRegCollDecl' :: RegAccessFormatter -> RegAccessFormatter
+quantumRegCollDecl' = flip regCollDecl' "qreg"
 
 emptyRegCollDecl :: RegAccessFormatter
 
 emptyRegCollDecl = quantumRegCollDecl' $ fconst "0"
-  where
-    quantumRegCollDecl' = flip regCollDecl' "qreg"
 
 -- Generates metaQASM code where an empty
 -- register collection is declared
@@ -888,3 +889,9 @@ invalidRegAccessOnGate :: Gen InvalidProgram
 invalidRegAccessOnGate = pure ("h[0]", hGate)
   where
     hGate = Var $ WithContext "h" (LineNumber 1)
+
+-- Generates a empty register collection declaration
+emptyRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
+emptyRegCollDeclUsingSumOfIndices = formatToString (quantumRegCollDecl' noElems) <$> validRegCollAccess
+  where
+    noElems = fconst "0 + 0"

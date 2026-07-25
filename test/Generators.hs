@@ -155,10 +155,17 @@ regCollAccess' = (viewed regCollName string) <> squared (viewed wantedRegIdx int
 toFormatter :: String -> Format r (a -> r)
 toFormatter = fconst . fromString
 
+-- Takes a formatter for the number of registers,
+-- the type of collection being declared and
+-- generates declarations of the form "regCollType regCollName[numOfRegs]"
+regCollDecl' :: RegAccessFormatter -> String -> RegAccessFormatter
+
+regCollDecl' numOfRegs' regCollType = toFormatter regCollType  <%+>  (viewed regCollName string) <> squared numOfRegs'
+
 -- Takes the type of collection being declared and
 -- generates strings of the form "regCollType regCollName[numOfRegs]"
 regCollDecl :: String -> RegAccessFormatter
-regCollDecl regCollType = toFormatter regCollType  <%+>  (viewed regCollName string) <> squared (viewed numOfRegs int)
+regCollDecl = regCollDecl' $ viewed numOfRegs int
 
 -- Takes a name for a quantum register collection, the number of registers in
 -- the collection, and generates a string of the form 'qreg collName[numOfRegisters]'
@@ -862,8 +869,8 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
 -- Generates a program that declares a valid collection using
 -- a sum of indices
 validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
-validRegCollDeclUsingSumOfIndices = formatToString regDecl <$> validRegCollAccess
+validRegCollDeclUsingSumOfIndices = formatToString quantumRegCollDecl' <$> validRegCollAccess
   where
-    regDecl :: RegAccessFormatter
-    regDecl = fconst "qreg" <%+> viewed regCollName string <> squared (numOfElems <%+> fconst "+" <%+> numOfElems)
+    quantumRegCollDecl' :: RegAccessFormatter
+    quantumRegCollDecl' = regCollDecl' (numOfElems `plus` numOfElems) "qreg"
     numOfElems = viewed numOfRegs int

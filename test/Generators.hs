@@ -211,6 +211,7 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
 
+
 quantumRegCollDecl' :: RegAccessFormatter -> RegAccessFormatter
 quantumRegCollDecl' = flip regCollDecl' "qreg"
 
@@ -871,16 +872,24 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
     targetIdx = viewed wantedRegIdx int
 
 
+registerType :: Gen String
+registerType = elements ["creg", "qreg"]
+
+-- Takes a formatter f describing how many elements a collection has and
+-- returns a formatter that generates a quantum or classical register
+-- collection declaration with the number of elements determined by f
+quantumOrClassicalRegCollDecl :: RegAccessFormatter -> Gen RegAccessFormatter
+quantumOrClassicalRegCollDecl = (regCollDecl' $) >>> (<$> registerType)
+
+
 -- Generates a program that declares a valid collection using
 -- a sum of indices
 validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
-validRegCollDeclUsingSumOfIndices = formatToString <$> collDecl <*> validRegCollAccess
+validRegCollDeclUsingSumOfIndices = formatToString <$> nonemptyCollDecl <*> validRegCollAccess
   where
-    collDecl :: Gen RegAccessFormatter
-    collDecl = regCollDecl' (numOfElems `plus` numOfElems) <$> registerType
+    nonemptyCollDecl :: Gen RegAccessFormatter
+    nonemptyCollDecl = quantumOrClassicalRegCollDecl $ numOfElems `plus` numOfElems
     numOfElems = viewed numOfRegs int
-    registerType :: Gen String
-    registerType = elements ["creg", "qreg"]
 
 -- Generates a program that treats a single qubit unitary
 -- as a register collection and attempts to accesses the first element
@@ -892,6 +901,7 @@ invalidRegAccessOnGate = pure ("h[0]", hGate)
 
 -- Generates a empty register collection declaration
 emptyRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
-emptyRegCollDeclUsingSumOfIndices = formatToString (quantumRegCollDecl' noElems) <$> validRegCollAccess
+emptyRegCollDeclUsingSumOfIndices = formatToString <$> emptyCollDecl <*> validRegCollAccess
   where
     noElems = fconst "0 + 0"
+    emptyCollDecl = quantumOrClassicalRegCollDecl noElems

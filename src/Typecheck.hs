@@ -94,7 +94,7 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractIdx) regIdx' numOfRegs
 
     isAccessingRegColl :: TermType -> Bool
-    isAccessingRegColl (RegisterGroup _ _) = True
+    isAccessingRegColl (RegisterGroup{}) = True
     isAccessingRegColl _ = False
 
     genExpectedRegCollErr :: TermType -> TypeErrAt

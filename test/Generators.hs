@@ -210,9 +210,11 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
 
+quantumRegCollDecl' = flip regCollDecl' "qreg"
+
 emptyRegCollDecl :: RegAccessFormatter
 
-emptyRegCollDecl = fconst "qreg" <%+> viewed regCollName string <> fconst "[0]"
+emptyRegCollDecl = quantumRegCollDecl' $ fconst "0"
 
 -- Generates metaQASM code where an empty
 -- register collection is declared

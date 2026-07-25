@@ -46,7 +46,7 @@ data TypeEvaluationError = VariableNotInScope Identifier
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
   | ExpectedAGate{actualType :: TermType, problemTerm :: Id}
-  | ExpectedARegColl{actualType :: TermType, notARegColl :: Expression, expectedSize :: Index}
+  | ExpectedARegColl{actualType :: TermType, notARegColl :: Expression}
   deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
@@ -86,11 +86,19 @@ verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
+  & eitherFromPred isAccessingRegColl genExpectedRegCollErr
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
   & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
     isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractIdx) regIdx' numOfRegs
+
+    isAccessingRegColl :: TermType -> Bool
+    isAccessingRegColl (RegisterGroup _ _) = True
+    isAccessingRegColl _ = False
+
+    genExpectedRegCollErr :: TermType -> TypeErrAt
+    genExpectedRegCollErr = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)
 
     determineRegElemType :: TermType -> TermType
     determineRegElemType (RegisterGroup Quantum _) = Qbit

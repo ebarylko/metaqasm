@@ -225,9 +225,8 @@ prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgram -> IO ()
 prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
   calcTypeOf prog `shouldBe` expectedRegCollErr
   where
-    expectedRegCollErr = Left $ TypeErr $ WithContext (ExpectedARegColl gateType gateName expectedRegCollSize) line1
+    expectedRegCollErr = Left $ TypeErr $ WithContext (ExpectedARegColl gateType gateName) line1
     gateType = Circuit [Qbit]
-    expectedRegCollSize = Const 1
 
 spec :: Spec
 spec =  do

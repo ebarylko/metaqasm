@@ -835,6 +835,16 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
     innerArg = paramInfo . paramInfo
 
+-- Takes a formatter for the target index and
+-- returns a formatter for accessing an element of a
+-- register collection at the wanted index
+regCollAccess' :: RegAccessFormatter -> RegAccessFormatter
+regCollAccess' wantedIdx = (viewed regCollName string) <> squared wantedIdx
+
+plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
+
+plus a b = a <%+> fconst "+" <%+> b
+
 -- Generates a MetaQASM program consisting of a hadamard gate application to
 -- a valid register access that uses a sum of indices
 -- validHadamardAppToRegAccMadeUsingSumOfIndices
@@ -844,7 +854,8 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
     gateApp :: RegAccessFormatter
     gateApp = quantumRegCollDecl `sepBySemicolon` hadamardApp accessThatUsesSumOfIndices
     accessThatUsesSumOfIndices :: RegAccessFormatter
-    accessThatUsesSumOfIndices = viewed regCollName string <> squared (targetIdx <%+> fconst "+" <%+> targetIdx)
+    --accessThatUsesSumOfIndices = viewed regCollName string <> squared (targetIdx <%+> fconst "+" <%+> targetIdx)
+    accessThatUsesSumOfIndices = regCollAccess' $ targetIdx `plus` targetIdx
     targetIdx = viewed wantedRegIdx int
 
 

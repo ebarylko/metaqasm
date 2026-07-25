@@ -44,7 +44,8 @@ module Generators(outOfScopeVar,
                  programThatSequencesGates,
                  programThatAppliesGateToCircSubType,
                  hadamardAppToValidRegAccMadeUsingSumOfIndices,
-                 validRegCollDeclUsingSumOfIndices)
+                 validRegCollDeclUsingSumOfIndices,
+                 invalidRegAccessOnGate)
   where
 
 import Test.QuickCheck
@@ -876,3 +877,11 @@ validRegCollDeclUsingSumOfIndices = formatToString <$> quantumRegCollDecl' <*> v
     numOfElems = viewed numOfRegs int
     registerType :: Gen String
     registerType = elements ["creg", "qreg"]
+
+-- Generates a program that treats a single qubit unitary
+-- as a register collection and attempts to accesses the first element
+-- of it
+invalidRegAccessOnGate :: Gen InvalidProgram
+invalidRegAccessOnGate = pure ("h[0]", hGate)
+  where
+    hGate = Var $ WithContext "h" (LineNumber 1)

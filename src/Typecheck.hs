@@ -46,6 +46,7 @@ data TypeEvaluationError = VariableNotInScope Identifier
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
   | ExpectedAGate{actualType :: TermType, problemTerm :: Id}
+  | ExpectedARegColl{actualType :: TermType, notARegColl :: Expression, expectedSize :: Index}
   deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
@@ -76,8 +77,6 @@ simplifyIdx :: Index -> Int
 simplifyIdx (Const num) = num
 simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
 
-extractIdx :: Idx -> Int
-extractIdx = simplifyIdx . extractVal
 
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
@@ -99,6 +98,9 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
 
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
+
+    extractIdx :: Idx -> Int
+    extractIdx = simplifyIdx . extractVal
 
 -- Takes two lists of the same length where they differ elementwise and
 -- returns the index of the first elementwise difference between both lists

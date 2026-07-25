@@ -63,7 +63,8 @@ import Generators(outOfScopeVar,
                  programThatSequencesGates,
                  programThatAppliesGateToCircSubType,
                  hadamardAppToValidRegAccMadeUsingSumOfIndices,
-                 validRegCollDeclUsingSumOfIndices)
+                 validRegCollDeclUsingSumOfIndices,
+                 invalidRegAccessOnGate)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -212,6 +213,21 @@ prop_cannotTakeEmptyRegCollAsArg prog =
     extractRegCollName = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhile isBeforeTypeAnnotation
     isNotPartOfArgList = (/= '(')
     isBeforeTypeAnnotation =(/= ':')
+
+line1 :: LineNumber
+line1 = LineNumber 1
+
+-- Tests that accessing the first element of a single qubit
+-- unitary is invalid and results in an error noting this
+-- discrepancy
+prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgram -> IO ()
+
+prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
+  calcTypeOf prog `shouldBe` expectedRegCollErr
+  where
+    expectedRegCollErr = Left $ TypeErr $ WithContext (ExpectedARegColl gateType gateName expectedRegCollSize) line1
+    gateType = Circuit [Qbit]
+    expectedRegCollSize = Const 1
 
 spec :: Spec
 spec =  do
@@ -366,3 +382,7 @@ spec =  do
   describe "Declaring a register collection using a sum of indices such that the sum is positive" $ do
     prop "Is valid" $ do
       forAll validRegCollDeclUsingSumOfIndices prop_isValidProgram
+
+  describe "Treating a single qubit unitary as a register collection and attempting to access the first element of it" $ do
+    prop "Is invalid" $ do
+      forAll invalidRegAccessOnGate prop_cannotTreatSingleQubitUnitaryAsRegColl

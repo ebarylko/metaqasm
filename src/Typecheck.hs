@@ -77,6 +77,7 @@ simplifyIdx :: Index -> Int
 simplifyIdx (Const num) = num
 simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
 
+L.makePrisms ''TermType
 
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
@@ -94,8 +95,7 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractIdx) regIdx' numOfRegs
 
     isAccessingRegColl :: TermType -> Bool
-    isAccessingRegColl (RegisterGroup{}) = True
-    isAccessingRegColl _ = False
+    isAccessingRegColl = L.has _RegisterGroup
 
     genExpectedRegCollErr :: TermType -> TypeErrAt
     genExpectedRegCollErr = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)

@@ -141,10 +141,16 @@ invalidRegCollAccess = genRegCollAccessSpec isAccessingInvalidReg
 -- of a specification detailing how to access a register collection
 type RegAccessFormatter = Format MetaQasmProgram (RegCollAccessSpec -> MetaQasmProgram)
 
+-- Takes a formatter for the target index and
+-- returns a formatter for accessing an element of a
+-- register collection at the wanted index
+regCollAccess :: RegAccessFormatter -> RegAccessFormatter
+regCollAccess wantedIdx = (viewed regCollName string) <> squared wantedIdx
+
 -- Formats the access of a register in a register collection,
 -- generating a string of the form 'regName[regIdx]'
-regCollAccess :: RegAccessFormatter
-regCollAccess = (viewed regCollName string) <> squared (viewed wantedRegIdx int)
+regCollAccess' :: RegAccessFormatter
+regCollAccess' = (viewed regCollName string) <> squared (viewed wantedRegIdx int)
 
 toFormatter :: String -> Format r (a -> r)
 toFormatter = fconst . fromString
@@ -185,7 +191,7 @@ hadamardApp :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 hadamardApp = singleParamGateApp (fconst "h")
 
 hadamardApp' :: RegAccessFormatter
-hadamardApp' = singleParamGateApp (fconst "h") regCollAccess
+hadamardApp' = singleParamGateApp (fconst "h") regCollAccess'
 
 
 -- Generates metaQASM code where a hadamard gate is applied to
@@ -224,12 +230,12 @@ programWithOutOfBoundsRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithI
     toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId $ Const regIdx'
 
 tGateApp :: RegAccessFormatter
-tGateApp = singleParamGateApp (fconst "t") regCollAccess
+tGateApp = singleParamGateApp (fconst "t") regCollAccess'
 
 -- Generates programs containing the application of a t gate to a qubit
 programWithTGateApp :: Gen MetaQasmProgram
 
-programWithTGateApp = toProgWithTGateApp <$> validRegCollAccess 
+programWithTGateApp = toProgWithTGateApp <$> validRegCollAccess
   where
     toProgWithTGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithTGateApp = formatToString (appGateToQubits tGateApp)
@@ -238,7 +244,7 @@ programWithTGateApp = toProgWithTGateApp <$> validRegCollAccess
 programWithTDaggerGateApp :: Gen MetaQasmProgram
 
 tDaggerGateApp :: RegAccessFormatter
-tDaggerGateApp = singleParamGateApp (fconst "tdg") regCollAccess
+tDaggerGateApp = singleParamGateApp (fconst "tdg") regCollAccess'
 
 programWithTDaggerGateApp = toProgWithTDaggerGateApp <$> validRegCollAccess
   where
@@ -267,7 +273,7 @@ programWithCNotGateApp :: Gen MetaQasmProgram
 programWithCNotGateApp  = formatToString toCnotGateApp <$> validRegCollAccess
   where
     toCnotGateApp :: RegAccessFormatter
-    toCnotGateApp = appGateToQubits (cnot regCollAccess regCollAccess)
+    toCnotGateApp = appGateToQubits (cnot regCollAccess' regCollAccess')
 
 
 -- This data type represents the information known about a two arg gate declaration, namely the name of the
@@ -341,7 +347,7 @@ toScopedTwoQubitGateDeclAndApp gateAppFormatter = fmtGateDeclAndApp scopedDecl c
 -- is declared and then applied to two in-scope qubits
 scopedTwoQubitGate :: Gen MetaQasmProgram
 scopedTwoQubitGate =  toScopedTwoQubitGateDeclAndApp twoQubitGateApp <$> nonShadowingRegCollAccess where
-    twoQubitGateApp gate = twoParamGateApp gate regCollAccess regCollAccess
+    twoQubitGateApp gate = twoParamGateApp gate regCollAccess' regCollAccess'
 
 
 -- Generates programs where a two qubit gate is applied to
@@ -350,13 +356,13 @@ programWithTooManyParamsInGateApp :: Gen MetaQasmProgram
 
 programWithTooManyParamsInGateApp = toScopedTwoQubitGateDeclAndApp  threeQubitGateApp <$> nonShadowingRegCollAccess
   where
-    threeQubitGateApp gate =  gate <>  parenthesised (regCollAccess `sepByComma` regCollAccess `sepByComma` regCollAccess)
+    threeQubitGateApp gate =  gate <>  parenthesised (regCollAccess' `sepByComma` regCollAccess' `sepByComma` regCollAccess')
 
 -- Generates programs where a two qubit gate is applied to
 -- one qubit
 programWithTooFewParamsInGateApp :: Gen MetaQasmProgram
 
-programWithTooFewParamsInGateApp = toScopedTwoQubitGateDeclAndApp  (flip singleParamGateApp regCollAccess) <$> nonShadowingRegCollAccess
+programWithTooFewParamsInGateApp = toScopedTwoQubitGateDeclAndApp  (flip singleParamGateApp regCollAccess') <$> nonShadowingRegCollAccess
 
 -- This type represents the information needed to create a MetaQASMProgram
 -- that measures a qubit and stores the measurement in a bit
@@ -397,7 +403,7 @@ programThatMeasuresAQubit =  toQubitMeasurement <$> qubitMeasurementSpec
     toQubitMeasurement :: QubitMeasurementSpec -> MetaQasmProgram
 
     toQubitMeasurement = formatToString $ scopedDecl (viewed classicRegCollInfo classicRegCollDecl) $ scopedDecl (viewed quantumRegCollInfo quantumRegCollDecl) measureQubit
-    measureQubit = formatMeasurement (viewed quantumRegCollInfo regCollAccess) (viewed classicRegCollInfo regCollAccess)
+    measureQubit = formatMeasurement (viewed quantumRegCollInfo regCollAccess') (viewed classicRegCollInfo regCollAccess')
 
 -- Takes a specification for a valid register access
 -- and generates a MetaQASM term corresponding to
@@ -476,7 +482,7 @@ programThatTreatsRegCollsAsGates :: Gen InvalidRegCollApp
 programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString invalidRegCollApp) toRegCollOnLine1 toQuantRegColl <$> validRegCollAccess
   where
     invalidRegCollApp = scopedDecl quantumRegCollDecl regCollApp
-    regCollApp = singleParamGateApp (viewed regCollName string)  regCollAccess
+    regCollApp = singleParamGateApp (viewed regCollName string)  regCollAccess'
 
 -- Generates an erroneous program that
 -- measures a bit instead of a qubit
@@ -485,7 +491,7 @@ programThatMeasuresABit :: Gen InvalidProgram
 programThatMeasuresABit = genInvalidProgram invalidMeasurement
   where
     invalidMeasurement = scopedDecl classicRegCollDecl measureBit
-    measureBit = formatMeasurement regCollAccess regCollAccess
+    measureBit = formatMeasurement regCollAccess' regCollAccess'
 
 -- Generates MetaQASM programs that store the result of
 -- measuring a qubit inside of another qubit
@@ -494,7 +500,7 @@ programThatStoresQubitMeasurementInAQubit :: Gen InvalidProgram
 programThatStoresQubitMeasurementInAQubit = genInvalidProgram invalidMeasurement
   where
     invalidMeasurement = scopedDecl quantumRegCollDecl storeMeasurementInQbit
-    storeMeasurementInQbit = formatMeasurement regCollAccess regCollAccess
+    storeMeasurementInQbit = formatMeasurement regCollAccess' regCollAccess'
 
 -- This data type represents the information needed to construct a scoped gate that
 -- takes a qubit and bit
@@ -523,8 +529,8 @@ scopedGateThatAppliesHadamardGateToOneArg = formatToString scopedGate <$> gateTh
     gate = viewed gateInfo gateDecl'
     gateDecl' = gateDecl (qubitAnnotation %. fstParam) (bitAnnotation %. sndParam) (hadamardApp fstParam)
     gateApp = twoParamGateApp (viewed (gateInfo . gateName) string) qubit bit
-    qubit = viewed quantumMeasurementComponent regCollAccess
-    bit = viewed classicalMeasurementComponent regCollAccess
+    qubit = viewed quantumMeasurementComponent regCollAccess'
+    bit = viewed classicalMeasurementComponent regCollAccess'
     quantumMeasurementComponent = measurementComponents . quantumRegCollInfo
     classicalMeasurementComponent = measurementComponents . classicRegCollInfo
 
@@ -561,8 +567,8 @@ programThatSequencesUnscopedClassicRegColl = formatToString (classicRegCollDecl'
   where
     quantumRegCollDecl' = viewed quantumRegCollInfo quantumRegCollDecl
     classicRegCollDecl' = viewed classicRegCollInfo classicRegCollDecl
-    qubit' = viewed quantumRegCollInfo regCollAccess
-    bit' = viewed classicRegCollInfo regCollAccess
+    qubit' = viewed quantumRegCollInfo regCollAccess'
+    bit' = viewed classicRegCollInfo regCollAccess'
 
 -- Generates MetaQASM programs that are comprised of one
 -- valid unrelated command sequenced with another valid command
@@ -575,12 +581,12 @@ reset = (fconst "reset" <%+>)
 -- Generates a program that resets a qubit to its default state
 programThatResetsAQubit :: Gen MetaQasmProgram
 
-programThatResetsAQubit = formatToString (quantumRegCollDecl `sepBySemicolon` reset regCollAccess) <$> validRegCollAccess
+programThatResetsAQubit = formatToString (quantumRegCollDecl `sepBySemicolon` reset regCollAccess') <$> validRegCollAccess
 
 -- Generates a program that resets a bit
 programThatResetsABit :: Gen InvalidProgram
 
-programThatResetsABit = genInvalidProgram (classicRegCollDecl `sepBySemicolon` reset regCollAccess)
+programThatResetsABit = genInvalidProgram (classicRegCollDecl `sepBySemicolon` reset regCollAccess')
 
 -- Generates a program that declares an unscoped two qubit
 -- gate and applies it to two qubits
@@ -589,7 +595,7 @@ unscopedGateDeclAndApp :: Gen MetaQasmProgram
 unscopedGateDeclAndApp = toUnscopedGateDeclAndApp <$>  nonShadowingRegCollAccess
   where
     toUnscopedGateDeclAndApp ::  TwoQubitGateDeclAndAppInfo -> MetaQasmProgram
-    toUnscopedGateDeclAndApp = fmtGateDeclAndApp sepBySemicolon cnotGateDecl (twoParamGateApp' regCollAccess regCollAccess >>> sepBySemicolon quantumRegCollDecl)
+    toUnscopedGateDeclAndApp = fmtGateDeclAndApp sepBySemicolon cnotGateDecl (twoParamGateApp' regCollAccess' regCollAccess' >>> sepBySemicolon quantumRegCollDecl)
 
     twoParamGateApp' :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
     twoParamGateApp' fstArgFormatter sndArgFormatter gateNameFormatter = twoParamGateApp gateNameFormatter fstArgFormatter sndArgFormatter
@@ -654,7 +660,7 @@ multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> 
       multilineSingleParamGateDeclAndApp gateParam gateBody gateApp
 
     gateParam = viewed paramInfo qubitRegCollAnnotation
-    gateBody = viewed paramInfo  $ hadamardApp regCollAccess
+    gateBody = viewed paramInfo  $ hadamardApp regCollAccess'
     gateApp = viewed (paramInfo . regCollName) string
     sepBySemicolonOnNewLine = sepBy "\n;"
 
@@ -693,7 +699,7 @@ higherOrderedGateDeclAndApp :: Gen MetaQasmProgram
 higherOrderedGateDeclAndApp =  formatToString gateDeclAndApp <$> gateThatTakesARegColl
   where
     higherOrderedUnitaryDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
-    higherOrderedUnitaryDecl = singleParamGateDecl (circuitAnnotation gateArg  (fconst "Qbit")) $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess
+    higherOrderedUnitaryDecl = singleParamGateDecl (circuitAnnotation gateArg  (fconst "Qbit")) $ singleParamGateApp gateArg $ viewed paramInfo regCollAccess'
     gateDeclAndApp = viewed paramInfo quantumRegCollDecl
       `sepBySemicolon`
       higherOrderedUnitaryDecl
@@ -736,7 +742,7 @@ conditionalGateExecution = formatToString potentialGateExec <$> conditionalGateI
       `sepBySemicolon`
       execGateIf
       expectedBitVal
-      (viewed testedBit regCollAccess)
+      (viewed testedBit regCollAccess')
       (viewed gateData hadamardApp')
 
     testedBit = guardInfo . bitBeingTested
@@ -835,13 +841,8 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
     innerArg = paramInfo . paramInfo
 
--- Takes a formatter for the target index and
--- returns a formatter for accessing an element of a
--- register collection at the wanted index
-regCollAccess' :: RegAccessFormatter -> RegAccessFormatter
-regCollAccess' wantedIdx = (viewed regCollName string) <> squared wantedIdx
 
-plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a 
+plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
 plus a b = a <%+> fconst "+" <%+> b
 
@@ -854,8 +855,7 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
     gateApp :: RegAccessFormatter
     gateApp = quantumRegCollDecl `sepBySemicolon` hadamardApp accessThatUsesSumOfIndices
     accessThatUsesSumOfIndices :: RegAccessFormatter
-    --accessThatUsesSumOfIndices = viewed regCollName string <> squared (targetIdx <%+> fconst "+" <%+> targetIdx)
-    accessThatUsesSumOfIndices = regCollAccess' $ targetIdx `plus` targetIdx
+    accessThatUsesSumOfIndices = regCollAccess $ targetIdx `plus` targetIdx
     targetIdx = viewed wantedRegIdx int
 
 

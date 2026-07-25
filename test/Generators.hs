@@ -45,11 +45,13 @@ module Generators(outOfScopeVar,
                  programThatAppliesGateToCircSubType,
                  hadamardAppToValidRegAccMadeUsingSumOfIndices,
                  validRegCollDeclUsingSumOfIndices,
-                 invalidRegAccessOnGate)
+                 invalidRegAccessOnGate,
+                 emptyRegCollDeclUsingSumOfIndices)
   where
 
 import Test.QuickCheck
 import Formatting
+import Data.Text.Lazy(pack)
 import Syntax(Identifier,
               Expression(..),
               WithContext(..),
@@ -210,20 +212,25 @@ programWithValidHGateApp =  toProgWithHGateApp <$> validRegCollAccess
     toProgWithHGateApp :: RegCollAccessSpec -> MetaQasmProgram
     toProgWithHGateApp =  formatToString (appGateToQubits hadamardApp')
 
+registerType :: Gen String
+registerType = elements ["creg", "qreg"]
 
-emptyRegCollDecl :: RegAccessFormatter
+-- Takes a formatter f describing how many elements a collection has and
+-- returns a formatter that generates a quantum or classical register
+-- collection declaration with the number of elements determined by f
+quantumOrClassicalRegCollDecl :: RegAccessFormatter -> Gen RegAccessFormatter
+quantumOrClassicalRegCollDecl = (regCollDecl' $) >>> (<$> registerType)
 
-emptyRegCollDecl = quantumRegCollDecl' $ fconst "0"
-  where
-    quantumRegCollDecl' = flip regCollDecl' "qreg"
+emptyRegCollDecl :: Gen RegAccessFormatter
+emptyRegCollDecl = quantumOrClassicalRegCollDecl $ fconst "0"
 
 -- Generates metaQASM code where an empty
 -- register collection is declared
 programWithEmptyRegCollDecl :: Gen MetaQasmProgram
 
-programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <$> invalidRegCollAccess
+programWithEmptyRegCollDecl =  toProgWithEmptyRegCollDecl <*> invalidRegCollAccess
   where
-    toProgWithEmptyRegCollDecl = formatToString (scopedDecl emptyRegCollDecl hadamardApp')
+    toProgWithEmptyRegCollDecl = formatToString <$> (scopedDecl <$> emptyRegCollDecl <*> pure hadamardApp')
 
 -- Represents pairs of programs and the errors obtained when
 -- running them
@@ -564,12 +571,14 @@ nonscopedRegCollDecl = formatToString quantumRegCollDecl <$> validRegCollAccess
 -- unscoped empty register collection declaration
 emptyUnscopedRegCollDecl :: Gen MetaQasmProgram
 
-emptyUnscopedRegCollDecl = formatToString emptyRegCollDecl <$> validRegCollAccess
+emptyUnscopedRegCollDecl = formatToString <$> emptyRegCollDecl <*> validRegCollAccess
 
 -- Generates a program that declares an empty quantum register collection
 -- before applying a Hadamard gate to a qubit in the collection
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
-programThatSequencesEmptyRegCollDecl = formatToString (emptyRegCollDecl `sepBySemicolon` hadamardApp') <$> validRegCollAccess
+programThatSequencesEmptyRegCollDecl = formatToString <$> (sepBySemicolon <$> emptyQuantumRegColl <*> pure  hadamardApp') <*> validRegCollAccess
+  where
+    emptyQuantumRegColl = replaced (pack "creg") (pack "qreg") <$> emptyRegCollDecl
 
 -- Generates a program that first declares a classic register collection
 -- before sequencing it with a valid command that uses it
@@ -870,16 +879,16 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
     targetIdx = viewed wantedRegIdx int
 
 
+
+
 -- Generates a program that declares a valid collection using
 -- a sum of indices
 validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
-validRegCollDeclUsingSumOfIndices = formatToString <$> collDecl <*> validRegCollAccess
+validRegCollDeclUsingSumOfIndices = formatToString <$> nonemptyCollDecl <*> validRegCollAccess
   where
-    collDecl :: Gen RegAccessFormatter
-    collDecl = regCollDecl' (numOfElems `plus` numOfElems) <$> registerType
+    nonemptyCollDecl :: Gen RegAccessFormatter
+    nonemptyCollDecl = quantumOrClassicalRegCollDecl $ numOfElems `plus` numOfElems
     numOfElems = viewed numOfRegs int
-    registerType :: Gen String
-    registerType = elements ["creg", "qreg"]
 
 -- Generates a program that treats a single qubit unitary
 -- as a register collection and attempts to accesses the first element
@@ -888,3 +897,10 @@ invalidRegAccessOnGate :: Gen InvalidProgram
 invalidRegAccessOnGate = pure ("h[0]", hGate)
   where
     hGate = Var $ WithContext "h" (LineNumber 1)
+
+-- Generates a empty register collection declaration
+emptyRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
+emptyRegCollDeclUsingSumOfIndices = formatToString <$> emptyCollDecl <*> validRegCollAccess
+  where
+    noElems = fconst "0 + 0"
+    emptyCollDecl = quantumOrClassicalRegCollDecl noElems

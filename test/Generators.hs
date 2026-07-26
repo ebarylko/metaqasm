@@ -912,11 +912,13 @@ invalidRegAccessOnGate = pure ("h[0]", hGate)
   where
     hGate = Var $ WithContext "h" (LineNumber 1)
 
+noElems :: MetaQasmProgramFormatter a
+noElems = fconst "0 + 0"
+
 -- Generates a empty register collection declaration
 emptyRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
 emptyRegCollDeclUsingSumOfIndices = formatToString <$> emptyCollDecl <*> validRegCollAccess
   where
-    noElems = fconst "0 + 0"
     emptyCollDecl = quantumOrClassicalRegCollDecl noElems
 
 
@@ -935,5 +937,4 @@ validGateThatTakesANonEmptyRegColl = formatToString gateDecl' <$> gateThatTakesA
 gateThatAppliesHGateToEmptyRegCollElem :: Gen MetaQasmProgram
 gateThatAppliesHGateToEmptyRegCollElem = formatToString gateDecl' <$> gateThatTakesARegColl'
   where
-    gateDecl' =  gateThatTakesAnNElemRegColl (fconst "0 + 0") hadamardApp'
-
+    gateDecl' =  gateThatTakesAnNElemRegColl noElems hadamardApp'

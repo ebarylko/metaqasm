@@ -49,7 +49,7 @@ instance Ord Index where
   (<=) = applyBinOpOnIndices (<=)
 
 instance Ix Index where
-  range (a, b) = map Const $ (enumFromTo `on` simplifyIdx) a b
+  range (a, b) = map Const $ (applyBinOpOnIndices enumFromTo) a b
   inRange (a, b) x = inRange (simplifyIdx a, simplifyIdx b) (simplifyIdx x)
 
 instance Num Index where

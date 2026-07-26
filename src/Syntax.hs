@@ -26,6 +26,7 @@ type Id = WithContext Identifier LineNumber
 data Index =
   Const Int
   | Sum Index Index
+  | Diff Index Index
   deriving (Show)
 
 instance Eq Index where

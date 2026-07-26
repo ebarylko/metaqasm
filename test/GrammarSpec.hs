@@ -70,11 +70,21 @@ index = onLine1 . toConstIndex
 -- (x + y)th element of the collection
 indexSumRegAccess :: Identifier -> Int -> Int -> Expression
 indexSumRegAccess regCollName fstIdx = sumOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
+  where
+    -- Takes two numbers and returns an index
+    -- representing their summation
+    sumOfIndices :: Int -> Int -> Idx
+    sumOfIndices fstIdx' =  (Sum `on` toConstIndex) fstIdx' >>> onLine1
 
--- Takes two numbers and returns an index
--- representing their summation
-sumOfIndices :: Int -> Int -> Idx
-sumOfIndices fstIdx =  (Sum `on` toConstIndex) fstIdx >>> onLine1
+-- Takes the name of a register collection, indices x and y, and
+-- generates an expression representing the access of the
+-- (x - y)th element of the collection
+indexDiffRegAccess :: Identifier -> Int -> Int -> Expression
+indexDiffRegAccess regCollName fstIdx = diffOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
+  where
+    diffOfIndices :: Int -> Int -> Idx
+    diffOfIndices fstIdx' = (Diff `on` toConstIndex) fstIdx' >>> onLine1
+
 
 -- Takes the name of a variable and
 -- generates the corresponding MetaQASM term for
@@ -190,3 +200,7 @@ spec = do
       describe "Summing two indices" $ do
         it "Yields a term representing the summation" $ do
           "x[0 + 0]" `shouldParseToExpr` indexSumRegAccess "x" 0 0
+
+      describe "Taking the difference of two indices" $ do
+        it "Yields a term representing the difference" $ do
+          "x[0 - 0]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0

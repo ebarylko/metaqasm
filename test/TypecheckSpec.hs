@@ -394,10 +394,10 @@ spec =  do
     prop "Is invalid" $ do
       forAll emptyRegCollDeclUsingSumOfIndices prop_cannotDeclareEmptyRegColl
 
-  describe "Declaring a gate that takes a nonempty register collection of size i + i which applies an h gate to one of its elements'"  $ do
+  describe "Declaring a gate that takes a nonempty register collection of size i + i which applies an h gate to one of its elements"  $ do
     prop "Is valid" $ do
       forAll validGateThatTakesANonEmptyRegColl prop_isValidProgram
 
-  describe "Declaring a gate that takes an empty register collection of size i + i =0 which applies an h gate to one of its elements'"  $ do
+  describe "Declaring a gate that takes an empty register collection of size i + i  which applies an h gate to one of its elements"  $ do
     prop "Is invalid" $ do
       forAll gateThatAppliesHGateToEmptyRegCollElem prop_cannotTakeEmptyRegCollAsArg

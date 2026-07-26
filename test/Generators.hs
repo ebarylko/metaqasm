@@ -48,7 +48,8 @@ module Generators(outOfScopeVar,
                  invalidRegAccessOnGate,
                  emptyRegCollDeclUsingSumOfIndices,
                  validGateThatTakesANonEmptyRegColl,
-                 gateThatAppliesHGateToEmptyRegCollElem)
+                 gateThatAppliesHGateToEmptyRegCollElem,
+                 programThatAppliesGateToSameSizedRegColl)
   where
 
 import Test.QuickCheck
@@ -167,10 +168,13 @@ regCollDecl' :: RegAccessFormatter -> String -> RegAccessFormatter
 
 regCollDecl' numOfRegs' regCollType = toFormatter regCollType  <%+>  (viewed regCollName string) <> squared numOfRegs'
 
+numOfRegsInColl :: MetaQasmProgramFormatter RegCollAccessSpec
+numOfRegsInColl = viewed numOfRegs int
+
 -- Takes the type of collection being declared and
 -- generates strings of the form "regCollType regCollName[numOfRegs]"
 regCollDecl :: String -> RegAccessFormatter
-regCollDecl = regCollDecl' $ viewed numOfRegs int
+regCollDecl = regCollDecl' numOfRegsInColl
 
 -- Takes a name for a quantum register collection, the number of registers in
 -- the collection, and generates a string of the form 'qreg collName[numOfRegisters]'
@@ -655,7 +659,7 @@ qubitRegCollAnnotation :: RegAccessFormatter -> RegAccessFormatter
 qubitRegCollAnnotation numberOfRegs = viewed regCollName string <> fconst ": Qbit" <> squared numberOfRegs
 
 qubitRegCollAnnotation' :: RegAccessFormatter
-qubitRegCollAnnotation' = viewed regCollName string <> fconst ": Qbit" <> squared (viewed numOfRegs int)
+qubitRegCollAnnotation' = viewed regCollName string <> fconst ": Qbit" <> squared numOfRegsInColl
 
 singleParamGateApp' :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a)
 singleParamGateApp' = singleParamGateApp fmtGateName
@@ -723,7 +727,7 @@ gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDec
     invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation') $ viewed paramInfo hadamardApp'
     genSelectedBit = view paramInfo >>> toRegAccessOnLine1
     classicalRegCollAnnotation' :: RegAccessFormatter
-    classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)
+    classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared numOfRegsInColl
 
 circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "Circuit" <> parenthesised circuitTypes
@@ -844,6 +848,7 @@ higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable
     gateThatTakesANonSingletonRegColl = incRegCount <$> gateThatTakesARegColl
 
 
+
 -- Generates a MetaQASM program that applies a gate
 -- expecting a circuit of type K to a circuit of type
 -- K', where K' is a subtype of K
@@ -867,7 +872,7 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     gateArg = circuitAnnotation (viewed paramName string) $ viewed innerArg nSizedQuantColl
     body = singleParamGateApp (viewed paramName string) $ viewed (innerArg . regCollName) string
     nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
-    nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
+    nSizedQuantColl = fconst "Qbit" <> squared numOfRegsInColl
 
     gateSubTypeDecl = mapf (view paramInfo >>> decRegCount) gateDecl'
     gateDecl' = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation') $ viewed paramInfo tDaggerGateApp
@@ -875,10 +880,14 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
     innerArg = paramInfo . paramInfo
 
-
-plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-
-plus a b = a <%+> fconst "+" <%+> b
+-- Takes a formatter and returns a formatter that
+-- returns the sum of twice the value obtained from the
+-- formatter
+twice :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+twice f = f `plus` f
+  where
+    plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+    plus a b = a <%+> fconst "+" <%+> b
 
 -- Generates a MetaQASM program consisting of a hadamard gate application to
 -- a valid register access that uses a sum of indices
@@ -889,11 +898,7 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
     gateApp :: RegAccessFormatter
     gateApp = quantumRegCollDecl `sepBySemicolon` hadamardApp regAccessThatUsesSumOfIndices
     regAccessThatUsesSumOfIndices :: RegAccessFormatter
-    regAccessThatUsesSumOfIndices = regCollAccess $ targetIdx `plus` targetIdx
-    targetIdx = viewed wantedRegIdx int
-
-
-
+    regAccessThatUsesSumOfIndices = regCollAccess $ twice $ viewed wantedRegIdx int
 
 -- Generates a program that declares a valid collection using
 -- a sum of indices
@@ -901,8 +906,7 @@ validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
 validRegCollDeclUsingSumOfIndices = formatToString <$> nonemptyCollDecl <*> validRegCollAccess
   where
     nonemptyCollDecl :: Gen RegAccessFormatter
-    nonemptyCollDecl = quantumOrClassicalRegCollDecl $ numOfElems `plus` numOfElems
-    numOfElems = viewed numOfRegs int
+    nonemptyCollDecl = quantumOrClassicalRegCollDecl $ twice  numOfRegsInColl
 
 -- Generates a program that treats a single qubit unitary
 -- as a register collection and attempts to accesses the first element
@@ -928,8 +932,7 @@ validGateThatTakesANonEmptyRegColl :: Gen MetaQasmProgram
 validGateThatTakesANonEmptyRegColl = formatToString gateDecl' <$> gateThatTakesARegColl'
   where
     gateDecl' = gateThatTakesAnNElemRegColl numOfElems hadamardApp'
-    numOfElems = regCollSize `plus` regCollSize
-    regCollSize = viewed numOfRegs int
+    numOfElems = twice  numOfRegsInColl
 
 
 -- Generates a gate that takes an empty quantum register collection of size
@@ -938,3 +941,19 @@ gateThatAppliesHGateToEmptyRegCollElem :: Gen MetaQasmProgram
 gateThatAppliesHGateToEmptyRegCollElem = formatToString gateDecl' <$> gateThatTakesARegColl'
   where
     gateDecl' =  gateThatTakesAnNElemRegColl noElems hadamardApp'
+
+-- Generates a program that declares a gate that takes a collection of
+-- size x + y = n and applies the gate to an n sized collection
+programThatAppliesGateToSameSizedRegColl :: Gen MetaQasmProgram
+programThatAppliesGateToSameSizedRegColl = formatToString gateDeclAndApp <$> gateThatTakesARegColl'
+  where
+    gateDeclAndApp :: MetaQasmProgramFormatter GateThatTakesARegColl
+    gateDeclAndApp =
+      viewed paramInfo quantumRegCollDecl'
+      `sepBySemicolon`
+      gateThatTakesAnNElemRegColl numOfRegsInColl hadamardApp'
+      `sepBySemicolon`
+      singleParamGateApp' (viewed (paramInfo . regCollName) string)
+
+    quantumRegCollDecl' = regCollDecl' numOfElems "qreg"
+    numOfElems = twice numOfRegsInColl

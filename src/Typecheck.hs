@@ -70,13 +70,6 @@ eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Le
 extractVal :: WithContext a b -> a
 extractVal (WithContext x _) = x
 
-L.makePrisms ''Index
-
--- Takes an index and returns the value represented by it
-simplifyIdx :: Index -> Int
-simplifyIdx (Const num) = num
-simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
-
 L.makePrisms ''TermType
 
 -- Takes the current context, an request to access a register collection, and
@@ -134,7 +127,7 @@ isValidGateApp :: [TermType] -> [TermType] -> Bool
 isValidGateApp expectedArgTypes  = zip expectedArgTypes >>> all (uncurry isSupertypeOf)
   where
     isSupertypeOf :: TermType -> TermType -> Bool
-    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' && ((<=) `on` (L.preview _Const . extractVal)) expectedNumOfRegs actualNumOfRegs
+    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' && ((<=) `on` extractVal) expectedNumOfRegs actualNumOfRegs
     isSupertypeOf (Circuit left) (Circuit right) = all id (zipWith isSupertypeOf right left)
     isSupertypeOf x y = x == y
 

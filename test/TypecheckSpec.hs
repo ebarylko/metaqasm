@@ -67,7 +67,8 @@ import Generators(outOfScopeVar,
                  invalidRegAccessOnGate,
                  emptyRegCollDeclUsingSumOfIndices,
                  validGateThatTakesANonEmptyRegColl,
-                 gateThatAppliesHGateToEmptyRegCollElem)
+                 gateThatAppliesHGateToEmptyRegCollElem,
+                 programThatAppliesGateToSameSizedRegColl)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -401,3 +402,7 @@ spec =  do
   describe "Declaring a gate that takes an empty register collection of size i + i  which applies an h gate to one of its elements"  $ do
     prop "Is invalid" $ do
       forAll gateThatAppliesHGateToEmptyRegCollElem prop_cannotTakeEmptyRegCollAsArg
+
+  describe "Declaring a valid gate that takes a register collection of size x  + y = n  and applying it to an n sized collection"  $ do
+    prop "Is valid" $ do
+      forAll programThatAppliesGateToSameSizedRegColl prop_isValidProgram

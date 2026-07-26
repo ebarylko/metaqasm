@@ -893,8 +893,6 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
     targetIdx = viewed wantedRegIdx int
 
 
-
-
 -- Generates a program that declares a valid collection using
 -- a sum of indices
 validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
@@ -931,6 +929,8 @@ validGateThatTakesANonEmptyRegColl = formatToString gateDecl' <$> gateThatTakesA
     numOfElems = regCollSize `plus` regCollSize
     regCollSize = viewed numOfRegs int
 
+twice :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+twice f = f `plus` f
 
 -- Generates a gate that takes an empty quantum register collection of size
 -- x + y = 0 and applies an H gate to one of its elements
@@ -938,3 +938,16 @@ gateThatAppliesHGateToEmptyRegCollElem :: Gen MetaQasmProgram
 gateThatAppliesHGateToEmptyRegCollElem = formatToString gateDecl' <$> gateThatTakesARegColl'
   where
     gateDecl' =  gateThatTakesAnNElemRegColl noElems hadamardApp'
+
+validGateAppliedToNSizedColl :: Gen MetaQasmProgram
+validGateAppliedToNSizedColl = formatToString gateDeclAndApp <$> gateThatTakesARegColl'
+  where
+    gateDeclAndApp :: MetaQasmProgramFormatter GateThatTakesARegColl
+    gateDeclAndApp =
+      viewed paramInfo quantumRegCollDecl'
+      `sepBySemicolon`
+      gateThatTakesAnNElemRegColl (viewed numOfRegs int) hadamardApp'
+      `sepBySemicolon`
+      singleParamGateApp (viewed gateId string) (viewed (paramInfo . regCollName) string)
+    quantumRegCollDecl' = regCollDecl' numOfElems "qreg"
+    numOfElems = twice $ (viewed numOfRegs int)

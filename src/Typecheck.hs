@@ -72,11 +72,6 @@ extractVal (WithContext x _) = x
 
 L.makePrisms ''Index
 
--- Takes an index and returns the value represented by it
-simplifyIdx :: Index -> Int
-simplifyIdx (Const num) = num
-simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
-
 L.makePrisms ''TermType
 
 -- Takes the current context, an request to access a register collection, and

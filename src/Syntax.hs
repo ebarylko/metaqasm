@@ -13,6 +13,7 @@ module Syntax(Expression(..),
           GateArg(..)) where
 
 import Lexer(LineNumber)
+import Data.Function(on)
 
 type Identifier = String
 
@@ -25,7 +26,15 @@ type Id = WithContext Identifier LineNumber
 data Index =
   Const Int
   | Sum Index Index
-  deriving (Eq, Show)
+  deriving (Show)
+
+instance Eq Index where
+  (==) = ((==) `on` simplifyIdx)
+
+-- Takes an index and returns the value represented by it
+simplifyIdx :: Index -> Int
+simplifyIdx (Const num) = num
+simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
 
 
 type Idx = WithContext Index LineNumber

@@ -292,9 +292,9 @@ extractCtx (WithContext _ x) = x
 
 
 isEmptyRegColl :: RegCollInfo -> Bool
-isEmptyRegColl = getRegCount >>> (== 0)
+isEmptyRegColl = getRegCount >>> (== Const 0)
   where
-    getRegCount =  numOfRegs >>> extractVal >>> simplifyIdx
+    getRegCount =  numOfRegs >>> extractVal
 
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr RegCollInfo{..} = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)

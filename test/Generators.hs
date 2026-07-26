@@ -46,7 +46,8 @@ module Generators(outOfScopeVar,
                  hadamardAppToValidRegAccMadeUsingSumOfIndices,
                  validRegCollDeclUsingSumOfIndices,
                  invalidRegAccessOnGate,
-                 emptyRegCollDeclUsingSumOfIndices)
+                 emptyRegCollDeclUsingSumOfIndices,
+                 validGateThatTakesANonEmptyRegColl)
   where
 
 import Test.QuickCheck
@@ -646,8 +647,14 @@ gateThatTakesARegColl' = changeParamNameToMatchRegColl <$> gateThatTakesARegColl
     changeParamNameToMatchRegColl :: SingleParamGateInfo RegCollAccessSpec -> SingleParamGateInfo RegCollAccessSpec
     changeParamNameToMatchRegColl x = x & view  paramName & flip (set (paramInfo . regCollName)) x
 
-qubitRegCollAnnotation :: RegAccessFormatter
-qubitRegCollAnnotation = viewed regCollName string <> fconst ": Qbit" <> squared (viewed numOfRegs int)
+-- Takes a formatter for the number of elements in a register collection and
+-- returns a formatter that generates a type annotation stating that
+-- a gate parameter is a quantum register collection
+qubitRegCollAnnotation :: RegAccessFormatter -> RegAccessFormatter
+qubitRegCollAnnotation numberOfRegs = viewed regCollName string <> fconst ": Qbit" <> squared numberOfRegs
+
+qubitRegCollAnnotation' :: RegAccessFormatter
+qubitRegCollAnnotation' = viewed regCollName string <> fconst ": Qbit" <> squared (viewed numOfRegs int)
 
 singleParamGateApp' :: MetaQasmProgramFormatter (SingleParamGateInfo a) -> MetaQasmProgramFormatter (SingleParamGateInfo a)
 singleParamGateApp' = singleParamGateApp fmtGateName
@@ -679,7 +686,7 @@ multilineUnscopedGateWithQuantumRegCollParam = formatToString multilineDecl <$> 
       `sepBySemicolonOnNewLine`
       multilineSingleParamGateDeclAndApp gateParam gateBody gateApp
 
-    gateParam = viewed paramInfo qubitRegCollAnnotation
+    gateParam = viewed paramInfo qubitRegCollAnnotation'
     gateBody = viewed paramInfo  $ hadamardApp regCollAccess'
     gateApp = viewed (paramInfo . regCollName) string
     sepBySemicolonOnNewLine = sepBy "\n;"
@@ -785,7 +792,7 @@ programWithGateAppToSubtypeOfExpectedRegColl = formatToString gateApp <$> gateTh
       `sepBySemicolon`
       oneLineSingleParamGateDeclAndApp gateArg gateBody gateAppTo
 
-    gateArg = viewed paramInfo qubitRegCollAnnotation
+    gateArg = viewed paramInfo qubitRegCollAnnotation'
     gateBody = viewed paramInfo hadamardApp'
     gateAppTo = viewed paramName string
 
@@ -800,7 +807,7 @@ programThatSequencesGates = formatToString gateSequenceApp <$> gateThatTakesAReg
       oneLineSingleParamGateDeclAndApp param gateBody (viewed (paramInfo . regCollName) string)
 
     gateBody = viewed paramInfo hadamardApp' `sepBySemicolon` viewed paramInfo tDaggerGateApp
-    param = viewed paramInfo qubitRegCollAnnotation
+    param = viewed paramInfo qubitRegCollAnnotation'
 
 
 type HigherOrderedGate = SingleParamGateInfo GateThatTakesARegColl
@@ -856,7 +863,7 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
 
     gateSubTypeDecl = mapf (view paramInfo >>> decRegCount) gateDecl'
-    gateDecl' = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation) $ viewed paramInfo tDaggerGateApp
+    gateDecl' = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation') $ viewed paramInfo tDaggerGateApp
     decRegCount = over (paramInfo . numOfRegs) $ subtract 1
     innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
     innerArg = paramInfo . paramInfo
@@ -904,3 +911,14 @@ emptyRegCollDeclUsingSumOfIndices = formatToString <$> emptyCollDecl <*> validRe
   where
     noElems = fconst "0 + 0"
     emptyCollDecl = quantumOrClassicalRegCollDecl noElems
+
+-- Generates a gate that takes a non-empty quantum register collection of size
+-- x + y > 0 and applies an H gate to one of its elements
+validGateThatTakesANonEmptyRegColl :: Gen MetaQasmProgram
+validGateThatTakesANonEmptyRegColl = formatToString gateDecl' <$> gateThatTakesARegColl'
+  where
+    gateDecl' = singleParamGateDecl qubitColl hGateApp
+    qubitColl = viewed paramInfo $ qubitRegCollAnnotation numOfElems
+    hGateApp = viewed paramInfo hadamardApp'
+    numOfElems = regCollSize `plus` regCollSize
+    regCollSize = viewed numOfRegs int

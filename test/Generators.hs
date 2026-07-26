@@ -48,7 +48,8 @@ module Generators(outOfScopeVar,
                  invalidRegAccessOnGate,
                  emptyRegCollDeclUsingSumOfIndices,
                  validGateThatTakesANonEmptyRegColl,
-                 gateThatAppliesHGateToEmptyRegCollElem)
+                 gateThatAppliesHGateToEmptyRegCollElem,
+                 programThatAppliesGateToSameSizedRegColl)
   where
 
 import Test.QuickCheck
@@ -939,8 +940,10 @@ gateThatAppliesHGateToEmptyRegCollElem = formatToString gateDecl' <$> gateThatTa
   where
     gateDecl' =  gateThatTakesAnNElemRegColl noElems hadamardApp'
 
-validGateAppliedToNSizedColl :: Gen MetaQasmProgram
-validGateAppliedToNSizedColl = formatToString gateDeclAndApp <$> gateThatTakesARegColl'
+-- Generates a program that declares a gate that takes a collection of
+-- size x + y = n and applies the gate to an n sized collection
+programThatAppliesGateToSameSizedRegColl :: Gen MetaQasmProgram
+programThatAppliesGateToSameSizedRegColl = formatToString gateDeclAndApp <$> gateThatTakesARegColl'
   where
     gateDeclAndApp :: MetaQasmProgramFormatter GateThatTakesARegColl
     gateDeclAndApp =
@@ -948,6 +951,6 @@ validGateAppliedToNSizedColl = formatToString gateDeclAndApp <$> gateThatTakesAR
       `sepBySemicolon`
       gateThatTakesAnNElemRegColl (viewed numOfRegs int) hadamardApp'
       `sepBySemicolon`
-      singleParamGateApp (viewed gateId string) (viewed (paramInfo . regCollName) string)
+      singleParamGateApp' (viewed (paramInfo . regCollName) string)
     quantumRegCollDecl' = regCollDecl' numOfElems "qreg"
     numOfElems = twice $ (viewed numOfRegs int)

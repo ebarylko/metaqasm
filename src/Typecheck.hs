@@ -129,7 +129,7 @@ isValidGateApp :: [TermType] -> [TermType] -> Bool
 isValidGateApp expectedArgTypes  = zip expectedArgTypes >>> all (uncurry isSupertypeOf)
   where
     isSupertypeOf :: TermType -> TermType -> Bool
-    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' && ((<=) `on` (L.preview _Const . extractVal)) expectedNumOfRegs actualNumOfRegs
+    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' && ((<=) `on` extractVal) expectedNumOfRegs actualNumOfRegs
     isSupertypeOf (Circuit left) (Circuit right) = all id (zipWith isSupertypeOf right left)
     isSupertypeOf x y = x == y
 

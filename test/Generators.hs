@@ -769,20 +769,22 @@ conditionalGateInfo = (>*<) validGuard validRegCollAccess `suchThat` isGateNotOv
     isGateNotOvershadowingGuard :: (GateGuard, RegCollAccessSpec) -> Bool
     isGateNotOvershadowingGuard  = liftA2 (/=) (view (_1 . bitBeingTested . regCollName)) $ view (_2 . regCollName)
 
+
+testedBitData = guardInfo . bitBeingTested
+
 -- Takes a formatter for the expected value of a bit,  a gate, and
 -- returns a formatter that conditionally executes the gate if a bit matches
 -- the expected value. Does nothing otherwise
 execGateIf :: MetaQasmProgramFormatter ConditionalGateInfo ->  MetaQasmProgramFormatter ConditionalGateInfo -> MetaQasmProgramFormatter ConditionalGateInfo
 execGateIf expectedBitVal'  gateToExec
-  = viewed testedBit classicRegCollDecl
+  = viewed testedBitData classicRegCollDecl
       `sepBySemicolon`
       viewed gateData quantumRegCollDecl
       `sepBySemicolon`
       fconst "if" <%+> parenthesised (actualBit `eq` expectedBitVal') <%+> braced gateToExec
 
   where
-    testedBit = guardInfo . bitBeingTested
-    actualBit = viewed testedBit regCollAccess'
+    actualBit = viewed testedBitData regCollAccess'
     eq = sepBy "=="
 
 
@@ -972,5 +974,5 @@ programThatExecsGateIfBitEqualsSum = formatToString conditionalGate <$> conditio
   where
     conditionalGate :: MetaQasmProgramFormatter ConditionalGateInfo
     conditionalGate = execGateIf expectedVal hGateApp
-    expectedVal =  viewed (guardInfo . bitBeingTested) $ twice numOfRegsInColl
+    expectedVal =  viewed testedBitData $ twice numOfRegsInColl
     hGateApp = viewed gateData hadamardApp'

@@ -14,12 +14,16 @@ module Syntax(Expression(..),
 
 import Lexer(LineNumber)
 import Data.Function(on)
+import Data.Ix(Ix, range, inRange)
 
 type Identifier = String
 
 -- This data type represents a value along with its associated
 -- context, e.g., where the file was found, the type of the value, etc.
 data WithContext a ctx = WithContext a ctx deriving (Eq, Show)
+
+instance (Ord a, Ord b) => Ord (WithContext a b) where
+  (WithContext x _) <= (WithContext y _) = x <= y
 
 type Id = WithContext Identifier LineNumber
 
@@ -34,6 +38,10 @@ instance Eq Index where
 
 instance Ord Index where
   (<=) = (<=) `on` simplifyIdx
+
+instance Ix Index where
+  range (a, b) = map Const $ (enumFromTo `on` simplifyIdx) a b
+  inRange (a, b) x = inRange (simplifyIdx a, simplifyIdx b) (simplifyIdx x)
 
 -- Takes an index and returns the value represented by it
 simplifyIdx :: Index -> Int

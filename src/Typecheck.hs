@@ -33,6 +33,7 @@ import Data.Functor(($>))
 import Data.List(findIndex)
 import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
+import Data.Ix(inRange)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -85,7 +86,8 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
   & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractVal) regIdx' numOfRegs
+    --isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractVal) regIdx' numOfRegs
+    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (Const 0, extractVal numOfRegs) `inRange`  (extractVal regIdx')
 
     isAccessingRegColl :: TermType -> Bool
     isAccessingRegColl = L.has _RegisterGroup

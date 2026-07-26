@@ -73,9 +73,11 @@ extractVal (WithContext x _) = x
 
 L.makePrisms ''TermType
 
-
+-- Takes the index used to access a register collection, information about said collection,
+-- and returns true if the index lies within the bounds of the collection.
+-- Returns false otherwise
 isAccessingValidReg :: Idx -> TermType -> Bool
-isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =   (isIdxWithinArrayBounds `on` extractVal) regIdx' numOfRegs
+isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (isIdxWithinArrayBounds `on` extractVal) regIdx' numOfRegs
   where
     isIdxWithinArrayBounds :: Index -> Index -> Bool
     isIdxWithinArrayBounds idx collBound = idx `inRange'` (Const 0, collBound - Const 1)

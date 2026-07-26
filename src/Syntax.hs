@@ -15,7 +15,6 @@ module Syntax(Expression(..),
 import Lexer(LineNumber)
 import Data.Function(on)
 import Data.Ix(Ix, range, inRange)
-import Control.Arrow((>>>))
 
 type Identifier = String
 
@@ -34,11 +33,20 @@ data Index =
   | Diff Index Index
   deriving (Show)
 
+applyBinOpOnIndices :: (Int -> Int -> a) -> Index -> Index -> a
+applyBinOpOnIndices = (`on` simplifyIdx)
+
+-- Takes an index and returns the value represented by it
+simplifyIdx :: Index -> Int
+simplifyIdx (Const num) = num
+simplifyIdx (Sum a b) = (applyBinOpOnIndices (+)) a b
+simplifyIdx (Diff a b) = (applyBinOpOnIndices (-)) a b
+
 instance Eq Index where
-  (==) = (==) `on` simplifyIdx
+  (==) = applyBinOpOnIndices (==)
 
 instance Ord Index where
-  (<=) = (<=) `on` simplifyIdx
+  (<=) = applyBinOpOnIndices (<=)
 
 instance Ix Index where
   range (a, b) = map Const $ (enumFromTo `on` simplifyIdx) a b
@@ -54,11 +62,6 @@ instance Num Index where
   negate = error "Need to implement this"
 
 
--- Takes an index and returns the value represented by it
-simplifyIdx :: Index -> Int
-simplifyIdx (Const num) = num
-simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
-simplifyIdx (Diff a b) = ((-) `on` simplifyIdx) a b
 
 
 type Idx = WithContext Index LineNumber

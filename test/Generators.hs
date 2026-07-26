@@ -972,5 +972,5 @@ programThatExecsGateIfBitEqualsSum = formatToString conditionalGate <$> conditio
   where
     conditionalGate :: MetaQasmProgramFormatter ConditionalGateInfo
     conditionalGate = execGateIf expectedVal hGateApp
-    expectedVal = mapf (view (guardInfo . bitBeingTested)) $ twice numOfRegsInColl
+    expectedVal =  viewed (guardInfo . bitBeingTested) $ twice numOfRegsInColl
     hGateApp = viewed gateData hadamardApp'

@@ -52,7 +52,10 @@ nat     { Nat num lineNum}
 measure  {Measurement}
 "->"      {RightArrow}
 
+%left '+' '-'
+
 %%
+
 
 term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }

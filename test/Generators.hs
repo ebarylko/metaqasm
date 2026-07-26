@@ -50,7 +50,8 @@ module Generators(outOfScopeVar,
                  validGateThatTakesANonEmptyRegColl,
                  gateThatAppliesHGateToEmptyRegCollElem,
                  programThatAppliesGateToSameSizedRegColl,
-                 programThatExecsGateIfBitEqualsSum)
+                 programThatExecsGateIfBitEqualsSum,
+                 programThatAccessesCollWithNegIdx)
   where
 
 import Test.QuickCheck
@@ -976,3 +977,16 @@ programThatExecsGateIfBitEqualsSum = formatToString conditionalGate <$> conditio
     conditionalGate = execGateIf expectedVal hGateApp
     expectedVal =  viewed testedBitData $ twice numOfRegsInColl
     hGateApp = viewed gateData hadamardApp'
+
+-- Generates pairs of programs that accesses an in-scope register collection
+-- using a negative index and the error obtained when running them
+programThatAccessesCollWithNegIdx :: Gen ProgramWithExpectedErr
+programThatAccessesCollWithNegIdx = (&&&) (formatToString invalidAccess) toErr <$> validRegCollAccess
+  where
+    invalidAccess :: RegAccessFormatter
+    invalidAccess = quantumRegCollDecl `sepBySemicolon` (hadamardApp  $ regCollAccess negativeIdx)
+    negativeIdx = fconst "1" `minus` numOfRegsInColl `minus` numOfRegsInColl
+    toErr :: RegCollAccessSpec -> TypeEvaluationError
+    toErr RegCollAccessSpec{_regCollName, _numOfRegs} = InvalidRegAccess _regCollName $ Const $ 1 - _numOfRegs
+    minus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+    minus f g = f <%+> fconst "-" <%+> g

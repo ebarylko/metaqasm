@@ -73,6 +73,14 @@ extractVal (WithContext x _) = x
 
 L.makePrisms ''TermType
 
+
+isAccessingValidReg :: Idx -> TermType -> Bool
+isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =   (isIdxWithinArrayBounds `on` extractVal) regIdx' numOfRegs
+  where
+    isIdxWithinArrayBounds :: Index -> Index -> Bool
+    isIdxWithinArrayBounds idx collBound = idx `inRange'` (Const 0, collBound - Const 1)
+    inRange' = flip inRange
+
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
 -- a valid register is selected. Returns the type of the register if so or an
@@ -85,9 +93,6 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
   & fmap determineRegElemType
   where
-    isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (Const 0, extractVal numOfRegs - Const 1) `inRange`  (extractVal regIdx')
-
     isAccessingRegColl :: TermType -> Bool
     isAccessingRegColl = L.has _RegisterGroup
 

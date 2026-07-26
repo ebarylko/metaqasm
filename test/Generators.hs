@@ -877,9 +877,6 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     innerArg = paramInfo . paramInfo
 
 
-plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-
-plus a b = a <%+> fconst "+" <%+> b
 
 -- Generates a MetaQASM program consisting of a hadamard gate application to
 -- a valid register access that uses a sum of indices
@@ -890,9 +887,7 @@ hadamardAppToValidRegAccMadeUsingSumOfIndices = formatToString gateApp <$> over 
     gateApp :: RegAccessFormatter
     gateApp = quantumRegCollDecl `sepBySemicolon` hadamardApp regAccessThatUsesSumOfIndices
     regAccessThatUsesSumOfIndices :: RegAccessFormatter
-    regAccessThatUsesSumOfIndices = regCollAccess $ targetIdx `plus` targetIdx
-    targetIdx = viewed wantedRegIdx int
-
+    regAccessThatUsesSumOfIndices = regCollAccess $ twice $ viewed wantedRegIdx int
 
 -- Generates a program that declares a valid collection using
 -- a sum of indices
@@ -900,8 +895,7 @@ validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
 validRegCollDeclUsingSumOfIndices = formatToString <$> nonemptyCollDecl <*> validRegCollAccess
   where
     nonemptyCollDecl :: Gen RegAccessFormatter
-    nonemptyCollDecl = quantumOrClassicalRegCollDecl $ numOfElems `plus` numOfElems
-    numOfElems = viewed numOfRegs int
+    nonemptyCollDecl = quantumOrClassicalRegCollDecl $ twice $ viewed numOfRegs int
 
 -- Generates a program that treats a single qubit unitary
 -- as a register collection and attempts to accesses the first element
@@ -927,11 +921,13 @@ validGateThatTakesANonEmptyRegColl :: Gen MetaQasmProgram
 validGateThatTakesANonEmptyRegColl = formatToString gateDecl' <$> gateThatTakesARegColl'
   where
     gateDecl' = gateThatTakesAnNElemRegColl numOfElems hadamardApp'
-    numOfElems = regCollSize `plus` regCollSize
-    regCollSize = viewed numOfRegs int
+    numOfElems = twice  $ viewed numOfRegs int
 
 twice :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 twice f = f `plus` f
+  where
+    plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+    plus a b = a <%+> fconst "+" <%+> b
 
 -- Generates a gate that takes an empty quantum register collection of size
 -- x + y = 0 and applies an H gate to one of its elements

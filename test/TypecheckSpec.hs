@@ -68,7 +68,8 @@ import Generators(outOfScopeVar,
                  emptyRegCollDeclUsingSumOfIndices,
                  validGateThatTakesANonEmptyRegColl,
                  gateThatAppliesHGateToEmptyRegCollElem,
-                 programThatAppliesGateToSameSizedRegColl)
+                 programThatAppliesGateToSameSizedRegColl,
+                 programThatExecsGateIfBitEqualsSum)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -406,3 +407,7 @@ spec =  do
   describe "Declaring a valid gate that takes a register collection of size x  + y = n  and applying it to an n sized collection"  $ do
     prop "Is valid" $ do
       forAll programThatAppliesGateToSameSizedRegColl prop_isValidProgram
+
+  describe "Conditionally executing a valid gate if a given bit has the same value as a sum of indices"  $ do
+    prop "Is valid" $ do
+      forAll programThatExecsGateIfBitEqualsSum prop_isValidProgram

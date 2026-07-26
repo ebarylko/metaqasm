@@ -67,7 +67,7 @@ command : qreg id '[' idx ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | command ';' command {Sequence $1 $3}
 | reset arg {QubitReset $2}
 | gate id '(' gateArgs ')' '{' gateApp '}' {GateDecl (GateInfo (extractName $2) $4 $7)}
-| if '(' arg  "==" nat ')' '{' gateApp '}' {ConditionalGateExec $3 $8}
+| if '(' arg  "==" idx ')' '{' gateApp '}' {ConditionalGateExec $3 $8}
 
 compoundType :
 simpleAnnotation '[' idx ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ $3}

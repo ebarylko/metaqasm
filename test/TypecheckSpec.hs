@@ -65,7 +65,9 @@ import Generators(outOfScopeVar,
                  hadamardAppToValidRegAccMadeUsingSumOfIndices,
                  validRegCollDeclUsingSumOfIndices,
                  invalidRegAccessOnGate,
-                 emptyRegCollDeclUsingSumOfIndices)
+                 emptyRegCollDeclUsingSumOfIndices,
+                 validGateThatTakesANonEmptyRegColl,
+                 gateThatAppliesHGateToEmptyRegCollElem)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -391,3 +393,11 @@ spec =  do
   describe "Declaring an empty register collection of size i + i' where i + i = 0"  $ do
     prop "Is invalid" $ do
       forAll emptyRegCollDeclUsingSumOfIndices prop_cannotDeclareEmptyRegColl
+
+  describe "Declaring a gate that takes a nonempty register collection of size i + i which applies an h gate to one of its elements"  $ do
+    prop "Is valid" $ do
+      forAll validGateThatTakesANonEmptyRegColl prop_isValidProgram
+
+  describe "Declaring a gate that takes an empty register collection of size i + i  which applies an h gate to one of its elements"  $ do
+    prop "Is invalid" $ do
+      forAll gateThatAppliesHGateToEmptyRegCollElem prop_cannotTakeEmptyRegCollAsArg

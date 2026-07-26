@@ -92,7 +92,7 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
   & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractIdx) regIdx' numOfRegs
+    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractVal) regIdx' numOfRegs
 
     isAccessingRegColl :: TermType -> Bool
     isAccessingRegColl = L.has _RegisterGroup
@@ -106,9 +106,6 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
 
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
-
-    extractIdx :: Idx -> Int
-    extractIdx = simplifyIdx . extractVal
 
 -- Takes two lists of the same length where they differ elementwise and
 -- returns the index of the first elementwise difference between both lists
@@ -292,9 +289,9 @@ extractCtx (WithContext _ x) = x
 
 
 isEmptyRegColl :: RegCollInfo -> Bool
-isEmptyRegColl = getRegCount >>> (== 0)
+isEmptyRegColl = getRegCount >>> (== Const 0)
   where
-    getRegCount =  numOfRegs >>> extractVal >>> simplifyIdx
+    getRegCount =  numOfRegs >>> extractVal
 
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr RegCollInfo{..} = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)

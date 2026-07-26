@@ -70,7 +70,7 @@ command : qreg id '[' idx ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo
 | if '(' arg  "==" nat ')' '{' gateApp '}' {ConditionalGateExec $3 $8}
 
 compoundType :
-simpleAnnotation '[' nat ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ toIdx $3}
+simpleAnnotation '[' idx ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ $3}
 | Circuit '(' types ')' {Circuit $3}
 
 types : type {[$1]}

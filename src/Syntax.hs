@@ -39,6 +39,7 @@ instance Ord Index where
 simplifyIdx :: Index -> Int
 simplifyIdx (Const num) = num
 simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
+simplifyIdx (Diff a b) = ((-) `on` simplifyIdx) a b
 
 
 type Idx = WithContext Index LineNumber

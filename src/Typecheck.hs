@@ -86,8 +86,7 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
   & fmap determineRegElemType
   where
     isAccessingValidReg :: Idx -> TermType -> Bool
-    --isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractVal) regIdx' numOfRegs
-    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (Const 0, extractVal numOfRegs) `inRange`  (extractVal regIdx')
+    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (Const 0, extractVal numOfRegs - Const 1) `inRange`  (extractVal regIdx')
 
     isAccessingRegColl :: TermType -> Bool
     isAccessingRegColl = L.has _RegisterGroup

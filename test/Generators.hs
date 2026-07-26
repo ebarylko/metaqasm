@@ -987,6 +987,6 @@ programThatAccessesCollWithNegIdx = (&&&) (formatToString invalidAccess) toErr <
     invalidAccess = quantumRegCollDecl `sepBySemicolon` (hadamardApp  $ regCollAccess negativeIdx)
     negativeIdx = fconst "1" `minus` numOfRegsInColl `minus` numOfRegsInColl
     toErr :: RegCollAccessSpec -> TypeEvaluationError
-    toErr RegCollAccessSpec{_regCollName, _numOfRegs} = InvalidRegAccess _regCollName $ Const $ 1 - _numOfRegs
+    toErr RegCollAccessSpec{_regCollName, _numOfRegs} = InvalidRegAccess _regCollName $ Const $ 1 - 2 * _numOfRegs
     minus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
     minus f g = f <%+> fconst "-" <%+> g

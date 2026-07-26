@@ -15,6 +15,7 @@ module Syntax(Expression(..),
 import Lexer(LineNumber)
 import Data.Function(on)
 import Data.Ix(Ix, range, inRange)
+import Control.Arrow((>>>))
 
 type Identifier = String
 
@@ -42,6 +43,16 @@ instance Ord Index where
 instance Ix Index where
   range (a, b) = map Const $ (enumFromTo `on` simplifyIdx) a b
   inRange (a, b) x = inRange (simplifyIdx a, simplifyIdx b) (simplifyIdx x)
+
+instance Num Index where
+  (+)  = Sum
+  (-) = Diff
+  (*) = error "Need to implement this"
+  abs = error "Need to implement this"
+  signum = error "Need to implement this"
+  fromInteger = error "Need to implement this"
+  negate = error "Need to implement this"
+
 
 -- Takes an index and returns the value represented by it
 simplifyIdx :: Index -> Int

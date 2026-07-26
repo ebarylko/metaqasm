@@ -714,6 +714,8 @@ unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateTha
     invalidGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
     invalidGateDecl = gateThatTakesAnNElemRegColl (fconst "0")  (fconst "h(x)")
 
+numOfRegsInColl :: MetaQasmProgramFormatter RegCollAccessSpec
+numOfRegsInColl = viewed numOfRegs int
 
 -- Generates pairs of invalid programs that apply a unitary operation
 -- to an element of a classical register collection and the aforementioned
@@ -724,7 +726,7 @@ gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDec
     invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation') $ viewed paramInfo hadamardApp'
     genSelectedBit = view paramInfo >>> toRegAccessOnLine1
     classicalRegCollAnnotation' :: RegAccessFormatter
-    classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared (viewed numOfRegs int)
+    classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared numOfRegsInColl
 
 circuitAnnotation :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 circuitAnnotation name circuitTypes  = name <> fconst ":" <%+> fconst "Circuit" <> parenthesised circuitTypes
@@ -845,6 +847,7 @@ higherOrderedGateInfo = (SingleParamGateInfo <$> freshVariable <*> freshVariable
     gateThatTakesANonSingletonRegColl = incRegCount <$> gateThatTakesARegColl
 
 
+
 -- Generates a MetaQASM program that applies a gate
 -- expecting a circuit of type K to a circuit of type
 -- K', where K' is a subtype of K
@@ -868,7 +871,7 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     gateArg = circuitAnnotation (viewed paramName string) $ viewed innerArg nSizedQuantColl
     body = singleParamGateApp (viewed paramName string) $ viewed (innerArg . regCollName) string
     nSizedQuantColl :: MetaQasmProgramFormatter RegCollAccessSpec
-    nSizedQuantColl = fconst "Qbit" <> squared (viewed numOfRegs int)
+    nSizedQuantColl = fconst "Qbit" <> squared numOfRegsInColl
 
     gateSubTypeDecl = mapf (view paramInfo >>> decRegCount) gateDecl'
     gateDecl' = singleParamGateDecl (viewed paramInfo qubitRegCollAnnotation') $ viewed paramInfo tDaggerGateApp
@@ -876,7 +879,14 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
     innerArg = paramInfo . paramInfo
 
-
+-- Takes a formatter and returns a formatter that
+-- returns the sum of twice the value obtained from the
+-- formatter
+twice :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+twice f = f `plus` f
+  where
+    plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+    plus a b = a <%+> fconst "+" <%+> b
 
 -- Generates a MetaQASM program consisting of a hadamard gate application to
 -- a valid register access that uses a sum of indices
@@ -895,7 +905,7 @@ validRegCollDeclUsingSumOfIndices :: Gen MetaQasmProgram
 validRegCollDeclUsingSumOfIndices = formatToString <$> nonemptyCollDecl <*> validRegCollAccess
   where
     nonemptyCollDecl :: Gen RegAccessFormatter
-    nonemptyCollDecl = quantumOrClassicalRegCollDecl $ twice $ viewed numOfRegs int
+    nonemptyCollDecl = quantumOrClassicalRegCollDecl $ twice $ numOfRegsInColl
 
 -- Generates a program that treats a single qubit unitary
 -- as a register collection and attempts to accesses the first element
@@ -921,13 +931,8 @@ validGateThatTakesANonEmptyRegColl :: Gen MetaQasmProgram
 validGateThatTakesANonEmptyRegColl = formatToString gateDecl' <$> gateThatTakesARegColl'
   where
     gateDecl' = gateThatTakesAnNElemRegColl numOfElems hadamardApp'
-    numOfElems = twice  $ viewed numOfRegs int
+    numOfElems = twice  $ numOfRegsInColl
 
-twice :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-twice f = f `plus` f
-  where
-    plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-    plus a b = a <%+> fconst "+" <%+> b
 
 -- Generates a gate that takes an empty quantum register collection of size
 -- x + y = 0 and applies an H gate to one of its elements
@@ -945,8 +950,9 @@ programThatAppliesGateToSameSizedRegColl = formatToString gateDeclAndApp <$> gat
     gateDeclAndApp =
       viewed paramInfo quantumRegCollDecl'
       `sepBySemicolon`
-      gateThatTakesAnNElemRegColl (viewed numOfRegs int) hadamardApp'
+      gateThatTakesAnNElemRegColl numOfRegsInColl hadamardApp'
       `sepBySemicolon`
       singleParamGateApp' (viewed (paramInfo . regCollName) string)
+
     quantumRegCollDecl' = regCollDecl' numOfElems "qreg"
-    numOfElems = twice $ (viewed numOfRegs int)
+    numOfElems = twice numOfRegsInColl

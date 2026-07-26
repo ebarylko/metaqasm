@@ -47,7 +47,8 @@ module Generators(outOfScopeVar,
                  validRegCollDeclUsingSumOfIndices,
                  invalidRegAccessOnGate,
                  emptyRegCollDeclUsingSumOfIndices,
-                 validGateThatTakesANonEmptyRegColl)
+                 validGateThatTakesANonEmptyRegColl,
+                 gateThatAppliesHGateToEmptyRegCollElem)
   where
 
 import Test.QuickCheck
@@ -922,3 +923,14 @@ validGateThatTakesANonEmptyRegColl = formatToString gateDecl' <$> gateThatTakesA
     hGateApp = viewed paramInfo hadamardApp'
     numOfElems = regCollSize `plus` regCollSize
     regCollSize = viewed numOfRegs int
+
+
+-- Generates a gate that takes an empty quantum register collection of size
+-- x + y = 0 and applies an H gate to one of its elements
+gateThatAppliesHGateToEmptyRegCollElem :: Gen MetaQasmProgram
+gateThatAppliesHGateToEmptyRegCollElem = formatToString gateDecl' <$> gateThatTakesARegColl'
+  where
+    gateDecl' =  singleParamGateDecl (viewed paramInfo emptyQubitRegCollAnnotation) (viewed paramInfo hadamardApp')
+    emptyQubitRegCollAnnotation = qubitRegCollAnnotation  $ fconst "0 + 0"
+
+-- gateThatAppliesHGateToEmptyRegCollElem

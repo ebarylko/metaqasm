@@ -29,7 +29,10 @@ data Index =
   deriving (Show)
 
 instance Eq Index where
-  (==) = ((==) `on` simplifyIdx)
+  (==) = (==) `on` simplifyIdx
+
+instance Ord Index where
+  (<=) = (<=) `on` simplifyIdx
 
 -- Takes an index and returns the value represented by it
 simplifyIdx :: Index -> Int

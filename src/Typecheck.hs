@@ -70,8 +70,6 @@ eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Le
 extractVal :: WithContext a b -> a
 extractVal (WithContext x _) = x
 
-L.makePrisms ''Index
-
 L.makePrisms ''TermType
 
 -- Takes the current context, an request to access a register collection, and

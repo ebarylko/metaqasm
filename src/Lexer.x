@@ -45,7 +45,7 @@ tokens :-
 
 {
 
-newtype LineNumber = LineNumber Int deriving (Eq, Show)
+newtype LineNumber = LineNumber Int deriving (Eq, Show, Ord)
 
 -- OpenQASM tokens
 data Token = LBracket LineNumber

@@ -216,10 +216,12 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
 
 verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m collInfo y
 
-verifyCommand _ (RegCollDecl info)
-  | isEmptyRegColl info = genEmptyRegCollDeclErr info
-  | isNegLengthColl info = genNegLengthRegCollDeclErr info
-  | otherwise = Right Unit
+verifyCommand _ (RegCollDecl info)  = doNothingIfRegCollDeclIsValid info
+
+--verifyCommand _ (RegCollDecl info) 
+--  | isEmptyRegColl info = genEmptyRegCollDeclErr info
+--  | isNegLengthColl info = genNegLengthRegCollDeclErr info
+--  | otherwise = Right Unit
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
@@ -236,7 +238,7 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
     extendCtxWithGateParam (GateArg{..}) = M.insert name argType
-
+ 
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
@@ -275,6 +277,21 @@ genMismatchErr expectedType erroneousTerm actualType = WithContext TypeMismatch{
 verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult
 
 verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)
+
+
+
+applyFIfRegCollDeclIsValid :: (RegCollInfo ->  TypeCalculationResult)  -> RegCollInfo -> TypeCalculationResult
+applyFIfRegCollDeclIsValid f info
+  | isEmptyRegColl info = genEmptyRegCollDeclErr info
+  | isNegLengthColl info = genNegLengthRegCollDeclErr info
+  | otherwise = f info
+
+
+evalIfRegCollDeclIsValid' :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
+evalIfRegCollDeclIsValid' ctx declInfo toEval = (applyFIfRegCollDeclIsValid $ flip addRegCollToCtx ctx >>> (`verifyCommand` toEval) ) declInfo
+
+doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult
+doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid $ const (Right Unit)
 
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under

@@ -275,6 +275,9 @@ verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculation
 
 verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)
 
+-- Takes a function determining the type of an expression that depends on a register collection,
+-- information about the collection, and returns the type of the expression if the collection
+-- and expression is valid. Returns an error otherwise
 applyFIfRegCollDeclIsValid :: (RegCollInfo ->  TypeCalculationResult)  -> RegCollInfo -> TypeCalculationResult
 applyFIfRegCollDeclIsValid f info
   | isEmptyRegColl info = genEmptyRegCollDeclErr info
@@ -286,9 +289,9 @@ applyFIfRegCollDeclIsValid f info
 -- the context updated with the declaration if an empty collection is not
 -- being declared. Returns an error otherwise
 evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
-evalIfRegCollDeclIsValid ctx declInfo toEval = (applyFIfRegCollDeclIsValid $ flip addRegCollToCtx ctx >>> (`verifyCommand` toEval) ) declInfo
-
-
+evalIfRegCollDeclIsValid ctx declInfo toEval = declInfo & applyFIfRegCollDeclIsValid  evalTermThatDependsOnRegColl
+  where
+    evalTermThatDependsOnRegColl = flip addRegCollToCtx ctx >>> (`verifyCommand` toEval)
 
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x

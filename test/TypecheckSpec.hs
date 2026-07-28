@@ -223,11 +223,18 @@ extractNameOfFirstGateArg = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhil
     isNotPartOfArgList = (/= '(')
     isBeforeTypeAnnotation =(/= ':')
 
-prop_cannotTakeEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
-prop_cannotTakeEmptyRegCollAsArg prog =
-  calcTypeOf prog `shouldBe` emptyDeclErr
+-- Takes a function for constructing an error describing the invalid length of a register collection,
+-- a program with a gate declaration that takes such an invalid collection as an argument, and tests that
+-- running the program results in an error about the length of the collection
+prop_cannotTakeInvalidLengthRegCollAsArg :: (Identifier -> TypeEvaluationError) -> MetaQasmProgram -> IO ()
+prop_cannotTakeInvalidLengthRegCollAsArg errFn prog =
+  calcTypeOf prog `shouldBe` invalidLengthRegCollErr
   where
-    emptyDeclErr = prog & extractNameOfFirstGateArg & EmptyRegCollDecl & errOnLine1 
+    invalidLengthRegCollErr = prog & extractNameOfFirstGateArg & errFn & errOnLine1
+
+
+prop_cannotTakeEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
+prop_cannotTakeEmptyRegCollAsArg = prop_cannotTakeInvalidLengthRegCollAsArg EmptyRegCollDecl
 
 -- Tests that accessing the first element of a single qubit
 -- unitary is invalid and results in an error noting this
@@ -259,11 +266,7 @@ prop_cannotDeclNegLengthColl prog =
 -- Tests that declaring a gate that takes a negative length
 -- register collection is invalid and results in an error
 prop_cannotTakeNegLengthCollAsGateArg :: MetaQasmProgram -> IO ()
-prop_cannotTakeNegLengthCollAsGateArg prog =
-  calcTypeOf prog `shouldBe` negLengthCollDeclErr
-  where
-    negLengthCollDeclErr :: ProgramTypeEvaluationResult
-    negLengthCollDeclErr = prog & extractNameOfFirstGateArg & NegSizeRegCollDecl & errOnLine1
+prop_cannotTakeNegLengthCollAsGateArg = prop_cannotTakeInvalidLengthRegCollAsArg NegSizeRegCollDecl
 
 spec :: Spec
 spec =  do

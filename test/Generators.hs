@@ -59,7 +59,7 @@ module Generators(outOfScopeVar,
 import Control.Monad(join)
 import Test.QuickCheck
 import Formatting
-import Data.Text.Lazy(pack)
+import qualified Data.Text.Lazy as Tl
 import Syntax(Identifier,
               Expression(..),
               WithContext(..),
@@ -589,7 +589,7 @@ emptyUnscopedRegCollDecl = formatToString <$> emptyRegCollDecl <*> validRegCollA
 programThatSequencesEmptyRegCollDecl :: Gen MetaQasmProgram
 programThatSequencesEmptyRegCollDecl = formatToString <$> (sepBySemicolon <$> emptyQuantumRegColl <*> pure  hadamardApp') <*> validRegCollAccess
   where
-    emptyQuantumRegColl = replaced (pack "creg") (pack "qreg") <$> emptyRegCollDecl
+    emptyQuantumRegColl = replaced (Tl.pack "creg") (Tl.pack "qreg") <$> emptyRegCollDecl
 
 -- Generates a program that first declares a classic register collection
 -- before sequencing it with a valid command that uses it
@@ -1022,10 +1022,27 @@ programThatDeclaresScopedNegLengthColl = formatToString <$> negLengthCollDecl <*
 programThatDeclaresNegLengthColl :: Gen MetaQasmProgram
 programThatDeclaresNegLengthColl = join $ elements [programThatDeclaresScopedNegLengthColl, programThatDeclaresUnscopedNegLengthColl]
 
+negLengthRegCollAnnotation :: RegAccessFormatter
+negLengthRegCollAnnotation = qubitRegCollAnnotation oneMinusTwiceNumOfRegsInColl
+
 -- Generates programs consisting of gate declarations that
 -- take a negative length register collection as an argument
 gateThatTakesNegLengthColl :: Gen MetaQasmProgram
 gateThatTakesNegLengthColl = formatToString invalidGateDecl <$> gateThatTakesARegColl
   where
-    invalidGateDecl = singleParamGateDecl (viewed paramInfo negLengthRegColl) (viewed paramInfo hadamardApp')
-    negLengthRegColl = qubitRegCollAnnotation oneMinusTwiceNumOfRegsInColl
+    invalidGateDecl = singleParamGateDecl (viewed paramInfo negLengthRegCollAnnotation) (viewed paramInfo hadamardApp')
+
+-- Generates an invalid gate declaration that takes a gate
+-- taking a negative length register collection
+gateThatTakesAnInvalidGate :: Gen MetaQasmProgram
+
+gateThatTakesAnInvalidGate = formatToString invalidGateDecl <$> gateThatTakesARegColl
+  where
+    invalidGateDecl :: MetaQasmProgramFormatter GateThatTakesARegColl
+    invalidGateDecl = singleParamGateDecl circuitThatTakesNegLengthColl (fconst "h(h)")
+    circuitThatTakesNegLengthColl = circuitAnnotation (viewed paramName string) (viewed paramInfo negLengthRegColl')
+
+    negLengthRegColl' :: RegAccessFormatter
+    negLengthRegColl' = alteredWith extractTypeAnnotation negLengthRegCollAnnotation
+    extractTypeAnnotation :: Tl.Text -> Tl.Text
+    extractTypeAnnotation = Tl.dropWhile (/= ':') >>> Tl.drop 2

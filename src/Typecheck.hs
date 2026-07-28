@@ -240,6 +240,7 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
       | zero == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
+      | zero > extractVal numOfRegs = genNegLengthRegCollDeclErr  RegCollInfo {..}
       | otherwise = return arg
 
     verifyTypeAnnotation x  = return x
@@ -312,8 +313,7 @@ extractCtx (WithContext _ x) = x
 genInvalidRegCollLengthErr :: (Identifier -> TypeEvaluationError) -> RegCollInfo -> Either TypeErrAt a
 genInvalidRegCollLengthErr errFn RegCollInfo{..} =  Left $ WithContext (errFn regCollName) (extractCtx numOfRegs)
 
-
-genNegLengthRegCollDeclErr :: RegCollInfo -> TypeCalculationResult
+genNegLengthRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genNegLengthRegCollDeclErr = genInvalidRegCollLengthErr NegSizeRegCollDecl
 
 isEmptyRegColl :: RegCollInfo -> Bool

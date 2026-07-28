@@ -217,6 +217,9 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
 verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m collInfo y
 
 verifyCommand _ (RegCollDecl info)  = doNothingIfRegCollDeclIsValid info
+  where
+    doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult
+    doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid $ const (Right Unit)
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
@@ -285,8 +288,6 @@ applyFIfRegCollDeclIsValid f info
 evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
 evalIfRegCollDeclIsValid ctx declInfo toEval = (applyFIfRegCollDeclIsValid $ flip addRegCollToCtx ctx >>> (`verifyCommand` toEval) ) declInfo
 
-doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult
-doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid $ const (Right Unit)
 
 
 extractCtx :: WithContext a b -> b

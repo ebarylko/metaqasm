@@ -218,11 +218,6 @@ verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m
 
 verifyCommand _ (RegCollDecl info)  = doNothingIfRegCollDeclIsValid info
 
---verifyCommand _ (RegCollDecl info) 
---  | isEmptyRegColl info = genEmptyRegCollDeclErr info
---  | isNegLengthColl info = genNegLengthRegCollDeclErr info
---  | otherwise = Right Unit
-
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
 verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
@@ -238,7 +233,6 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
     extendCtxWithGateParam (GateArg{..}) = M.insert name argType
- 
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
@@ -278,31 +272,22 @@ verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculation
 
 verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)
 
-
-
 applyFIfRegCollDeclIsValid :: (RegCollInfo ->  TypeCalculationResult)  -> RegCollInfo -> TypeCalculationResult
 applyFIfRegCollDeclIsValid f info
   | isEmptyRegColl info = genEmptyRegCollDeclErr info
   | isNegLengthColl info = genNegLengthRegCollDeclErr info
   | otherwise = f info
 
-
-evalIfRegCollDeclIsValid' :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
-evalIfRegCollDeclIsValid' ctx declInfo toEval = (applyFIfRegCollDeclIsValid $ flip addRegCollToCtx ctx >>> (`verifyCommand` toEval) ) declInfo
-
-doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult
-doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid $ const (Right Unit)
-
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under
 -- the context updated with the declaration if an empty collection is not
 -- being declared. Returns an error otherwise
 evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
-evalIfRegCollDeclIsValid ctx declInfo toEval
-  | isEmptyRegColl declInfo = genEmptyRegCollDeclErr declInfo
-  | otherwise = verifyCommand newContext toEval
-  where
-    newContext = addRegCollToCtx declInfo ctx
+evalIfRegCollDeclIsValid ctx declInfo toEval = (applyFIfRegCollDeclIsValid $ flip addRegCollToCtx ctx >>> (`verifyCommand` toEval) ) declInfo
+
+doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult
+doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid $ const (Right Unit)
+
 
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x

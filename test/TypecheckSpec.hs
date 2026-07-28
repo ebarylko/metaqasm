@@ -70,8 +70,9 @@ import Generators(outOfScopeVar,
                  gateThatAppliesHGateToEmptyRegCollElem,
                  programThatAppliesGateToSameSizedRegColl,
                  programThatExecsGateIfBitEqualsSum,
-                 programThatAccessesCollWithNegIdx)
-import Data.Function(on)
+                 programThatAccessesCollWithNegIdx,
+                 programThatDeclaresNegLengthColl)
+import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
 -- either an error that occurred when parsing the code or
@@ -126,6 +127,11 @@ prop_cannotApplyGateToOutOfScopeExpr expr =
     hGateApp = formatToString ("h" % parenthesised string ) expr
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) line1
     extractVarName = takeWhile (/= '[')
+
+-- Takes a program of the form regType regName[numOfRegs] ... more commands
+-- and extracts the name of the declared register collection
+getNameFromRegCollDecl :: MetaQasmProgram -> Identifier
+getNameFromRegCollDecl = drop 5 >>> takeWhile (/= '[')
 
 -- Tests that declaring an empty quantum register
 -- collection is an invalid operation
@@ -240,6 +246,17 @@ errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left
 
 prop_cannotHaveNegIdx :: ProgramWithExpectedErr -> IO ()
 prop_cannotHaveNegIdx (prog, negIdxErr) = calcTypeOf prog `shouldBe` errOnLine1 negIdxErr
+
+-- Takes a program with a negative length register collection declaration
+-- and tests that such a declaration is invalid
+prop_cannotDeclNegLengthColl :: MetaQasmProgram -> IO ()
+
+prop_cannotDeclNegLengthColl prog =
+  calcTypeOf prog `shouldBe` negLengthCollDeclErr
+  where
+    negLengthCollDeclErr :: ProgramTypeEvaluationResult
+    negLengthCollDeclErr = prog & getNameFromRegCollDecl & NegSizeRegCollDecl & errOnLine1
+
 
 spec :: Spec
 spec =  do
@@ -422,3 +439,7 @@ spec =  do
   describe "Accessing a register collection with a negative index"  $ do
     prop "Is invalid" $ do
       forAll programThatAccessesCollWithNegIdx prop_cannotHaveNegIdx
+
+  describe "Declaring a register collection with a negative length"  $ do
+    prop "Is invalid" $ do
+      forAll programThatDeclaresNegLengthColl prop_cannotDeclNegLengthColl

@@ -43,6 +43,7 @@ type EvaluationContext = M.Map Identifier TermType
 -- determined
 data TypeEvaluationError = VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
+  | NegSizeRegCollDecl Identifier
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
@@ -217,6 +218,7 @@ verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m
 
 verifyCommand _ (RegCollDecl info)
   | isEmptyRegColl info = genEmptyRegCollDeclErr info
+  | isNegLengthColl info = genNegLengthRegCollDeclErr info
   | otherwise = Right Unit
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
@@ -288,6 +290,20 @@ evalIfRegCollDeclIsValid ctx declInfo toEval
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x
 
+isNegLengthColl :: RegCollInfo -> Bool
+isNegLengthColl = getRegCount >>> (< Const 0)
+  where
+    getRegCount =  numOfRegs >>> extractVal
+
+-- Takes a function that generates an error about the size of a register collection,
+-- information about a collection, and generates an error about the collection
+-- using the function
+genInvalidRegCollLengthErr :: (Identifier -> TypeEvaluationError) -> RegCollInfo -> Either TypeErrAt a
+genInvalidRegCollLengthErr errFn RegCollInfo{..} =  Left $ WithContext (errFn regCollName) (extractCtx numOfRegs)
+
+
+genNegLengthRegCollDeclErr :: RegCollInfo -> TypeCalculationResult
+genNegLengthRegCollDeclErr = genInvalidRegCollLengthErr NegSizeRegCollDecl
 
 isEmptyRegColl :: RegCollInfo -> Bool
 isEmptyRegColl = getRegCount >>> (== Const 0)
@@ -295,7 +311,7 @@ isEmptyRegColl = getRegCount >>> (== Const 0)
     getRegCount =  numOfRegs >>> extractVal
 
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
-genEmptyRegCollDeclErr RegCollInfo{..} = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)
+genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl
 
 -- Takes the name and kind of a register collection along with the number of registers
 -- and updates the current evaluation context with the type of the collection

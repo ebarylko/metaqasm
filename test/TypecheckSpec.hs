@@ -149,14 +149,14 @@ prop_cannotAccessRegOutsideOfRegColl :: ProgramWithExpectedErr -> IO ()
 prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
   calcTypeOf program `shouldBe` invalidRegAccessErr
   where
-    invalidRegAccessErr = Left $ TypeErr $ WithContext expectedErr line1
+    invalidRegAccessErr = errOnLine1 expectedErr 
 
 genExpectedNumOfArgsErr :: Int -> Int -> ProgramTypeEvaluationResult
 
 -- Takes the expected number of arguments to a gate, the actual number of arguments passed, and
 -- generates an error noting that the expected and actual number of arguments do not coincide
 genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
-  Left $ TypeErr $ WithContext (toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs) line1
+  errOnLine1 $ toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs
   where
     toUnexpectedNumOfArgsErr :: Int -> Int -> TypeEvaluationError
     toUnexpectedNumOfArgsErr = ExpectedNParams `on` Const
@@ -194,7 +194,7 @@ prop_cannotTreatRegCollAsGate :: InvalidRegCollApp -> IO ()
 prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
   calcTypeOf invalidProg `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (ExpectedAGate collType regColl) line1
+    typeMismatchErr = errOnLine1 $ ExpectedAGate collType regColl
 
 -- Takes the expected type of a term, the actual type of it, a program that applies
 -- an invalid operation on said term, and checks that running the program results
@@ -204,7 +204,7 @@ prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgram -> IO ()
 prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
   calcTypeOf prog `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType erroneousTerm) line1
+    typeMismatchErr = errOnLine1 $ TypeMismatch expectedType actualType erroneousTerm
 
 
 prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()

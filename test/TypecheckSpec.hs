@@ -149,7 +149,7 @@ prop_cannotAccessRegOutsideOfRegColl :: ProgramWithExpectedErr -> IO ()
 prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
   calcTypeOf program `shouldBe` invalidRegAccessErr
   where
-    invalidRegAccessErr = errOnLine1 expectedErr 
+    invalidRegAccessErr = errOnLine1 expectedErr
 
 genExpectedNumOfArgsErr :: Int -> Int -> ProgramTypeEvaluationResult
 

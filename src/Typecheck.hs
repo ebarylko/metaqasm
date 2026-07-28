@@ -283,6 +283,10 @@ applyFIfRegCollDeclIsValid f info
   | isEmptyRegColl info = genEmptyRegCollDeclErr info
   | isNegLengthColl info = genNegLengthRegCollDeclErr info
   | otherwise = f info
+  where
+    isNegLengthColl :: RegCollInfo -> Bool
+    isNegLengthColl = getRegCount >>> (< Const 0)
+    getRegCount =  numOfRegs >>> extractVal
 
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under
@@ -293,13 +297,14 @@ evalIfRegCollDeclIsValid ctx declInfo toEval = declInfo & applyFIfRegCollDeclIsV
   where
     evalTermThatDependsOnRegColl = flip addRegCollToCtx ctx >>> (`verifyCommand` toEval)
 
+    -- Takes the name and kind of a register collection along with the number of registers
+    -- and updates the current evaluation context with the type of the collection
+    addRegCollToCtx :: RegCollInfo -> EvaluationContext -> EvaluationContext
+    addRegCollToCtx RegCollInfo{..} = M.insert regCollName (RegisterGroup collType numOfRegs)
+
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x
 
-isNegLengthColl :: RegCollInfo -> Bool
-isNegLengthColl = getRegCount >>> (< Const 0)
-  where
-    getRegCount =  numOfRegs >>> extractVal
 
 -- Takes a function that generates an error about the size of a register collection,
 -- information about a collection, and generates an error about the collection
@@ -319,11 +324,6 @@ isEmptyRegColl = getRegCount >>> (== Const 0)
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl
 
--- Takes the name and kind of a register collection along with the number of registers
--- and updates the current evaluation context with the type of the collection
-addRegCollToCtx :: RegCollInfo -> EvaluationContext -> EvaluationContext
-
-addRegCollToCtx RegCollInfo{..} = M.insert regCollName (RegisterGroup collType numOfRegs)
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

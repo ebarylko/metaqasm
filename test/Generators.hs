@@ -52,7 +52,8 @@ module Generators(outOfScopeVar,
                  programThatAppliesGateToSameSizedRegColl,
                  programThatExecsGateIfBitEqualsSum,
                  programThatAccessesCollWithNegIdx,
-                 programThatDeclaresNegLengthColl)
+                 programThatDeclaresNegLengthColl,
+                 gateThatTakesNegLengthColl)
   where
 
 import Control.Monad(join)
@@ -1020,3 +1021,11 @@ programThatDeclaresScopedNegLengthColl = formatToString <$> negLengthCollDecl <*
 -- with a negative length
 programThatDeclaresNegLengthColl :: Gen MetaQasmProgram
 programThatDeclaresNegLengthColl = join $ elements [programThatDeclaresScopedNegLengthColl, programThatDeclaresUnscopedNegLengthColl]
+
+-- Generates programs consisting of gate declarations that
+-- take a negative length register collection as an argument
+gateThatTakesNegLengthColl :: Gen MetaQasmProgram
+gateThatTakesNegLengthColl = formatToString invalidGateDecl <$> gateThatTakesARegColl
+  where
+    invalidGateDecl = singleParamGateDecl (viewed paramInfo negLengthRegColl) (viewed paramInfo hadamardApp')
+    negLengthRegColl = qubitRegCollAnnotation oneMinusTwiceNumOfRegsInColl

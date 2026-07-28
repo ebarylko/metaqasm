@@ -71,7 +71,8 @@ import Generators(outOfScopeVar,
                  programThatAppliesGateToSameSizedRegColl,
                  programThatExecsGateIfBitEqualsSum,
                  programThatAccessesCollWithNegIdx,
-                 programThatDeclaresNegLengthColl)
+                 programThatDeclaresNegLengthColl,
+                 gateThatTakesNegLengthColl)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -216,15 +217,17 @@ prop_cannotSubstituteBitForQubit = prog_cannotSubstituteAForB Qbit Bit
 prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()
 prop_cannotSubstituteQubitForBit = prog_cannotSubstituteAForB Bit Qbit
 
+extractNameOfFirstGateArg :: MetaQasmProgram -> Identifier
+extractNameOfFirstGateArg = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhile isBeforeTypeAnnotation
+  where
+    isNotPartOfArgList = (/= '(')
+    isBeforeTypeAnnotation =(/= ':')
+
 prop_cannotTakeEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
 prop_cannotTakeEmptyRegCollAsArg prog =
   calcTypeOf prog `shouldBe` emptyDeclErr
   where
-    emptyDeclErr = errOnLine1 $ EmptyRegCollDecl regCollName 
-    regCollName = extractRegCollName prog
-    extractRegCollName = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhile isBeforeTypeAnnotation
-    isNotPartOfArgList = (/= '(')
-    isBeforeTypeAnnotation =(/= ':')
+    emptyDeclErr = prog & extractNameOfFirstGateArg & EmptyRegCollDecl & errOnLine1 
 
 -- Tests that accessing the first element of a single qubit
 -- unitary is invalid and results in an error noting this
@@ -253,6 +256,14 @@ prop_cannotDeclNegLengthColl prog =
     negLengthCollDeclErr :: ProgramTypeEvaluationResult
     negLengthCollDeclErr = prog & getNameFromRegCollDecl & NegSizeRegCollDecl & errOnLine1
 
+-- Tests that declaring a gate that takes a negative length
+-- register collection is invalid and results in an error
+prop_cannotTakeNegLengthCollAsGateArg :: MetaQasmProgram -> IO ()
+prop_cannotTakeNegLengthCollAsGateArg prog =
+  calcTypeOf prog `shouldBe` negLengthCollDeclErr
+  where
+    negLengthCollDeclErr :: ProgramTypeEvaluationResult
+    negLengthCollDeclErr = prog & extractNameOfFirstGateArg & NegSizeRegCollDecl & errOnLine1
 
 spec :: Spec
 spec =  do
@@ -439,3 +450,7 @@ spec =  do
   describe "Declaring a register collection with a negative length"  $ do
     prop "Is invalid" $ do
       forAll programThatDeclaresNegLengthColl prop_cannotDeclNegLengthColl
+
+  describe "Declaring a gate that takes a negative length register collection"  $ do
+    prop "Is invalid" $ do
+      forAll gateThatTakesNegLengthColl prop_cannotTakeNegLengthCollAsGateArg

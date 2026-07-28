@@ -74,7 +74,7 @@ import Control.Monad(replicateM)
 import Data.List(nub, (\\))
 import Data.Text.Lazy.Builder(fromString)
 import Control.Applicative(liftA3)
-import Control.Lens hiding (elements, Const)
+import Control.Lens hiding (elements, Const, op)
 
 reservedKeywords :: [String]
 reservedKeywords = ["h", "cx", "t", "tdg", "in", "if"]
@@ -890,14 +890,20 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
     innerArg :: Lens' HigherOrderedGate RegCollAccessSpec
     innerArg = paramInfo . paramInfo
 
+-- Takes a formatter representing a binary operator and returns a formatter that
+-- takes two arguments and applies the binary operator to them
+-- Ex: appBinOp (fconst "+") (fconst "3") (fconst "2") = "3 + 2"
+appBinOp :: MetaQasmProgramFormatter a ->  MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+
+appBinOp op fstArg' = (<%+>) (fstArg' <%+> op )
+
 -- Takes a formatter and returns a formatter that
 -- returns the sum of twice the value obtained from the
 -- formatter
 twice :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 twice f = f `plus` f
   where
-    plus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-    plus a b = a <%+> fconst "+" <%+> b
+    plus = appBinOp (fconst "+")
 
 -- Generates a MetaQASM program consisting of a hadamard gate application to
 -- a valid register access that uses a sum of indices
@@ -988,5 +994,4 @@ programThatAccessesCollWithNegIdx = (&&&) (formatToString invalidAccess) toErr <
     negativeIdx = fconst "1" `minus` numOfRegsInColl `minus` numOfRegsInColl
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr RegCollAccessSpec{_regCollName, _numOfRegs} = InvalidRegAccess _regCollName $ Const $ 1 - 2 * _numOfRegs
-    minus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-    minus f g = f <%+> fconst "-" <%+> g
+    minus = appBinOp $ fconst "-"

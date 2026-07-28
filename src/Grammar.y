@@ -129,17 +129,20 @@ extractLineNum :: Token -> LineNumber
 extractLineNum (Plus line) = line
 extractLineNum (Minus line) = line
 
+toBinIdxOp :: (Index -> Index -> Index) -> LineNumber -> Index -> Index -> Idx
+toBinIdxOp op line fstIdx = flip WithContext line . op fstIdx
+
 -- Takes the context for when a summation occurred,
 -- the tokens representing the operands, and returns
 -- a term that represents the summation of both operands
 toIdxSum :: LineNumber -> Index -> Index -> Idx
-toIdxSum line num1 = flip WithContext line . Sum num1
+toIdxSum = toBinIdxOp Sum
 
 -- Takes the context for when a difference occurred,
 -- the tokens representing the operands, and returns
 -- a term that represents the difference of both operands
 toIdxDiff :: LineNumber -> Index -> Index -> Idx
-toIdxDiff line num1 = flip WithContext line . Diff num1
+toIdxDiff = toBinIdxOp Diff
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

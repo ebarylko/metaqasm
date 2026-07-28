@@ -134,14 +134,19 @@ prop_cannotApplyGateToOutOfScopeExpr expr =
 getNameFromRegCollDecl :: MetaQasmProgram -> Identifier
 getNameFromRegCollDecl = drop 5 >>> takeWhile (/= '[')
 
+-- Takes a function for generating an error about the size of a register collection,
+-- a program that declares a register collection of size N, and checks that running
+-- the program results in an error about the size of the declared collection
+prop_cannotDeclareSizeNRegColl :: (Identifier -> TypeEvaluationError) -> MetaQasmProgram -> IO ()
+prop_cannotDeclareSizeNRegColl errFn prog =
+  calcTypeOf prog `shouldBe` nSizedRegCollDeclErr
+  where
+    nSizedRegCollDeclErr = prog & getNameFromRegCollDecl & errFn & errOnLine1
+
 -- Tests that declaring an empty quantum register
 -- collection is an invalid operation
 prop_cannotDeclareEmptyRegColl :: MetaQasmProgram -> IO ()
-
-prop_cannotDeclareEmptyRegColl program =
-  calcTypeOf program `shouldBe` emptyRegCollErr
-  where
-    emptyRegCollErr = program & getNameFromRegCollDecl & EmptyRegCollDecl & errOnLine1
+prop_cannotDeclareEmptyRegColl  = prop_cannotDeclareSizeNRegColl EmptyRegCollDecl
 
 -- Takes a MetaQASM program with an invalid register access, the
 -- expected error when running the program,
@@ -244,7 +249,7 @@ prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgram -> IO ()
 prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
   calcTypeOf prog `shouldBe` expectedRegCollErr
   where
-    expectedRegCollErr = errOnLine1 (ExpectedARegColl gateType gateName) 
+    expectedRegCollErr = errOnLine1 (ExpectedARegColl gateType gateName)
     gateType = Circuit [Qbit]
 
 errOnLine1 :: TypeEvaluationError -> ProgramTypeEvaluationResult
@@ -256,12 +261,7 @@ prop_cannotHaveNegIdx (prog, negIdxErr) = calcTypeOf prog `shouldBe` errOnLine1 
 -- Takes a program with a negative length register collection declaration
 -- and tests that such a declaration is invalid
 prop_cannotDeclNegLengthColl :: MetaQasmProgram -> IO ()
-
-prop_cannotDeclNegLengthColl prog =
-  calcTypeOf prog `shouldBe` negLengthCollDeclErr
-  where
-    negLengthCollDeclErr :: ProgramTypeEvaluationResult
-    negLengthCollDeclErr = prog & getNameFromRegCollDecl & NegSizeRegCollDecl & errOnLine1
+prop_cannotDeclNegLengthColl  = prop_cannotDeclareSizeNRegColl NegSizeRegCollDecl
 
 -- Tests that declaring a gate that takes a negative length
 -- register collection is invalid and results in an error

@@ -55,6 +55,7 @@ module Generators(outOfScopeVar,
                  programThatDeclaresNegLengthColl)
   where
 
+import Control.Monad(join)
 import Test.QuickCheck
 import Formatting
 import Data.Text.Lazy(pack)
@@ -1001,10 +1002,19 @@ programThatAccessesCollWithNegIdx = (&&&) (formatToString invalidAccess) toErr <
     toErr RegCollAccessSpec{_regCollName, _numOfRegs} = InvalidRegAccess _regCollName $ Const $ 1 - 2 * _numOfRegs
 
 -- Creates programs that declare a negative sized
--- register collection
-programThatDeclaresNegLengthColl :: Gen MetaQasmProgram
+-- unscoped register collection
+programThatDeclaresUnscopedNegLengthColl :: Gen MetaQasmProgram
 
-programThatDeclaresNegLengthColl = formatToString <$> negLengthCollDecl <*> validRegCollAccess
+programThatDeclaresUnscopedNegLengthColl = formatToString <$> negLengthCollDecl <*> validRegCollAccess
   where
     negLengthCollDecl = quantumOrClassicalRegCollDecl oneMinusTwiceNumOfRegsInColl
 
+
+programThatDeclaresScopedNegLengthColl :: Gen MetaQasmProgram
+
+programThatDeclaresScopedNegLengthColl = formatToString <$> negLengthCollDecl <*> validRegCollAccess
+  where
+    negLengthCollDecl = scopedDecl <$> (quantumOrClassicalRegCollDecl oneMinusTwiceNumOfRegsInColl) <*> pure hadamardApp'
+
+programThatDeclaresNegLengthColl :: Gen MetaQasmProgram
+programThatDeclaresNegLengthColl = join $ elements [programThatDeclaresScopedNegLengthColl, programThatDeclaresUnscopedNegLengthColl]

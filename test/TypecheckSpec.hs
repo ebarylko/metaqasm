@@ -70,8 +70,9 @@ import Generators(outOfScopeVar,
                  gateThatAppliesHGateToEmptyRegCollElem,
                  programThatAppliesGateToSameSizedRegColl,
                  programThatExecsGateIfBitEqualsSum,
-                 programThatAccessesCollWithNegIdx)
-import Data.Function(on)
+                 programThatAccessesCollWithNegIdx,
+                 programThatDeclaresNegLengthColl)
+import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
 -- either an error that occurred when parsing the code or
@@ -127,6 +128,11 @@ prop_cannotApplyGateToOutOfScopeExpr expr =
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) line1
     extractVarName = takeWhile (/= '[')
 
+-- Takes a program of the form regType regName[numOfRegs] ... more commands
+-- and extracts the name of the declared register collection
+getNameFromRegCollDecl :: MetaQasmProgram -> Identifier
+getNameFromRegCollDecl = drop 5 >>> takeWhile (/= '[')
+
 -- Tests that declaring an empty quantum register
 -- collection is an invalid operation
 prop_cannotDeclareEmptyRegColl :: MetaQasmProgram -> IO ()
@@ -134,10 +140,7 @@ prop_cannotDeclareEmptyRegColl :: MetaQasmProgram -> IO ()
 prop_cannotDeclareEmptyRegColl program =
   calcTypeOf program `shouldBe` emptyRegCollErr
   where
-    emptyRegCollErr = Left $ TypeErr $ WithContext (EmptyRegCollDecl regCollName) line1
-    regCollName = extractRegCollName program
-    extractRegCollName = drop 5 >>> takeWhile (/= '[')
-
+    emptyRegCollErr = program & getNameFromRegCollDecl & EmptyRegCollDecl & errOnLine1
 
 -- Takes a MetaQASM program with an invalid register access, the
 -- expected error when running the program,
@@ -146,14 +149,14 @@ prop_cannotAccessRegOutsideOfRegColl :: ProgramWithExpectedErr -> IO ()
 prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
   calcTypeOf program `shouldBe` invalidRegAccessErr
   where
-    invalidRegAccessErr = Left $ TypeErr $ WithContext expectedErr line1
+    invalidRegAccessErr = errOnLine1 expectedErr
 
 genExpectedNumOfArgsErr :: Int -> Int -> ProgramTypeEvaluationResult
 
 -- Takes the expected number of arguments to a gate, the actual number of arguments passed, and
 -- generates an error noting that the expected and actual number of arguments do not coincide
 genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
-  Left $ TypeErr $ WithContext (toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs) line1
+  errOnLine1 $ toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs
   where
     toUnexpectedNumOfArgsErr :: Int -> Int -> TypeEvaluationError
     toUnexpectedNumOfArgsErr = ExpectedNParams `on` Const
@@ -191,7 +194,7 @@ prop_cannotTreatRegCollAsGate :: InvalidRegCollApp -> IO ()
 prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
   calcTypeOf invalidProg `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (ExpectedAGate collType regColl) line1
+    typeMismatchErr = errOnLine1 $ ExpectedAGate collType regColl
 
 -- Takes the expected type of a term, the actual type of it, a program that applies
 -- an invalid operation on said term, and checks that running the program results
@@ -201,7 +204,7 @@ prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgram -> IO ()
 prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
   calcTypeOf prog `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType erroneousTerm) line1 
+    typeMismatchErr = errOnLine1 $ TypeMismatch expectedType actualType erroneousTerm
 
 
 prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()
@@ -217,12 +220,11 @@ prop_cannotTakeEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
 prop_cannotTakeEmptyRegCollAsArg prog =
   calcTypeOf prog `shouldBe` emptyDeclErr
   where
-    emptyDeclErr = Left $ TypeErr $ WithContext (EmptyRegCollDecl regCollName) line1
+    emptyDeclErr = errOnLine1 $ EmptyRegCollDecl regCollName 
     regCollName = extractRegCollName prog
     extractRegCollName = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhile isBeforeTypeAnnotation
     isNotPartOfArgList = (/= '(')
     isBeforeTypeAnnotation =(/= ':')
-
 
 -- Tests that accessing the first element of a single qubit
 -- unitary is invalid and results in an error noting this
@@ -232,7 +234,7 @@ prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgram -> IO ()
 prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
   calcTypeOf prog `shouldBe` expectedRegCollErr
   where
-    expectedRegCollErr = Left $ TypeErr $ WithContext (ExpectedARegColl gateType gateName) line1
+    expectedRegCollErr = errOnLine1 (ExpectedARegColl gateType gateName) 
     gateType = Circuit [Qbit]
 
 errOnLine1 :: TypeEvaluationError -> ProgramTypeEvaluationResult
@@ -240,6 +242,17 @@ errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left
 
 prop_cannotHaveNegIdx :: ProgramWithExpectedErr -> IO ()
 prop_cannotHaveNegIdx (prog, negIdxErr) = calcTypeOf prog `shouldBe` errOnLine1 negIdxErr
+
+-- Takes a program with a negative length register collection declaration
+-- and tests that such a declaration is invalid
+prop_cannotDeclNegLengthColl :: MetaQasmProgram -> IO ()
+
+prop_cannotDeclNegLengthColl prog =
+  calcTypeOf prog `shouldBe` negLengthCollDeclErr
+  where
+    negLengthCollDeclErr :: ProgramTypeEvaluationResult
+    negLengthCollDeclErr = prog & getNameFromRegCollDecl & NegSizeRegCollDecl & errOnLine1
+
 
 spec :: Spec
 spec =  do
@@ -422,3 +435,7 @@ spec =  do
   describe "Accessing a register collection with a negative index"  $ do
     prop "Is invalid" $ do
       forAll programThatAccessesCollWithNegIdx prop_cannotHaveNegIdx
+
+  describe "Declaring a register collection with a negative length"  $ do
+    prop "Is invalid" $ do
+      forAll programThatDeclaresNegLengthColl prop_cannotDeclNegLengthColl

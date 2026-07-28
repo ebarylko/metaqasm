@@ -61,10 +61,10 @@ term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
 
 
-command : qreg id '[' idx ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Quantum (extractName $2) $4) $8}
-| creg id '[' idx ']' in '{' command '}' {ScopedRegCollDecl (RegCollInfo Classical (extractName $2) $4) $8}
-| qreg id '[' idx ']' {RegCollDecl (RegCollInfo Quantum (extractName $2) $4)}
-| creg id '[' idx ']' {RegCollDecl (RegCollInfo Classical (extractName $2) $4)}
+command : qreg id '[' idx ']' in '{' command '}' {ScopedRegCollDecl (genQuantumRegCollInfo  $2 $4) $8}
+| creg id '[' idx ']' in '{' command '}' {ScopedRegCollDecl (genClassicalRegCollInfo  $2 $4) $8}
+| qreg id '[' idx ']' {RegCollDecl (genQuantumRegCollInfo  $2 $4)}
+| creg id '[' idx ']' {RegCollDecl (genClassicalRegCollInfo  $2 $4)}
 | gateApp {Gate $1}
 | gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (GateInfo (extractName $2) $4 $7) $11}
 | measure arg "->" arg {QubitMeasurement $2 $4}
@@ -100,6 +100,15 @@ arg : id             {(Var . toVar) $1 }
 
 
 {
+
+genRegCollInfo :: RegisterType -> Token -> Idx -> RegCollInfo
+genRegCollInfo collKind regCollName numOfRegs = RegCollInfo collKind (extractName regCollName) numOfRegs
+genQuantumRegCollInfo ::  Token -> Idx -> RegCollInfo
+genQuantumRegCollInfo = genRegCollInfo Quantum
+
+genClassicalRegCollInfo :: Token -> Idx -> RegCollInfo
+genClassicalRegCollInfo = genRegCollInfo Classical
+
 
 toRegCollType :: TermType -> RegisterType
 toRegCollType Qbit = Quantum

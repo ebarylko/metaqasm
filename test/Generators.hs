@@ -51,9 +51,11 @@ module Generators(outOfScopeVar,
                  gateThatAppliesHGateToEmptyRegCollElem,
                  programThatAppliesGateToSameSizedRegColl,
                  programThatExecsGateIfBitEqualsSum,
-                 programThatAccessesCollWithNegIdx)
+                 programThatAccessesCollWithNegIdx,
+                 programThatDeclaresNegLengthColl)
   where
 
+import Control.Monad(join)
 import Test.QuickCheck
 import Formatting
 import Data.Text.Lazy(pack)
@@ -984,14 +986,37 @@ programThatExecsGateIfBitEqualsSum = formatToString conditionalGate <$> conditio
     expectedVal =  viewed testedBitData $ twice numOfRegsInColl
     hGateApp = viewed gateData hadamardApp'
 
+oneMinusTwiceNumOfRegsInColl :: RegAccessFormatter
+oneMinusTwiceNumOfRegsInColl = fconst "1" `minus` numOfRegsInColl `minus` numOfRegsInColl
+  where
+    minus = appBinOp $ fconst "-"
+
 -- Generates pairs of programs that accesses an in-scope register collection
 -- using a negative index and the error obtained when running them
 programThatAccessesCollWithNegIdx :: Gen ProgramWithExpectedErr
 programThatAccessesCollWithNegIdx = (&&&) (formatToString invalidAccess) toErr <$> validRegCollAccess
   where
     invalidAccess :: RegAccessFormatter
-    invalidAccess = quantumRegCollDecl `sepBySemicolon` (hadamardApp  $ regCollAccess negativeIdx)
-    negativeIdx = fconst "1" `minus` numOfRegsInColl `minus` numOfRegsInColl
+    invalidAccess = quantumRegCollDecl `sepBySemicolon` (hadamardApp  $ regCollAccess oneMinusTwiceNumOfRegsInColl)
     toErr :: RegCollAccessSpec -> TypeEvaluationError
     toErr RegCollAccessSpec{_regCollName, _numOfRegs} = InvalidRegAccess _regCollName $ Const $ 1 - 2 * _numOfRegs
-    minus = appBinOp $ fconst "-"
+
+-- Creates programs that declare a negative sized
+-- unscoped register collection
+programThatDeclaresUnscopedNegLengthColl :: Gen MetaQasmProgram
+
+programThatDeclaresUnscopedNegLengthColl = formatToString <$> negLengthCollDecl <*> validRegCollAccess
+  where
+    negLengthCollDecl = quantumOrClassicalRegCollDecl oneMinusTwiceNumOfRegsInColl
+
+-- Creates programs that declare a negative sized
+-- scoped register collection
+programThatDeclaresScopedNegLengthColl :: Gen MetaQasmProgram
+programThatDeclaresScopedNegLengthColl = formatToString <$> negLengthCollDecl <*> validRegCollAccess
+  where
+    negLengthCollDecl = scopedDecl <$> quantumOrClassicalRegCollDecl oneMinusTwiceNumOfRegsInColl <*> pure hadamardApp'
+
+-- Generates programs that declare a scoped or unscoped register collection
+-- with a negative length
+programThatDeclaresNegLengthColl :: Gen MetaQasmProgram
+programThatDeclaresNegLengthColl = join $ elements [programThatDeclaresScopedNegLengthColl, programThatDeclaresUnscopedNegLengthColl]

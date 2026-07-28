@@ -43,6 +43,7 @@ type EvaluationContext = M.Map Identifier TermType
 -- determined
 data TypeEvaluationError = VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
+  | NegSizeRegCollDecl Identifier
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
@@ -215,9 +216,10 @@ verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
 
 verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m collInfo y
 
-verifyCommand _ (RegCollDecl info)
-  | isEmptyRegColl info = genEmptyRegCollDeclErr info
-  | otherwise = Right Unit
+verifyCommand _ (RegCollDecl info)  = doNothingIfRegCollDeclIsValid info
+  where
+    doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult
+    doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid $ const (Right Unit)
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
@@ -234,7 +236,6 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
     extendCtxWithGateParam (GateArg{..}) = M.insert name argType
-
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
@@ -274,20 +275,46 @@ verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculation
 
 verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)
 
+-- Takes a function determining the type of an expression that depends on a register collection,
+-- information about the collection, and returns the type of the expression if the collection
+-- and expression is valid. Returns an error otherwise
+applyFIfRegCollDeclIsValid :: (RegCollInfo ->  TypeCalculationResult)  -> RegCollInfo -> TypeCalculationResult
+applyFIfRegCollDeclIsValid f info
+  | isEmptyRegColl info = genEmptyRegCollDeclErr info
+  | isNegLengthColl info = genNegLengthRegCollDeclErr info
+  | otherwise = f info
+  where
+    isNegLengthColl :: RegCollInfo -> Bool
+    isNegLengthColl = getRegCount >>> (< Const 0)
+    getRegCount =  numOfRegs >>> extractVal
+
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under
 -- the context updated with the declaration if an empty collection is not
 -- being declared. Returns an error otherwise
 evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
-evalIfRegCollDeclIsValid ctx declInfo toEval
-  | isEmptyRegColl declInfo = genEmptyRegCollDeclErr declInfo
-  | otherwise = verifyCommand newContext toEval
+evalIfRegCollDeclIsValid ctx declInfo toEval = declInfo & applyFIfRegCollDeclIsValid  evalTermThatDependsOnRegColl
   where
-    newContext = addRegCollToCtx declInfo ctx
+    evalTermThatDependsOnRegColl = flip addRegCollToCtx ctx >>> (`verifyCommand` toEval)
+
+    -- Takes the name and kind of a register collection along with the number of registers
+    -- and updates the current evaluation context with the type of the collection
+    addRegCollToCtx :: RegCollInfo -> EvaluationContext -> EvaluationContext
+    addRegCollToCtx RegCollInfo{..} = M.insert regCollName (RegisterGroup collType numOfRegs)
 
 extractCtx :: WithContext a b -> b
 extractCtx (WithContext _ x) = x
 
+
+-- Takes a function that generates an error about the size of a register collection,
+-- information about a collection, and generates an error about the collection
+-- using the function
+genInvalidRegCollLengthErr :: (Identifier -> TypeEvaluationError) -> RegCollInfo -> Either TypeErrAt a
+genInvalidRegCollLengthErr errFn RegCollInfo{..} =  Left $ WithContext (errFn regCollName) (extractCtx numOfRegs)
+
+
+genNegLengthRegCollDeclErr :: RegCollInfo -> TypeCalculationResult
+genNegLengthRegCollDeclErr = genInvalidRegCollLengthErr NegSizeRegCollDecl
 
 isEmptyRegColl :: RegCollInfo -> Bool
 isEmptyRegColl = getRegCount >>> (== Const 0)
@@ -295,13 +322,8 @@ isEmptyRegColl = getRegCount >>> (== Const 0)
     getRegCount =  numOfRegs >>> extractVal
 
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
-genEmptyRegCollDeclErr RegCollInfo{..} = Left $ WithContext (EmptyRegCollDecl regCollName) (extractCtx numOfRegs)
+genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl
 
--- Takes the name and kind of a register collection along with the number of registers
--- and updates the current evaluation context with the type of the collection
-addRegCollToCtx :: RegCollInfo -> EvaluationContext -> EvaluationContext
-
-addRegCollToCtx RegCollInfo{..} = M.insert regCollName (RegisterGroup collType numOfRegs)
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

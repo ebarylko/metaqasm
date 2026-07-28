@@ -1009,12 +1009,14 @@ programThatDeclaresUnscopedNegLengthColl = formatToString <$> negLengthCollDecl 
   where
     negLengthCollDecl = quantumOrClassicalRegCollDecl oneMinusTwiceNumOfRegsInColl
 
-
+-- Creates programs that declare a negative sized
+-- scoped register collection
 programThatDeclaresScopedNegLengthColl :: Gen MetaQasmProgram
-
 programThatDeclaresScopedNegLengthColl = formatToString <$> negLengthCollDecl <*> validRegCollAccess
   where
-    negLengthCollDecl = scopedDecl <$> (quantumOrClassicalRegCollDecl oneMinusTwiceNumOfRegsInColl) <*> pure hadamardApp'
+    negLengthCollDecl = scopedDecl <$> quantumOrClassicalRegCollDecl oneMinusTwiceNumOfRegsInColl <*> pure hadamardApp'
 
+-- Generates programs that declare a scoped or unscoped register collection
+-- with a negative length
 programThatDeclaresNegLengthColl :: Gen MetaQasmProgram
 programThatDeclaresNegLengthColl = join $ elements [programThatDeclaresScopedNegLengthColl, programThatDeclaresUnscopedNegLengthColl]

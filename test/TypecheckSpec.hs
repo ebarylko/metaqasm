@@ -140,10 +140,7 @@ prop_cannotDeclareEmptyRegColl :: MetaQasmProgram -> IO ()
 prop_cannotDeclareEmptyRegColl program =
   calcTypeOf program `shouldBe` emptyRegCollErr
   where
-    emptyRegCollErr = Left $ TypeErr $ WithContext (EmptyRegCollDecl regCollName) line1
-    regCollName = extractRegCollName program
-    extractRegCollName = drop 5 >>> takeWhile (/= '[')
-
+    emptyRegCollErr = program & getNameFromRegCollDecl & EmptyRegCollDecl & errOnLine1
 
 -- Takes a MetaQASM program with an invalid register access, the
 -- expected error when running the program,
@@ -207,7 +204,7 @@ prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgram -> IO ()
 prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
   calcTypeOf prog `shouldBe` typeMismatchErr
   where
-    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType erroneousTerm) line1 
+    typeMismatchErr = Left $ TypeErr $ WithContext (TypeMismatch expectedType actualType erroneousTerm) line1
 
 
 prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()
@@ -223,12 +220,11 @@ prop_cannotTakeEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
 prop_cannotTakeEmptyRegCollAsArg prog =
   calcTypeOf prog `shouldBe` emptyDeclErr
   where
-    emptyDeclErr = Left $ TypeErr $ WithContext (EmptyRegCollDecl regCollName) line1
+    emptyDeclErr = errOnLine1 $ EmptyRegCollDecl regCollName 
     regCollName = extractRegCollName prog
     extractRegCollName = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhile isBeforeTypeAnnotation
     isNotPartOfArgList = (/= '(')
     isBeforeTypeAnnotation =(/= ':')
-
 
 -- Tests that accessing the first element of a single qubit
 -- unitary is invalid and results in an error noting this
@@ -238,7 +234,7 @@ prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgram -> IO ()
 prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
   calcTypeOf prog `shouldBe` expectedRegCollErr
   where
-    expectedRegCollErr = Left $ TypeErr $ WithContext (ExpectedARegColl gateType gateName) line1
+    expectedRegCollErr = errOnLine1 (ExpectedARegColl gateType gateName) 
     gateType = Circuit [Qbit]
 
 errOnLine1 :: TypeEvaluationError -> ProgramTypeEvaluationResult

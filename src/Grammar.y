@@ -40,6 +40,7 @@ Circuit {Circ}
 ':'     {Colon}
 ';'     {Semicolon}
 '+'     {Plus lineNum}
+'-'     {Minus lineNum}
 "=="     {Eq}
 reset {Reset}
 gate    {GateDec}
@@ -51,7 +52,10 @@ nat     { Nat num lineNum}
 measure  {Measurement}
 "->"      {RightArrow}
 
+%left '+' '-'
+
 %%
+
 
 term :: {Term}
 term : command {Vary.from $1}  | arg { Vary.from $1 }
@@ -89,6 +93,7 @@ args : arg {[$1]} | arg ',' args {$1 : $3}
 
 idx : nat {toIdx $1}
 | idx '+' idx {(toIdxSum (extractLineNum $2) `on` extractVal) $1  $3}
+| idx '-' idx {(toIdxDiff (extractLineNum $2) `on` extractVal) $1  $3}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' idx ']' { RegisterAccess (toVar $1) $3 }
@@ -122,12 +127,22 @@ toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
 
 extractLineNum :: Token -> LineNumber
 extractLineNum (Plus line) = line
+extractLineNum (Minus line) = line
+
+toBinIdxOp :: (Index -> Index -> Index) -> LineNumber -> Index -> Index -> Idx
+toBinIdxOp op line fstIdx = flip WithContext line . op fstIdx
 
 -- Takes the context for when a summation occurred,
 -- the tokens representing the operands, and returns
 -- a term that represents the summation of both operands
 toIdxSum :: LineNumber -> Index -> Index -> Idx
-toIdxSum line num1 = flip WithContext line . Sum num1
+toIdxSum = toBinIdxOp Sum
+
+-- Takes the context for when a difference occurred,
+-- the tokens representing the operands, and returns
+-- a term that represents the difference of both operands
+toIdxDiff :: LineNumber -> Index -> Index -> Idx
+toIdxDiff = toBinIdxOp Diff
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

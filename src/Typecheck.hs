@@ -33,6 +33,7 @@ import Data.Functor(($>))
 import Data.List(findIndex)
 import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
+import Data.Ix(inRange)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -72,6 +73,16 @@ extractVal (WithContext x _) = x
 
 L.makePrisms ''TermType
 
+-- Takes the index used to access a register collection, information about said collection,
+-- and returns true if the index lies within the bounds of the collection.
+-- Returns false otherwise
+isAccessingValidReg :: Idx -> TermType -> Bool
+isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (isIdxWithinArrayBounds `on` extractVal) regIdx' numOfRegs
+  where
+    isIdxWithinArrayBounds :: Index -> Index -> Bool
+    isIdxWithinArrayBounds idx collBound = idx `inRange'` (Const 0, collBound - Const 1)
+    inRange' = flip inRange
+
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
 -- a valid register is selected. Returns the type of the register if so or an
@@ -84,9 +95,6 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
   & fmap determineRegElemType
   where
-    isAccessingValidReg :: Idx -> TermType -> Bool
-    isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) = ((<) `on` extractVal) regIdx' numOfRegs
-
     isAccessingRegColl :: TermType -> Bool
     isAccessingRegColl = L.has _RegisterGroup
 
@@ -127,7 +135,7 @@ isValidGateApp :: [TermType] -> [TermType] -> Bool
 isValidGateApp expectedArgTypes  = zip expectedArgTypes >>> all (uncurry isSupertypeOf)
   where
     isSupertypeOf :: TermType -> TermType -> Bool
-    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' && ((<=) `on` extractVal) expectedNumOfRegs actualNumOfRegs
+    isSupertypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) = collTy == collTy' &&  expectedNumOfRegs <= actualNumOfRegs
     isSupertypeOf (Circuit left) (Circuit right) = all id (zipWith isSupertypeOf right left)
     isSupertypeOf x y = x == y
 

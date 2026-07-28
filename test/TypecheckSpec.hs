@@ -69,7 +69,8 @@ import Generators(outOfScopeVar,
                  validGateThatTakesANonEmptyRegColl,
                  gateThatAppliesHGateToEmptyRegCollElem,
                  programThatAppliesGateToSameSizedRegColl,
-                 programThatExecsGateIfBitEqualsSum)
+                 programThatExecsGateIfBitEqualsSum,
+                 programThatAccessesCollWithNegIdx)
 import Data.Function(on)
 
 -- This represents the possible errors in a metaQasm program, being
@@ -233,6 +234,12 @@ prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
   where
     expectedRegCollErr = Left $ TypeErr $ WithContext (ExpectedARegColl gateType gateName) line1
     gateType = Circuit [Qbit]
+
+errOnLine1 :: TypeEvaluationError -> ProgramTypeEvaluationResult
+errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left
+
+prop_cannotHaveNegIdx :: ProgramWithExpectedErr -> IO ()
+prop_cannotHaveNegIdx (prog, negIdxErr) = calcTypeOf prog `shouldBe` errOnLine1 negIdxErr
 
 spec :: Spec
 spec =  do
@@ -411,3 +418,7 @@ spec =  do
   describe "Conditionally executing a valid gate if a given bit has the same value as a sum of indices"  $ do
     prop "Is valid" $ do
       forAll programThatExecsGateIfBitEqualsSum prop_isValidProgram
+
+  describe "Accessing a register collection with a negative index"  $ do
+    prop "Is invalid" $ do
+      forAll programThatAccessesCollWithNegIdx prop_cannotHaveNegIdx

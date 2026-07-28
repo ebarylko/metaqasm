@@ -33,6 +33,7 @@ tokens :-
   "=="                                                  {ignoreInputAndReturn Eq}
   "->"                                                   {ignoreInputAndReturn RightArrow}
   "+"                                                   {lexPlus}
+  "-"                                                   {lexMinus}
   \:                                                       {ignoreInputAndReturn Colon}
   \;                                                       {ignoreInputAndReturn Semicolon}
   \,                                                       {ignoreInputAndReturn Comma}
@@ -44,7 +45,7 @@ tokens :-
 
 {
 
-newtype LineNumber = LineNumber Int deriving (Eq, Show)
+newtype LineNumber = LineNumber Int deriving (Eq, Show, Ord)
 
 -- OpenQASM tokens
 data Token = LBracket LineNumber
@@ -60,6 +61,7 @@ data Token = LBracket LineNumber
   | In
   | If
   | Plus LineNumber
+  | Minus LineNumber
   | Eq
   | Comma
   | GateDec
@@ -102,6 +104,9 @@ genToken tokFn f = \lineInfo text -> tokFn (f text) (getLineNumber lineInfo)
 
 -- Generates a token corresponding to the "+" symbol
 lexPlus = genToken (const Plus) id
+
+-- Generates a token corresponding to the "-" symbol
+lexMinus = genToken (const Minus) id
 
 -- Takes an id and generates the corresponding token for it
 lexId = genToken Id id

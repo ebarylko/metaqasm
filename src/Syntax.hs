@@ -14,6 +14,7 @@ module Syntax(Expression(..),
 
 import Lexer(LineNumber)
 import Data.Function(on)
+import Data.Ix(Ix, range, inRange)
 
 type Identifier = String
 
@@ -21,23 +22,46 @@ type Identifier = String
 -- context, e.g., where the file was found, the type of the value, etc.
 data WithContext a ctx = WithContext a ctx deriving (Eq, Show)
 
+instance (Ord a, Ord b) => Ord (WithContext a b) where
+  (WithContext x _) <= (WithContext y _) = x <= y
+
 type Id = WithContext Identifier LineNumber
 
 data Index =
   Const Int
   | Sum Index Index
+  | Diff Index Index
   deriving (Show)
 
-instance Eq Index where
-  (==) = (==) `on` simplifyIdx
-
-instance Ord Index where
-  (<=) = (<=) `on` simplifyIdx
+applyBinOpOnIndices :: (Int -> Int -> a) -> Index -> Index -> a
+applyBinOpOnIndices = (`on` simplifyIdx)
 
 -- Takes an index and returns the value represented by it
 simplifyIdx :: Index -> Int
 simplifyIdx (Const num) = num
-simplifyIdx (Sum a b) = ((+) `on` simplifyIdx) a b
+simplifyIdx (Sum a b) = (applyBinOpOnIndices (+)) a b
+simplifyIdx (Diff a b) = (applyBinOpOnIndices (-)) a b
+
+instance Eq Index where
+  (==) = applyBinOpOnIndices (==)
+
+instance Ord Index where
+  (<=) = applyBinOpOnIndices (<=)
+
+instance Ix Index where
+  range (a, b) = map Const $ (applyBinOpOnIndices enumFromTo) a b
+  inRange (a, b) x = inRange (simplifyIdx a, simplifyIdx b) (simplifyIdx x)
+
+instance Num Index where
+  (+)  = Sum
+  (-) = Diff
+  (*) = error "Need to implement this"
+  abs = error "Need to implement this"
+  signum = error "Need to implement this"
+  fromInteger = error "Need to implement this"
+  negate = error "Need to implement this"
+
+
 
 
 type Idx = WithContext Index LineNumber

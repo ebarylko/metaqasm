@@ -228,6 +228,18 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQub
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType m Bit bitToTest *> verifyGateApp m toBeExecuted
 
+-- Takes the types of the parameters to a circuit and verifies
+-- that each type is valid. Returns an error otherwise
+--verifyCircuitAnnotation :: [TermType] -> TypeCalculationResult
+verifyCircuitAnnotation :: [TermType] -> Either TypeErrAt [TermType]
+verifyCircuitAnnotation = traverse verifyCircuitArg
+  where
+    verifyCircuitArg :: TermType -> TypeCalculationResult
+    verifyCircuitArg x@(RegisterGroup _ numOfRegs)
+      | extractVal numOfRegs > Const 0 = Right x
+      | otherwise = Left $ WithContext (InvalidCircuitAnnotation x) (extractCtx numOfRegs)
+    verifyCircuitArg x = Right x
+
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
@@ -243,6 +255,7 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
       | zero == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
       | zero > extractVal numOfRegs = genNegLengthRegCollDeclErr  RegCollInfo {..}
       | otherwise = return arg
+    verifyTypeAnnotation arg@(GateArg _ (Circuit argTypes)) = verifyCircuitAnnotation argTypes  $> arg
 
     verifyTypeAnnotation x  = return x
     zero :: Index

@@ -38,7 +38,8 @@ import Generators(outOfScopeVar,
                   programWithTooFewParamsInGateApp,
                   programThatMeasuresAQubit,
                   programThatAppliesSingleQbitUnitaryToBit,
-                 InvalidProgram,
+                 InvalidProgCausedByTerm,
+                 InvalidProgBcOfTypeAnnotation,
                  programThatTreatsRegCollsAsGates,
                  InvalidRegCollApp(..),
                  programThatMeasuresABit,
@@ -72,7 +73,8 @@ import Generators(outOfScopeVar,
                  programThatExecsGateIfBitEqualsSum,
                  programThatAccessesCollWithNegIdx,
                  programThatDeclaresNegLengthColl,
-                 gateThatTakesNegLengthColl)
+                 gateThatTakesNegLengthColl,
+                 gateThatTakesAnInvalidGate)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -205,7 +207,7 @@ prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
 -- Takes the expected type of a term, the actual type of it, a program that applies
 -- an invalid operation on said term, and checks that running the program results
 -- in an error noting that the term does not have the expected type
-prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgram -> IO ()
+prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgCausedByTerm -> IO ()
 
 prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
   calcTypeOf prog `shouldBe` typeMismatchErr
@@ -213,13 +215,13 @@ prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
     typeMismatchErr = errOnLine1 $ TypeMismatch expectedType actualType erroneousTerm
 
 
-prop_cannotSubstituteBitForQubit :: InvalidProgram -> IO ()
+prop_cannotSubstituteBitForQubit :: InvalidProgCausedByTerm -> IO ()
 prop_cannotSubstituteBitForQubit = prog_cannotSubstituteAForB Qbit Bit
 
 -- Takes a MetaQASM program that applies an operation for bits on a
 -- qubit and checks that an error is generated noting this
 -- inconsistency
-prop_cannotSubstituteQubitForBit :: InvalidProgram -> IO ()
+prop_cannotSubstituteQubitForBit :: InvalidProgCausedByTerm -> IO ()
 prop_cannotSubstituteQubitForBit = prog_cannotSubstituteAForB Bit Qbit
 
 extractNameOfFirstGateArg :: MetaQasmProgram -> Identifier
@@ -244,7 +246,7 @@ prop_cannotTakeEmptyRegCollAsArg = prop_cannotTakeInvalidLengthRegCollAsArg Empt
 -- Tests that accessing the first element of a single qubit
 -- unitary is invalid and results in an error noting this
 -- discrepancy
-prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgram -> IO ()
+prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgCausedByTerm -> IO ()
 
 prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
   calcTypeOf prog `shouldBe` expectedRegCollErr
@@ -267,6 +269,15 @@ prop_cannotDeclNegLengthColl  = prop_cannotDeclareSizeNRegColl NegSizeRegCollDec
 -- register collection is invalid and results in an error
 prop_cannotTakeNegLengthCollAsGateArg :: MetaQasmProgram -> IO ()
 prop_cannotTakeNegLengthCollAsGateArg = prop_cannotTakeInvalidLengthRegCollAsArg NegSizeRegCollDecl
+
+-- Takes a program with an invalid type annotation, the invalid type,
+-- and tests that running the program results in an error stating that
+-- the annotation is invalid
+prop_cannotTakeInvalidCircuitAsArg :: InvalidProgBcOfTypeAnnotation -> IO ()
+prop_cannotTakeInvalidCircuitAsArg (prog, invalidTypeAnnot) =
+  calcTypeOf prog `shouldBe` invalidCircErr
+  where
+    invalidCircErr = InvalidCircuitAnnotation invalidTypeAnnot & errOnLine1
 
 spec :: Spec
 spec =  do
@@ -457,3 +468,7 @@ spec =  do
   describe "Declaring a gate that takes a negative length register collection"  $ do
     prop "Is invalid" $ do
       forAll gateThatTakesNegLengthColl prop_cannotTakeNegLengthCollAsGateArg
+
+  describe "Declaring a gate that takes a circuit which takes a negative length collection"  $ do
+    prop "Is invalid" $ do
+      forAll gateThatTakesAnInvalidGate prop_cannotTakeInvalidCircuitAsArg

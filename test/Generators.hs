@@ -19,6 +19,8 @@ module Generators(outOfScopeVar,
                  programWithTooFewParamsInGateApp,
                  programThatMeasuresAQubit,
                  programThatAppliesSingleQbitUnitaryToBit,
+                 InvalidProgCausedByTerm,
+                 InvalidProgBcOfTypeAnnotation,
                  InvalidProgram,
                  programThatTreatsRegCollsAsGates,
                  InvalidRegCollApp(..),
@@ -53,7 +55,8 @@ module Generators(outOfScopeVar,
                  programThatExecsGateIfBitEqualsSum,
                  programThatAccessesCollWithNegIdx,
                  programThatDeclaresNegLengthColl,
-                 gateThatTakesNegLengthColl)
+                 gateThatTakesNegLengthColl,
+                 gateThatTakesAnInvalidGate)
   where
 
 import Control.Monad(join)
@@ -449,27 +452,29 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
 -- Represents pairs of invalid programs and an
 -- expression within the program that causes it to
 -- be invalid
-type InvalidProgram = (MetaQasmProgram, Expression)
+type InvalidProgram a = (MetaQasmProgram, a)
+
+type InvalidProgCausedByTerm = InvalidProgram Expression
 
 -- Given a formatter that generates MetaQASM programs that
 -- are invalid due to a misplaced bit/qubit, function that generates
--- the misplaced term based on the input to the formatter, a data generator 
+-- the misplaced term based on the input to the formatter, a data generator
 --  for the formatter, returns pairs of invalid programs and the misplaced term
-genInvalidProgram' :: MetaQasmProgramFormatter a -> (a -> Expression) -> Gen a -> Gen InvalidProgram
-
+genInvalidProgram' :: MetaQasmProgramFormatter a -> (a -> b) -> Gen a -> Gen (InvalidProgram b)
 genInvalidProgram' invalidProgFmtter f gen = (&&&) (formatToString invalidProgFmtter) f <$> gen
+
 
 -- Given a formatter that generates MetaQASM programs that
 -- are invalid due to a misplaced bit/qubit, generates pairs
 -- of invalid programs and the bit/qubit responsible for
 -- making the program fail
-genInvalidProgram :: RegAccessFormatter -> Gen InvalidProgram
+genInvalidProgram :: RegAccessFormatter -> Gen InvalidProgCausedByTerm
 
 genInvalidProgram invalidProgFmtter = genInvalidProgram' invalidProgFmtter toRegAccessOnLine1 validRegCollAccess
 
 -- Generates pairs of invalid programs that apply a single
 -- qubit unitary to a bit and the misplaced bit
-programThatAppliesSingleQbitUnitaryToBit :: Gen InvalidProgram
+programThatAppliesSingleQbitUnitaryToBit :: Gen InvalidProgCausedByTerm
 
 programThatAppliesSingleQbitUnitaryToBit  = genInvalidProgram invalidGateApp
   where
@@ -515,7 +520,7 @@ programThatTreatsRegCollsAsGates  = liftA3 InvalidRegCollApp (formatToString inv
 
 -- Generates an erroneous program that
 -- measures a bit instead of a qubit
-programThatMeasuresABit :: Gen InvalidProgram
+programThatMeasuresABit :: Gen InvalidProgCausedByTerm
 
 programThatMeasuresABit = genInvalidProgram invalidMeasurement
   where
@@ -524,7 +529,7 @@ programThatMeasuresABit = genInvalidProgram invalidMeasurement
 
 -- Generates MetaQASM programs that store the result of
 -- measuring a qubit inside of another qubit
-programThatStoresQubitMeasurementInAQubit :: Gen InvalidProgram
+programThatStoresQubitMeasurementInAQubit :: Gen InvalidProgCausedByTerm
 
 programThatStoresQubitMeasurementInAQubit = genInvalidProgram invalidMeasurement
   where
@@ -615,7 +620,7 @@ programThatResetsAQubit :: Gen MetaQasmProgram
 programThatResetsAQubit = formatToString (quantumRegCollDecl `sepBySemicolon` reset regCollAccess') <$> validRegCollAccess
 
 -- Generates a program that resets a bit
-programThatResetsABit :: Gen InvalidProgram
+programThatResetsABit :: Gen InvalidProgCausedByTerm
 
 programThatResetsABit = genInvalidProgram (classicRegCollDecl `sepBySemicolon` reset regCollAccess')
 
@@ -726,7 +731,7 @@ unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateTha
 -- Generates pairs of invalid programs that apply a unitary operation
 -- to an element of a classical register collection and the aforementioned
 -- element
-gateThatAppliesUnitaryToClassicalRegCollElem :: Gen InvalidProgram
+gateThatAppliesUnitaryToClassicalRegCollElem :: Gen InvalidProgCausedByTerm
 gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDecl genSelectedBit gateThatTakesARegColl'
   where
     invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation') $ viewed paramInfo hadamardApp'
@@ -930,7 +935,7 @@ validRegCollDeclUsingSumOfIndices = formatToString <$> nonemptyCollDecl <*> vali
 -- Generates a program that treats a single qubit unitary
 -- as a register collection and attempts to accesses the first element
 -- of it
-invalidRegAccessOnGate :: Gen InvalidProgram
+invalidRegAccessOnGate :: Gen InvalidProgCausedByTerm
 invalidRegAccessOnGate = pure ("h[0]", hGate)
   where
     hGate = Var $ WithContext "h" (LineNumber 1)
@@ -1032,16 +1037,26 @@ gateThatTakesNegLengthColl = formatToString invalidGateDecl <$> gateThatTakesARe
   where
     invalidGateDecl = singleParamGateDecl (viewed paramInfo negLengthRegCollAnnotation) (viewed paramInfo hadamardApp')
 
+-- Represents pairs of programs that are invalid due to an
+-- invalid type annotation and said annotation
+type InvalidProgBcOfTypeAnnotation = InvalidProgram TermType
+
 -- Generates an invalid gate declaration that takes a gate
 -- taking a negative length register collection
-gateThatTakesAnInvalidGate :: Gen MetaQasmProgram
+gateThatTakesAnInvalidGate :: Gen InvalidProgBcOfTypeAnnotation
 
-gateThatTakesAnInvalidGate = formatToString invalidGateDecl <$> gateThatTakesARegColl
+--gateThatTakesAnInvalidGate = formatToString invalidGateDecl <$> gateThatTakesARegColl
+gateThatTakesAnInvalidGate = genInvalidProgram'  invalidGateDecl genInvalidTyp gateThatTakesARegColl
   where
     invalidGateDecl :: MetaQasmProgramFormatter GateThatTakesARegColl
-    invalidGateDecl = singleParamGateDecl circuitThatTakesNegLengthColl (fconst "h(h)")
+    invalidGateDecl =
+      viewed paramInfo quantumRegCollDecl
+      `sepBySemicolon` singleParamGateDecl circuitThatTakesNegLengthColl (viewed paramInfo hadamardApp')
     circuitThatTakesNegLengthColl = circuitAnnotation (viewed paramName string) (viewed paramInfo negLengthRegColl')
 
+    genInvalidTyp :: GateThatTakesARegColl -> TermType
+    genInvalidTyp = view paramInfo >>> over numOfRegs toNegNumOfRegs >>> toQuantRegColl
+    toNegNumOfRegs = (* 2)  >>> (1 - )
     negLengthRegColl' :: RegAccessFormatter
     negLengthRegColl' = alteredWith extractTypeAnnotation negLengthRegCollAnnotation
     extractTypeAnnotation :: Tl.Text -> Tl.Text

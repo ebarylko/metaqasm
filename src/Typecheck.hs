@@ -49,6 +49,7 @@ data TypeEvaluationError = VariableNotInScope Identifier
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
   | ExpectedAGate{actualType :: TermType, problemTerm :: Id}
   | ExpectedARegColl{actualType :: TermType, notARegColl :: Expression}
+  | InvalidCircuitAnnotation{invalidPart :: TermType}
   deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber

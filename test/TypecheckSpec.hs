@@ -270,7 +270,7 @@ prop_cannotDeclNegLengthColl  = prop_cannotDeclareSizeNRegColl NegSizeRegCollDec
 prop_cannotTakeNegLengthCollAsGateArg :: MetaQasmProgram -> IO ()
 prop_cannotTakeNegLengthCollAsGateArg = prop_cannotTakeInvalidLengthRegCollAsArg NegSizeRegCollDecl
 
--- Takes a program with an invalid type annotation, the invalid type,
+-- Takes a program with an invalid type annotation, the invalid annotation,
 -- and tests that running the program results in an error stating that
 -- the annotation is invalid
 prop_cannotTakeInvalidCircuitAsArg :: InvalidProgBcOfTypeAnnotation -> IO ()

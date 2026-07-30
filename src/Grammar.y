@@ -143,26 +143,27 @@ extractLineNum (Plus line) = line
 extractLineNum (Minus line) = line
 extractLineNum (Times line) = line
 
-toBinIdxOp :: (Index -> Index -> Index) -> LineNumber -> Index -> Index -> Idx
-toBinIdxOp op line fstIdx = flip WithContext line . op fstIdx
 
 -- Takes a binary operation on indices,
 -- a token representing the binary operation,  the
 -- arguments to the operation, and returns an index
 -- representing the result of applying the operation on
 -- the given indices
-toBinIdxOp' :: (Index -> Index -> Index) -> Token  -> Idx -> Idx -> Idx
+toBinIdxOp :: (Index -> Index -> Index) -> Token  -> Idx -> Idx -> Idx
 
-toBinIdxOp'  op opTok fstArg sndArg = (toBinIdxOp op (extractLineNum opTok) `on` extractVal) fstArg sndArg
+toBinIdxOp  op opTok fstArg sndArg = (toBinIdxOp' op (extractLineNum opTok) `on` extractVal) fstArg sndArg
+  where
+    toBinIdxOp' :: (Index -> Index -> Index) -> LineNumber -> Index -> Index -> Idx
+    toBinIdxOp' op line fstIdx = flip WithContext line . op fstIdx
 
 toIdxSum :: Token -> Idx -> Idx -> Idx
-toIdxSum = toBinIdxOp' Sum
+toIdxSum = toBinIdxOp Sum
 
 toIdxDiff :: Token -> Idx -> Idx -> Idx
-toIdxDiff = toBinIdxOp' Diff
+toIdxDiff = toBinIdxOp Diff
 
 toIdxProd :: Token -> Idx -> Idx -> Idx
-toIdxProd = toBinIdxOp' Prod
+toIdxProd = toBinIdxOp Prod
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

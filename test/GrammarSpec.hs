@@ -222,4 +222,4 @@ spec = do
 
       describe "Taking the product of two indices" $ do
         it "Yields a term representing the product" $ do
-          "x[0 * 0]" `shouldParseToExpr` indexProdRegAccess "x" 0 0
+          "x[2 * 3 - 1]" `shouldParseToExpr` indexProdRegAccess "x" 5 1

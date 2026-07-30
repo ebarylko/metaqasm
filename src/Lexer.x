@@ -104,14 +104,21 @@ genToken :: (a -> LineNumber -> Token) -> (String -> a) -> TokenGenerator
 
 genToken tokFn f = \lineInfo text -> tokFn (f text) (getLineNumber lineInfo)
 
+-- Takes a function to create a token corresponding to
+-- a binary operator on indices and returns a
+-- function that generates said token after
+-- encountering it in the token stream
+lexBinOpOnIdx :: (LineNumber -> Token) -> TokenGenerator
+lexBinOpOnIdx tokFun = genToken (const tokFun) id
+
 -- Generates a token corresponding to the "+" symbol
-lexPlus = genToken (const Plus) id
+lexPlus = lexBinOpOnIdx Plus
 
 -- Generates a token corresponding to the "-" symbol
-lexMinus = genToken (const Minus) id
+lexMinus = lexBinOpOnIdx Minus
 
 -- Generates a token corresponding to the "*" symbol
-lexProd = genToken (const Times) id
+lexProd = lexBinOpOnIdx Times
 
 -- Takes an id and generates the corresponding token for it
 lexId = genToken Id id

@@ -74,7 +74,8 @@ import Generators(outOfScopeVar,
                  programThatAccessesCollWithNegIdx,
                  programThatDeclaresNegLengthColl,
                  gateThatTakesNegLengthColl,
-                 gateThatTakesAnInvalidGate)
+                 gateThatTakesAnInvalidGate,
+                 validThirdOrderGateDecl)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -472,3 +473,7 @@ spec =  do
   describe "Declaring a gate that takes a circuit which takes a negative length collection"  $ do
     prop "Is invalid" $ do
       forAll gateThatTakesAnInvalidGate prop_cannotTakeInvalidCircuitAsArg
+
+  describe "Declaring a valid third order gate"  $ do
+    prop "Is valid" $ do
+      forAll validThirdOrderGateDecl prop_isValidProgram

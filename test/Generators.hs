@@ -56,7 +56,8 @@ module Generators(outOfScopeVar,
                  programThatAccessesCollWithNegIdx,
                  programThatDeclaresNegLengthColl,
                  gateThatTakesNegLengthColl,
-                 gateThatTakesAnInvalidGate)
+                 gateThatTakesAnInvalidGate,
+                 validThirdOrderGateDecl)
   where
 
 import Control.Monad(join)
@@ -1060,3 +1061,14 @@ gateThatTakesAnInvalidGate = genInvalidProgram'  invalidGateDecl genInvalidTyp g
     negLengthRegColl' = alteredWith extractTypeAnnotation negLengthRegCollAnnotation
     extractTypeAnnotation :: Tl.Text -> Tl.Text
     extractTypeAnnotation = Tl.dropWhile (/= ':') >>> Tl.drop 2
+
+-- Generates a program consisting of a third order
+-- gate declaration that ignores the arguments passed to it
+validThirdOrderGateDecl :: Gen MetaQasmProgram
+validThirdOrderGateDecl = formatToString gateDecl' <$> gateThatTakesARegColl
+  where
+  gateDecl' =
+    viewed paramInfo quantumRegCollDecl
+    `sepBySemicolon`
+    singleParamGateDecl secondOrdGate (viewed paramInfo hadamardApp')
+  secondOrdGate = circuitAnnotation (viewed paramName string) $ fconst "Circuit(Bit)"

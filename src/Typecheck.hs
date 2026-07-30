@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+
 module Typecheck
     (determineType,
       TypeEvaluationError(..),
@@ -33,6 +34,8 @@ import Data.Functor(($>))
 import Data.List(findIndex)
 import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
+import Control.Lens.Prism(matching)
+import Control.Lens.Combinators(failing)
 import Data.Ix(inRange)
 
 -- This data type represents the context under which to evaluate
@@ -232,7 +235,6 @@ isPosIdx = extractVal >>> (>= Const 0)
 
 -- Takes the types of the parameters to a circuit and verifies
 -- that each type is valid. Returns an error otherwise
---verifyCircuitAnnotation :: [TermType] -> TypeCalculationResult
 verifyCircuitAnnotation :: [TermType] -> Either TypeErrAt [TermType]
 verifyCircuitAnnotation = traverse verifyCircuitArg
   where
@@ -240,7 +242,10 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
     verifyCircuitArg x@(RegisterGroup _ numOfRegs)
       | isPosIdx numOfRegs = Right x
       | otherwise = Left $ WithContext (InvalidCircuitAnnotation x) (extractCtx numOfRegs)
-    verifyCircuitArg x = Right x
+    verifyCircuitArg x@(Circuit argTypes) = traverse verifyCircuitArg argTypes $>  x
+    verifyCircuitArg Qbit = Right Qbit
+    verifyCircuitArg Bit = Right Bit
+    --verifyCircuitArg x = matching (_Bit `failing` _Qbit) x
 
 isNegIdx :: Idx -> Bool
 isNegIdx = extractVal >>> (< Const 0)

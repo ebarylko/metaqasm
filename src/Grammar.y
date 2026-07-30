@@ -54,6 +54,7 @@ measure  {Measurement}
 "->"      {RightArrow}
 
 %left '+' '-'
+%left '*'
 
 %%
 

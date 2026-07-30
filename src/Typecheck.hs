@@ -228,6 +228,9 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQub
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType m Bit bitToTest *> verifyGateApp m toBeExecuted
 
+isPosIdx :: Idx -> Bool
+isPosIdx = extractVal >>> (>= Const 0)
+
 -- Takes the types of the parameters to a circuit and verifies
 -- that each type is valid. Returns an error otherwise
 --verifyCircuitAnnotation :: [TermType] -> TypeCalculationResult
@@ -236,9 +239,12 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
   where
     verifyCircuitArg :: TermType -> TypeCalculationResult
     verifyCircuitArg x@(RegisterGroup _ numOfRegs)
-      | extractVal numOfRegs > Const 0 = Right x
+      | isPosIdx numOfRegs = Right x
       | otherwise = Left $ WithContext (InvalidCircuitAnnotation x) (extractCtx numOfRegs)
     verifyCircuitArg x = Right x
+
+isNegIdx :: Idx -> Bool
+isNegIdx = extractVal >>> (< Const 0)
 
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
@@ -253,7 +259,7 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
       | zero == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
-      | zero > extractVal numOfRegs = genNegLengthRegCollDeclErr  RegCollInfo {..}
+      | isNegIdx numOfRegs = genNegLengthRegCollDeclErr  RegCollInfo {..}
       | otherwise = return arg
     verifyTypeAnnotation arg@(GateArg _ (Circuit argTypes)) = verifyCircuitAnnotation argTypes  $> arg
 
@@ -300,8 +306,7 @@ applyFIfRegCollDeclIsValid f info
   | otherwise = f info
   where
     isNegLengthColl :: RegCollInfo -> Bool
-    isNegLengthColl = getRegCount >>> (< Const 0)
-    getRegCount =  numOfRegs >>> extractVal
+    isNegLengthColl = numOfRegs >>> isNegIdx
 
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under

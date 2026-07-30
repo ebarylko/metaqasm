@@ -246,6 +246,9 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
 isNegIdx :: Idx -> Bool
 isNegIdx = extractVal >>> (< Const 0)
 
+isZero :: Idx -> Bool
+isZero = extractVal >>> (== Const 0)
+
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
@@ -258,14 +261,12 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
-      | zero == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
+      | isZero numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
       | isNegIdx numOfRegs = genNegLengthRegCollDeclErr  RegCollInfo {..}
       | otherwise = return arg
     verifyTypeAnnotation arg@(GateArg _ (Circuit argTypes)) = verifyCircuitAnnotation argTypes  $> arg
 
     verifyTypeAnnotation x  = return x
-    zero :: Index
-    zero = Const  0
 
 
 -- Takes information about a gate declaration, the context under which to evaluate the
@@ -336,9 +337,7 @@ genNegLengthRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genNegLengthRegCollDeclErr = genInvalidRegCollLengthErr NegSizeRegCollDecl
 
 isEmptyRegColl :: RegCollInfo -> Bool
-isEmptyRegColl = getRegCount >>> (== Const 0)
-  where
-    getRegCount =  numOfRegs >>> extractVal
+isEmptyRegColl = numOfRegs >>> isZero
 
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl

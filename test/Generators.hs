@@ -995,12 +995,12 @@ programThatExecsGateIfBitEqualsSum = formatToString conditionalGate <$> conditio
     expectedVal =  viewed testedBitData $ twice numOfRegsInColl
     hGateApp = viewed gateData hadamardApp'
 
-minus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a 
-minus = appBinOp $ fconst "-"
 
 oneMinusTwiceNumOfRegsInColl :: RegAccessFormatter
 oneMinusTwiceNumOfRegsInColl = fconst "1" `minus` numOfRegsInColl `minus` numOfRegsInColl
-    
+  where
+    minus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
+    minus = appBinOp $ fconst "-"
 
 -- Generates pairs of programs that accesses an in-scope register collection
 -- using a negative index and the error obtained when running them
@@ -1084,6 +1084,6 @@ regAccessedByValidProdOfIndices :: Gen MetaQasmProgram
 regAccessedByValidProdOfIndices = formatToString regAccess <$> validRegCollAccess
   where
     regAccess = quantumRegCollDecl `sepBySemicolon` hadamardApp reg
-    reg = regCollAccess $ numOfRegsInColl `minus` one `times` one
-    one = fconst "1"
+    reg = regCollAccess $ zero `times` zero
+    zero = fconst "0"
     times = appBinOp (fconst "*")

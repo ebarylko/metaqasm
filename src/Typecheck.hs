@@ -243,8 +243,7 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
       | isPosIdx numOfRegs = Right x
       | otherwise = Left $ WithContext (InvalidCircuitAnnotation x) (extractCtx numOfRegs)
     verifyCircuitArg x@(Circuit argTypes) = traverse verifyCircuitArg argTypes $>  x
-    verifyCircuitArg Qbit = Right Qbit
-    verifyCircuitArg Bit = Right Bit
+    verifyCircuitArg x = Right x
 
 isNegIdx :: Idx -> Bool
 isNegIdx = extractVal >>> (< Const 0)

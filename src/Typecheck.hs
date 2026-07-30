@@ -180,8 +180,7 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
   verifyGateArgs line expectedTypes actualTypes args
   where
     isCircuit :: TermType -> Bool
-    isCircuit (Circuit _) = True
-    isCircuit _ = False
+    isCircuit = L.has _Circuit
 
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
     findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genIsNotGateErr
@@ -264,6 +263,7 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
       | isZero numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
       | isNegIdx numOfRegs = genNegLengthRegCollDeclErr  RegCollInfo {..}
       | otherwise = return arg
+
     verifyTypeAnnotation arg@(GateArg _ (Circuit argTypes)) = verifyCircuitAnnotation argTypes  $> arg
 
     verifyTypeAnnotation x  = return x

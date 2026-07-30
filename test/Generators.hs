@@ -1045,7 +1045,6 @@ type InvalidProgBcOfTypeAnnotation = InvalidProgram TermType
 -- taking a negative length register collection
 gateThatTakesAnInvalidGate :: Gen InvalidProgBcOfTypeAnnotation
 
---gateThatTakesAnInvalidGate = formatToString invalidGateDecl <$> gateThatTakesARegColl
 gateThatTakesAnInvalidGate = genInvalidProgram'  invalidGateDecl genInvalidTyp gateThatTakesARegColl
   where
     invalidGateDecl :: MetaQasmProgramFormatter GateThatTakesARegColl

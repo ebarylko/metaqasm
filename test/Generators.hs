@@ -57,7 +57,8 @@ module Generators(outOfScopeVar,
                  programThatDeclaresNegLengthColl,
                  gateThatTakesNegLengthColl,
                  gateThatTakesAnInvalidGate,
-                 validThirdOrderGateDecl)
+                 validThirdOrderGateDecl,
+                 regAccessedByValidProdOfIndices)
   where
 
 import Control.Monad(join)
@@ -994,9 +995,11 @@ programThatExecsGateIfBitEqualsSum = formatToString conditionalGate <$> conditio
     expectedVal =  viewed testedBitData $ twice numOfRegsInColl
     hGateApp = viewed gateData hadamardApp'
 
+
 oneMinusTwiceNumOfRegsInColl :: RegAccessFormatter
 oneMinusTwiceNumOfRegsInColl = fconst "1" `minus` numOfRegsInColl `minus` numOfRegsInColl
   where
+    minus :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a  -> MetaQasmProgramFormatter a
     minus = appBinOp $ fconst "-"
 
 -- Generates pairs of programs that accesses an in-scope register collection
@@ -1073,3 +1076,14 @@ validThirdOrderGateDecl = formatToString gateDecl' <$> gateThatTakesARegColl
     `sepBySemicolon`
     singleParamGateDecl secondOrdGate appHGate
   secondOrdGate = circuitAnnotation (viewed paramName string) $ fconst "Circuit(Bit)"
+
+
+-- Generates programs that access an element of a register
+-- collection using a product of indices
+regAccessedByValidProdOfIndices :: Gen MetaQasmProgram
+regAccessedByValidProdOfIndices = formatToString regAccess <$> validRegCollAccess
+  where
+    regAccess = quantumRegCollDecl `sepBySemicolon` hadamardApp reg
+    reg = regCollAccess $ zero `times` zero
+    zero = fconst "0"
+    times = appBinOp (fconst "*")

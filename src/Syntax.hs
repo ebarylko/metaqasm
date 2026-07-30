@@ -31,6 +31,7 @@ data Index =
   Const Int
   | Sum Index Index
   | Diff Index Index
+  | Prod Index Index
   deriving (Show)
 
 applyBinOpOnIndices :: (Int -> Int -> a) -> Index -> Index -> a
@@ -41,6 +42,7 @@ simplifyIdx :: Index -> Int
 simplifyIdx (Const num) = num
 simplifyIdx (Sum a b) = (applyBinOpOnIndices (+)) a b
 simplifyIdx (Diff a b) = (applyBinOpOnIndices (-)) a b
+simplifyIdx (Prod a b) = (applyBinOpOnIndices (*)) a b
 
 instance Eq Index where
   (==) = applyBinOpOnIndices (==)

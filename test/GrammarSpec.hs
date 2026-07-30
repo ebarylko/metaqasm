@@ -91,6 +91,16 @@ indexDiffRegAccess regCollName fstIdx = diffOfIndices fstIdx >>> RegisterAccess 
     diffOfIndices :: Int -> Int -> Idx
     diffOfIndices = binOpOnIndices Diff
 
+-- Takes the name of a register collection, indices x and y, and
+-- generates an expression representing the access of the
+-- (x * y)th element of the collection
+indexProdRegAccess ::  Identifier -> Int -> Int -> Expression
+indexProdRegAccess regCollName fstIdx = prodOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
+  where
+    prodOfIndices :: Int -> Int -> Idx
+    prodOfIndices = binOpOnIndices Prod
+
+
 -- Takes the name of a variable and
 -- generates the corresponding MetaQASM term for
 -- a variable found on the first line of a MetaQASM program
@@ -209,3 +219,7 @@ spec = do
       describe "Taking the difference of two indices" $ do
         it "Yields a term representing the difference" $ do
           "x[0 - 0]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0
+
+      describe "Taking the product of two indices" $ do
+        it "Yields a term representing the product" $ do
+          "x[2 * 3 - 1]" `shouldParseToExpr` indexProdRegAccess "x" 5 1

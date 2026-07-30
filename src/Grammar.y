@@ -41,6 +41,7 @@ Circuit {Circ}
 ';'     {Semicolon}
 '+'     {Plus lineNum}
 '-'     {Minus lineNum}
+'*'     {Times lineNum}
 "=="     {Eq}
 reset {Reset}
 gate    {GateDec}
@@ -53,6 +54,7 @@ measure  {Measurement}
 "->"      {RightArrow}
 
 %left '+' '-'
+%left '*'
 
 %%
 
@@ -92,14 +94,17 @@ gateApp : id '(' args ')' {GateApp (toVar $1) $3}
 args : arg {[$1]} | arg ',' args {$1 : $3}
 
 idx : nat {toIdx $1}
-| idx '+' idx {(toIdxSum (extractLineNum $2) `on` extractVal) $1  $3}
-| idx '-' idx {(toIdxDiff (extractLineNum $2) `on` extractVal) $1  $3}
+| idx '+' idx {toIdxSum $2 $1 $3}
+| idx '-' idx {toIdxDiff $2 $1 $3}
+| idx '*' idx {toIdxProd $2 $1 $3}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' idx ']' { RegisterAccess (toVar $1) $3 }
 
 
 {
+
+-- | idx '+' idx {(toIdxSum (extractLineNum $2) `on` extractVal) $1  $3}
 
 genRegCollInfo :: RegisterType -> Token -> Idx -> RegCollInfo
 genRegCollInfo collKind regCollName numOfRegs = RegCollInfo collKind (extractName regCollName) numOfRegs
@@ -137,21 +142,29 @@ toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
 extractLineNum :: Token -> LineNumber
 extractLineNum (Plus line) = line
 extractLineNum (Minus line) = line
+extractLineNum (Times line) = line
 
-toBinIdxOp :: (Index -> Index -> Index) -> LineNumber -> Index -> Index -> Idx
-toBinIdxOp op line fstIdx = flip WithContext line . op fstIdx
 
--- Takes the context for when a summation occurred,
--- the tokens representing the operands, and returns
--- a term that represents the summation of both operands
-toIdxSum :: LineNumber -> Index -> Index -> Idx
+-- Takes a binary operation on indices,
+-- a token representing the binary operation,  the
+-- arguments to the operation, and returns an index
+-- representing the result of applying the operation on
+-- the given indices
+toBinIdxOp :: (Index -> Index -> Index) -> Token  -> Idx -> Idx -> Idx
+
+toBinIdxOp  op opTok fstArg sndArg = (toBinIdxOp' op (extractLineNum opTok) `on` extractVal) fstArg sndArg
+  where
+    toBinIdxOp' :: (Index -> Index -> Index) -> LineNumber -> Index -> Index -> Idx
+    toBinIdxOp' op line fstIdx = flip WithContext line . op fstIdx
+
+toIdxSum :: Token -> Idx -> Idx -> Idx
 toIdxSum = toBinIdxOp Sum
 
--- Takes the context for when a difference occurred,
--- the tokens representing the operands, and returns
--- a term that represents the difference of both operands
-toIdxDiff :: LineNumber -> Index -> Index -> Idx
+toIdxDiff :: Token -> Idx -> Idx -> Idx
 toIdxDiff = toBinIdxOp Diff
+
+toIdxProd :: Token -> Idx -> Idx -> Idx
+toIdxProd = toBinIdxOp Prod
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

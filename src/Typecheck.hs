@@ -49,6 +49,7 @@ data TypeEvaluationError = VariableNotInScope Identifier
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
   | ExpectedAGate{actualType :: TermType, problemTerm :: Id}
   | ExpectedARegColl{actualType :: TermType, notARegColl :: Expression}
+  | InvalidCircuitAnnotation{invalidPart :: TermType}
   deriving (Show, Eq)
 
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
@@ -179,8 +180,7 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
   verifyGateArgs line expectedTypes actualTypes args
   where
     isCircuit :: TermType -> Bool
-    isCircuit (Circuit _) = True
-    isCircuit _ = False
+    isCircuit = L.has _Circuit
 
     findGateType :: Id -> EvaluationContext -> TypeCalculationResult
     findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genIsNotGateErr
@@ -227,6 +227,27 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQub
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType m Bit bitToTest *> verifyGateApp m toBeExecuted
 
+isPosIdx :: Idx -> Bool
+isPosIdx = extractVal >>> (>= Const 0)
+
+-- Takes the types of the parameters to a circuit and verifies
+-- that each type is valid. Returns an error otherwise
+--verifyCircuitAnnotation :: [TermType] -> TypeCalculationResult
+verifyCircuitAnnotation :: [TermType] -> Either TypeErrAt [TermType]
+verifyCircuitAnnotation = traverse verifyCircuitArg
+  where
+    verifyCircuitArg :: TermType -> TypeCalculationResult
+    verifyCircuitArg x@(RegisterGroup _ numOfRegs)
+      | isPosIdx numOfRegs = Right x
+      | otherwise = Left $ WithContext (InvalidCircuitAnnotation x) (extractCtx numOfRegs)
+    verifyCircuitArg x = Right x
+
+isNegIdx :: Idx -> Bool
+isNegIdx = extractVal >>> (< Const 0)
+
+isZero :: Idx -> Bool
+isZero = extractVal >>> (== Const 0)
+
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
@@ -239,13 +260,13 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))
-      | zero == extractVal numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
-      | zero > extractVal numOfRegs = genNegLengthRegCollDeclErr  RegCollInfo {..}
+      | isZero numOfRegs = genEmptyRegCollDeclErr  RegCollInfo {..}
+      | isNegIdx numOfRegs = genNegLengthRegCollDeclErr  RegCollInfo {..}
       | otherwise = return arg
 
+    verifyTypeAnnotation arg@(GateArg _ (Circuit argTypes)) = verifyCircuitAnnotation argTypes  $> arg
+
     verifyTypeAnnotation x  = return x
-    zero :: Index
-    zero = Const  0
 
 
 -- Takes information about a gate declaration, the context under which to evaluate the
@@ -286,8 +307,7 @@ applyFIfRegCollDeclIsValid f info
   | otherwise = f info
   where
     isNegLengthColl :: RegCollInfo -> Bool
-    isNegLengthColl = getRegCount >>> (< Const 0)
-    getRegCount =  numOfRegs >>> extractVal
+    isNegLengthColl = numOfRegs >>> isNegIdx
 
 -- Takes the current context, the makeup of a register collection
 -- declaration, a command to evaluate, and evaluates the command under
@@ -317,9 +337,7 @@ genNegLengthRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genNegLengthRegCollDeclErr = genInvalidRegCollLengthErr NegSizeRegCollDecl
 
 isEmptyRegColl :: RegCollInfo -> Bool
-isEmptyRegColl = getRegCount >>> (== Const 0)
-  where
-    getRegCount =  numOfRegs >>> extractVal
+isEmptyRegColl = numOfRegs >>> isZero
 
 genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl

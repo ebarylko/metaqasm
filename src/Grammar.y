@@ -41,6 +41,7 @@ Circuit {Circ}
 ';'     {Semicolon}
 '+'     {Plus lineNum}
 '-'     {Minus lineNum}
+'*'     {Times lineNum}
 "=="     {Eq}
 reset {Reset}
 gate    {GateDec}
@@ -94,6 +95,7 @@ args : arg {[$1]} | arg ',' args {$1 : $3}
 idx : nat {toIdx $1}
 | idx '+' idx {(toIdxSum (extractLineNum $2) `on` extractVal) $1  $3}
 | idx '-' idx {(toIdxDiff (extractLineNum $2) `on` extractVal) $1  $3}
+| idx '*' idx {(toIdxProd (extractLineNum $2) `on` extractVal) $1  $3}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' idx ']' { RegisterAccess (toVar $1) $3 }
@@ -137,6 +139,7 @@ toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
 extractLineNum :: Token -> LineNumber
 extractLineNum (Plus line) = line
 extractLineNum (Minus line) = line
+extractLineNum (Times line) = line
 
 toBinIdxOp :: (Index -> Index -> Index) -> LineNumber -> Index -> Index -> Idx
 toBinIdxOp op line fstIdx = flip WithContext line . op fstIdx
@@ -152,6 +155,12 @@ toIdxSum = toBinIdxOp Sum
 -- a term that represents the difference of both operands
 toIdxDiff :: LineNumber -> Index -> Index -> Idx
 toIdxDiff = toBinIdxOp Diff
+
+-- Takes the context for when a product occurred,
+-- the tokens representing the operands, and returns
+-- a term that represents the product of both operands
+toIdxProd :: LineNumber -> Index -> Index -> Idx
+toIdxProd = toBinIdxOp Prod
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

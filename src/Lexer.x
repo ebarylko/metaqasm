@@ -34,6 +34,7 @@ tokens :-
   "->"                                                   {ignoreInputAndReturn RightArrow}
   "+"                                                   {lexPlus}
   "-"                                                   {lexMinus}
+  "*"                                                   {lexProd}
   \:                                                       {ignoreInputAndReturn Colon}
   \;                                                       {ignoreInputAndReturn Semicolon}
   \,                                                       {ignoreInputAndReturn Comma}
@@ -62,6 +63,7 @@ data Token = LBracket LineNumber
   | If
   | Plus LineNumber
   | Minus LineNumber
+  | Times LineNumber
   | Eq
   | Comma
   | GateDec
@@ -107,6 +109,9 @@ lexPlus = genToken (const Plus) id
 
 -- Generates a token corresponding to the "-" symbol
 lexMinus = genToken (const Minus) id
+
+-- Generates a token corresponding to the "*" symbol
+lexProd = genToken (const Times) id
 
 -- Takes an id and generates the corresponding token for it
 lexId = genToken Id id

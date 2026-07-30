@@ -1064,7 +1064,7 @@ gateThatTakesAnInvalidGate = genInvalidProgram'  invalidGateDecl genInvalidTyp g
     extractTypeAnnotation = Tl.dropWhile (/= ':') >>> Tl.drop 2
 
 -- Generates a program consisting of a third order
--- gate declaration that ignores the arguments passed to it
+-- gate declaration that ignores the argument passed to it
 validThirdOrderGateDecl :: Gen MetaQasmProgram
 validThirdOrderGateDecl = formatToString gateDecl' <$> gateThatTakesARegColl
   where

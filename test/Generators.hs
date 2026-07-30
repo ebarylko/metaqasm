@@ -56,7 +56,8 @@ module Generators(outOfScopeVar,
                  programThatAccessesCollWithNegIdx,
                  programThatDeclaresNegLengthColl,
                  gateThatTakesNegLengthColl,
-                 gateThatTakesAnInvalidGate)
+                 gateThatTakesAnInvalidGate,
+                 validThirdOrderGateDecl)
   where
 
 import Control.Monad(join)
@@ -727,6 +728,8 @@ unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateTha
     invalidGateDecl :: MetaQasmProgramFormatter (SingleParamGateInfo RegCollAccessSpec)
     invalidGateDecl = gateThatTakesAnNElemRegColl (fconst "0")  (fconst "h(x)")
 
+appHGate :: MetaQasmProgramFormatter GateThatTakesARegColl
+appHGate = viewed paramInfo hadamardApp'
 
 -- Generates pairs of invalid programs that apply a unitary operation
 -- to an element of a classical register collection and the aforementioned
@@ -734,7 +737,7 @@ unscopedGateThatTakesAnEmptyRegColl = formatToString invalidGateDecl <$> gateTha
 gateThatAppliesUnitaryToClassicalRegCollElem :: Gen InvalidProgCausedByTerm
 gateThatAppliesUnitaryToClassicalRegCollElem = genInvalidProgram' invalidGateDecl genSelectedBit gateThatTakesARegColl'
   where
-    invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation') $ viewed paramInfo hadamardApp'
+    invalidGateDecl = singleParamGateDecl (viewed paramInfo classicalRegCollAnnotation')  appHGate
     genSelectedBit = view paramInfo >>> toRegAccessOnLine1
     classicalRegCollAnnotation' :: RegAccessFormatter
     classicalRegCollAnnotation' = viewed regCollName string `sepByColon` fconst "Bit" <> squared numOfRegsInColl
@@ -819,10 +822,9 @@ programWithGateAppToSubtypeOfExpectedRegColl = formatToString gateApp <$> gateTh
     gateApp =
       mapf incRegCount  (viewed paramInfo quantumRegCollDecl)
       `sepBySemicolon`
-      oneLineSingleParamGateDeclAndApp gateArg gateBody gateAppTo
+      oneLineSingleParamGateDeclAndApp gateArg appHGate gateAppTo
 
     gateArg = viewed paramInfo qubitRegCollAnnotation'
-    gateBody = viewed paramInfo hadamardApp'
     gateAppTo = viewed paramName string
 
 -- Generates a valid program that applies a sequence of gates
@@ -835,7 +837,7 @@ programThatSequencesGates = formatToString gateSequenceApp <$> gateThatTakesAReg
       `sepBySemicolon`
       oneLineSingleParamGateDeclAndApp param gateBody (viewed (paramInfo . regCollName) string)
 
-    gateBody = viewed paramInfo hadamardApp' `sepBySemicolon` viewed paramInfo tDaggerGateApp
+    gateBody = appHGate `sepBySemicolon` viewed paramInfo tDaggerGateApp
     param = viewed paramInfo qubitRegCollAnnotation'
 
 
@@ -1035,7 +1037,7 @@ negLengthRegCollAnnotation = qubitRegCollAnnotation oneMinusTwiceNumOfRegsInColl
 gateThatTakesNegLengthColl :: Gen MetaQasmProgram
 gateThatTakesNegLengthColl = formatToString invalidGateDecl <$> gateThatTakesARegColl
   where
-    invalidGateDecl = singleParamGateDecl (viewed paramInfo negLengthRegCollAnnotation) (viewed paramInfo hadamardApp')
+    invalidGateDecl = singleParamGateDecl (viewed paramInfo negLengthRegCollAnnotation) appHGate
 
 -- Represents pairs of programs that are invalid due to an
 -- invalid type annotation and said annotation
@@ -1050,7 +1052,7 @@ gateThatTakesAnInvalidGate = genInvalidProgram'  invalidGateDecl genInvalidTyp g
     invalidGateDecl :: MetaQasmProgramFormatter GateThatTakesARegColl
     invalidGateDecl =
       viewed paramInfo quantumRegCollDecl
-      `sepBySemicolon` singleParamGateDecl circuitThatTakesNegLengthColl (viewed paramInfo hadamardApp')
+      `sepBySemicolon` singleParamGateDecl circuitThatTakesNegLengthColl appHGate
     circuitThatTakesNegLengthColl = circuitAnnotation (viewed paramName string) (viewed paramInfo negLengthRegColl')
 
     genInvalidTyp :: GateThatTakesARegColl -> TermType
@@ -1060,3 +1062,14 @@ gateThatTakesAnInvalidGate = genInvalidProgram'  invalidGateDecl genInvalidTyp g
     negLengthRegColl' = alteredWith extractTypeAnnotation negLengthRegCollAnnotation
     extractTypeAnnotation :: Tl.Text -> Tl.Text
     extractTypeAnnotation = Tl.dropWhile (/= ':') >>> Tl.drop 2
+
+-- Generates a program consisting of a third order
+-- gate declaration that ignores the argument passed to it
+validThirdOrderGateDecl :: Gen MetaQasmProgram
+validThirdOrderGateDecl = formatToString gateDecl' <$> gateThatTakesARegColl
+  where
+  gateDecl' =
+    viewed paramInfo quantumRegCollDecl
+    `sepBySemicolon`
+    singleParamGateDecl secondOrdGate appHGate
+  secondOrdGate = circuitAnnotation (viewed paramName string) $ fconst "Circuit(Bit)"

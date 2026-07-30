@@ -245,7 +245,6 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
     verifyCircuitArg x@(Circuit argTypes) = traverse verifyCircuitArg argTypes $>  x
     verifyCircuitArg Qbit = Right Qbit
     verifyCircuitArg Bit = Right Bit
-    --verifyCircuitArg x = matching (_Bit `failing` _Qbit) x
 
 isNegIdx :: Idx -> Bool
 isNegIdx = extractVal >>> (< Const 0)

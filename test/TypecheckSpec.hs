@@ -76,7 +76,8 @@ import Generators(outOfScopeVar,
                  gateThatTakesNegLengthColl,
                  gateThatTakesAnInvalidGate,
                  validThirdOrderGateDecl,
-                 regAccessedByValidProdOfIndices)
+                 regAccessedByValidProdOfIndices,
+                 validGateDeclThatDoesNotDependOnIndexVars)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -483,3 +484,7 @@ spec =  do
   describe "Accessing the ith element of a register collection of size N where N > i using a product of indices"  $ do
     prop "Is valid" $ do
       forAll regAccessedByValidProdOfIndices prop_isValidProgram
+
+  describe "Declaring a circuit family where the gate declaration does not depend on the index variables and is valid"  $ do
+    prop "Is valid" $ do
+      forAll validGateDeclThatDoesNotDependOnIndexVars prop_isValidProgram

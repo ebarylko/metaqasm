@@ -58,7 +58,8 @@ module Generators(outOfScopeVar,
                  gateThatTakesNegLengthColl,
                  gateThatTakesAnInvalidGate,
                  validThirdOrderGateDecl,
-                 regAccessedByValidProdOfIndices)
+                 regAccessedByValidProdOfIndices,
+                 validGateDeclThatDoesNotDependOnIndexVars)
   where
 
 import Control.Monad(join)
@@ -1087,3 +1088,12 @@ regAccessedByValidProdOfIndices = formatToString regAccess <$> validRegCollAcces
     reg = regCollAccess $ zero `times` zero
     zero = fconst "0"
     times = appBinOp (fconst "*")
+
+
+-- Generates a valid circuit family where the gate declaration
+-- does not use any of the index variables
+validGateDeclThatDoesNotDependOnIndexVars :: Gen MetaQasmProgram
+
+validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> gateDecl'
+  where
+    gateDecl' = drop 5 <$> unscopedTwoQubitGateDecl

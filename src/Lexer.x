@@ -35,6 +35,7 @@ tokens :-
   "+"                                                   {lexPlus}
   "-"                                                   {lexMinus}
   "*"                                                   {lexProd}
+  family                                                      {ignoreInputAndReturn Family}
   \:                                                       {ignoreInputAndReturn Colon}
   \;                                                       {ignoreInputAndReturn Semicolon}
   \,                                                       {ignoreInputAndReturn Comma}
@@ -59,6 +60,7 @@ data Token = LBracket LineNumber
   | Nat Int LineNumber
   | Qreg
   | Creg
+  | Family
   | In
   | If
   | Plus LineNumber

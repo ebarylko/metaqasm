@@ -12,6 +12,7 @@ import Syntax(Expression(..),
            GateApp(..),
            Index(..),
            Idx,
+           IndexVar(..),
            RegisterType(..),
            Command(..),
            GateArg(..),
@@ -46,6 +47,8 @@ toGateWithinCommand line gateName'= Gate . GateApp (WithContext gateName' line)
 
 gateApp :: Identifier -> [Expression] -> GateApp
 gateApp gateId gateArgs = GateApp (gate gateId) gateArgs
+  where
+    gate = onLine1
 
 
 gateOnLine1 = toGateWithinCommand (LineNumber 1)
@@ -134,7 +137,6 @@ regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateA
 quantumRegColl  = regCollAnnotation Quantum
 classicalRegColl = regCollAnnotation Classical
 
-gate = onLine1
 
 spec :: Spec
 
@@ -223,3 +225,8 @@ spec = do
       describe "Taking the product of two indices" $ do
         it "Yields a term representing the product" $ do
           "x[2 * 3 - 1]" `shouldParseToExpr` indexProdRegAccess "x" 5 1
+
+
+    describe "Parsing circuit family declarations" $ do
+      it "Generates a term representing a parameterized circuit" $ do
+        "family (n, y) f(coll : Qbit[1]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n", IndexVar "y"] (GateInfo "f" [quantumRegColl "coll" 1] (gateApp "h" [var "x"]))

@@ -6,6 +6,7 @@ module Syntax(Expression(..),
           GateInfo(..),
           Id,
           GateApp(..),
+          IndexVar(..),
           TermType(..),
           RegCollInfo(..),
           RegisterType(..),
@@ -110,6 +111,8 @@ data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifi
 -- and the body of the gate
 data GateInfo = GateInfo{gateName :: Identifier, args :: [GateArg], gateBody :: GateApp} deriving (Show, Eq)
 
+newtype IndexVar = IndexVar String deriving (Eq, Show)
+
 -- This data type represents all possible commands a user can execute.
 data Command = Gate GateApp -- Apply a gate to one or more qubits
   | ScopedGateDecl {info :: GateInfo, innerExpr :: Command} -- Declare a gate and use it in a later expression
@@ -119,5 +122,6 @@ data Command = Gate GateApp -- Apply a gate to one or more qubits
   | QubitMeasurement{toMeasure :: Expression, toStoreIn :: Expression} -- Measure a qubit and store the measurement in a bit
   | QubitReset{toReset :: Expression}
   | GateDecl GateInfo
-  | ConditionalGateExec{bitToTest :: Expression, toBeExecuted :: GateApp}
+  | ConditionalGateExec{bitToTest :: Expression, toBeExecuted :: GateApp} -- Execute a gate if the given bit has a specific value
+  | GateFamilyDecl{indexVars :: [IndexVar], gate :: GateInfo}
    deriving (Show, Eq)

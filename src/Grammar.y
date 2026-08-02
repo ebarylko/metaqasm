@@ -7,6 +7,7 @@ import Syntax(Expression(..),
               Identifier,
               Index(..),
               Idx,
+              IndexVar(..),
               Id,
               GateInfo(..),
               RegisterType(..),
@@ -39,6 +40,7 @@ Circuit {Circ}
 ','     {Comma}
 ':'     {Colon}
 ';'     {Semicolon}
+family     {Family}
 '+'     {Plus lineNum}
 '-'     {Minus lineNum}
 '*'     {Times lineNum}
@@ -68,12 +70,17 @@ command : qreg id '[' idx ']' in '{' command '}' {ScopedRegCollDecl (genQuantumR
 | qreg id '[' idx ']' {RegCollDecl (genQuantumRegCollInfo  $2 $4)}
 | creg id '[' idx ']' {RegCollDecl (genClassicalRegCollInfo  $2 $4)}
 | gateApp {Gate $1}
-| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (GateInfo (extractName $2) $4 $7) $11}
+| gate id '(' gateArgs ')' '{' gateApp '}' in '{' command '}' {ScopedGateDecl (genGateInfo $2 $4 $7) $11}
 | measure arg "->" arg {QubitMeasurement $2 $4}
 | command ';' command {Sequence $1 $3}
 | reset arg {QubitReset $2}
-| gate id '(' gateArgs ')' '{' gateApp '}' {GateDecl (GateInfo (extractName $2) $4 $7)}
+| gate id '(' gateArgs ')' '{' gateApp '}' {GateDecl (genGateInfo $2 $4 $7)}
 | if '(' arg  "==" idx ')' '{' gateApp '}' {ConditionalGateExec $3 $8}
+| family '(' indexVariables ')' id '(' gateArgs ')' '{' gateApp '}' {GateFamilyDecl $3 (genGateInfo  $5 $7 $10)}
+
+indexVariables: indexVariable {[$1]} | indexVariable ',' indexVariables {$1 : $3}
+
+indexVariable : id {(IndexVar . extractName) $1}
 
 compoundType :
 simpleAnnotation '[' idx ']' {RegisterGroup ((toRegCollType  . toTermType) $1) $ $3}
@@ -104,8 +111,17 @@ arg : id             {(Var . toVar) $1 }
 
 {
 
--- | idx '+' idx {(toIdxSum (extractLineNum $2) `on` extractVal) $1  $3}
+-- Takes a token representing the name of a gate,
+-- the parameters to the gate, the gate body,
+-- and constructs a term representing all of this
+-- information about the gate
+genGateInfo :: Token -> [GateArg] -> GateApp -> GateInfo
+genGateInfo gateName  = GateInfo (extractName gateName)
 
+-- Takes the type of collection being parsed, a token representing the
+-- name of the collection, the number of elements in the collection,
+-- and generates a term representing the information about the
+-- collection
 genRegCollInfo :: RegisterType -> Token -> Idx -> RegCollInfo
 genRegCollInfo collKind regCollName numOfRegs = RegCollInfo collKind (extractName regCollName) numOfRegs
 genQuantumRegCollInfo ::  Token -> Idx -> RegCollInfo

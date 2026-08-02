@@ -1094,5 +1094,6 @@ regAccessedByValidProdOfIndices = formatToString regAccess <$> validRegCollAcces
 -- does not use any of the index variables
 validGateDeclThatDoesNotDependOnIndexVars :: Gen MetaQasmProgram
 
-validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> drop 5 <$> unscopedTwoQubitGateDecl
-
+validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> gateDecl'
+  where
+    gateDecl' = drop 5 <$> unscopedTwoQubitGateDecl

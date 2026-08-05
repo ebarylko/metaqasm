@@ -40,15 +40,12 @@ newtype IndexVar = IndexVar String deriving (Eq, Show, Ord)
 -- This data type represents values used to access and declare
 -- register collections, being  a linear combination of
 -- constants and index variables
-data Index = Index{_constPortion :: Int, _idxVarsCoefficients :: M.Map IndexVar Int} deriving (Show)
+data Index = Index{_constPortion :: Int, _idxVarsCoefficients :: M.Map IndexVar Int} deriving (Show, Eq)
 L.makeLenses ''Index
 
 applyBinOpOnIndices :: (Int -> Int -> a) -> Index -> Index -> a
 applyBinOpOnIndices = (`on` L.view constPortion)
 
-
-instance Eq Index where
-  (==) = applyBinOpOnIndices (==)
 
 instance Ord Index where
   (<=) = applyBinOpOnIndices (<=)

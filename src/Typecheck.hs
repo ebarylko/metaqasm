@@ -232,7 +232,7 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQub
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType m Bit bitToTest *> verifyGateApp m toBeExecuted
 
-verifyCommand m GateFamilyDecl{gate} = verifyGateDecl gate m
+verifyCommand m GateFamilyDecl{indexVars, gate} = verifyGateDecl gate m
 
 zero :: Index
 zero = Index 0 M.empty

@@ -1098,3 +1098,13 @@ validGateDeclThatDoesNotDependOnIndexVars :: Gen MetaQasmProgram
 validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> gateDecl'
   where
     gateDecl' = drop 5 <$> unscopedTwoQubitGateDecl
+
+
+-- Generates a declaration for a circuit family that takes
+-- a register collection that may be empty
+circuitFamilyThatCanTakeEmptyRegColl :: Gen MetaQasmProgram
+circuitFamilyThatCanTakeEmptyRegColl = formatToString invalidCircuitFam <$> gateThatTakesARegColl
+  where
+    invalidCircuitFam = replaced "gate" "family(n)" $ singleParamGateDecl varyingSizeRegColl gateApp
+    varyingSizeRegColl = viewed paramInfo $ qubitRegCollAnnotation (fconst "n")
+    gateApp = viewed paramInfo hadamardApp'

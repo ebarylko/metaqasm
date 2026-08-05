@@ -19,6 +19,7 @@ import Syntax(Identifier,
               Id,
               Index(..),
               RegCollInfo(..),
+              toConstIdx,
               GateInfo(..),
               GateArg(..),
               Idx,
@@ -34,8 +35,6 @@ import Data.Functor(($>))
 import Data.List(findIndex)
 import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
-import Control.Lens.Prism(matching)
-import Control.Lens.Combinators(failing)
 import Data.Ix(inRange)
 
 -- This data type represents the context under which to evaluate
@@ -85,8 +84,9 @@ isAccessingValidReg :: Idx -> TermType -> Bool
 isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (isIdxWithinArrayBounds `on` extractVal) regIdx' numOfRegs
   where
     isIdxWithinArrayBounds :: Index -> Index -> Bool
-    isIdxWithinArrayBounds idx collBound = idx `inRange'` (Const 0, collBound - Const 1)
+    isIdxWithinArrayBounds idx collBound = idx `inRange'` (zero, collBound - one)
     inRange' = flip inRange
+    one = Index 1 M.empty
 
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
@@ -161,7 +161,7 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     numOfActualTypes = length actualArgTypes
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
-    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = Const numOfExpectedTypes, actualNumOfParams = Const numOfActualTypes} line
+    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = toConstIdx numOfExpectedTypes, actualNumOfParams = toConstIdx numOfActualTypes} line
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
@@ -232,8 +232,11 @@ verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType m 
 
 verifyCommand m GateFamilyDecl{gate} = verifyGateDecl gate m
 
+zero :: Index
+zero = Index 0 M.empty
+
 isPosIdx :: Idx -> Bool
-isPosIdx = extractVal >>> (>= Const 0)
+isPosIdx = extractVal >>> (>= zero)
 
 -- Takes the types of the parameters to a circuit and verifies
 -- that each type is valid. Returns an error otherwise
@@ -248,10 +251,10 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
     verifyCircuitArg x = Right x
 
 isNegIdx :: Idx -> Bool
-isNegIdx = extractVal >>> (< Const 0)
+isNegIdx = extractVal >>> (< zero)
 
 isZero :: Idx -> Bool
-isZero = extractVal >>> (== Const 0)
+isZero = extractVal >>> (== zero)
 
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the

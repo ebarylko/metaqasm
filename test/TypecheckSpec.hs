@@ -12,6 +12,7 @@ import Typecheck(TypeEvaluationError(..),
 
 import Syntax(Identifier,
               TermType(..),
+              toConstIdx,
               WithContext(..),
               Index(..))
 import Lexer(LineNumber(..))
@@ -170,7 +171,7 @@ genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
   errOnLine1 $ toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs
   where
     toUnexpectedNumOfArgsErr :: Int -> Int -> TypeEvaluationError
-    toUnexpectedNumOfArgsErr = ExpectedNParams `on` Const
+    toUnexpectedNumOfArgsErr = ExpectedNParams `on` toConstIdx
 
 -- Checks that a MetaQASM program that applies a two qubit gate
 -- to three qubits is invalid

@@ -8,6 +8,7 @@ import Syntax(Expression(..),
            WithContext(..),
            Identifier,
            RegCollInfo(..),
+           toConstIdx,
            GateInfo(..),
            GateApp(..),
            Index(..),
@@ -62,17 +63,14 @@ onLine1 = flip WithContext line1
 regAccess :: Identifier -> Int -> Expression
 regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (index idx)
 
-toConstIndex :: Int -> Index
-toConstIndex =  Const
-
 index :: Int -> Idx
-index = onLine1 . toConstIndex
+index = onLine1 . toConstIdx
 
 -- Takes an binary operation on indices, two numbers representing
 -- the indices, and applies the operations on the index equivalent
 -- form of the numbers
 binOpOnIndices :: (Index -> Index -> Index) -> Int -> Int -> Idx
-binOpOnIndices op arg = (op `on` toConstIndex) arg >>> onLine1
+binOpOnIndices op arg = (op `on` toConstIdx) arg >>> onLine1
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
@@ -83,7 +81,7 @@ indexSumRegAccess regCollName fstIdx = sumOfIndices fstIdx >>> RegisterAccess (o
     -- Takes two numbers and returns an index
     -- representing their summation
     sumOfIndices :: Int -> Int -> Idx
-    sumOfIndices  = binOpOnIndices Sum
+    sumOfIndices  = binOpOnIndices (+)
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
@@ -92,7 +90,7 @@ indexDiffRegAccess :: Identifier -> Int -> Int -> Expression
 indexDiffRegAccess regCollName fstIdx = diffOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
   where
     diffOfIndices :: Int -> Int -> Idx
-    diffOfIndices = binOpOnIndices Diff
+    diffOfIndices = binOpOnIndices (-)
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
@@ -101,7 +99,7 @@ indexProdRegAccess ::  Identifier -> Int -> Int -> Expression
 indexProdRegAccess regCollName fstIdx = prodOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
   where
     prodOfIndices :: Int -> Int -> Idx
-    prodOfIndices = binOpOnIndices Prod
+    prodOfIndices = binOpOnIndices (*)
 
 
 -- Takes the name of a variable and

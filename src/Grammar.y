@@ -8,6 +8,7 @@ import Syntax(Expression(..),
               Index(..),
               Idx,
               IndexVar(..),
+              toConstIdx,
               Id,
               GateInfo(..),
               RegisterType(..),
@@ -153,7 +154,7 @@ toIdx :: Token -> Idx
 toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
   where
     toIndex :: Token -> Index
-    toIndex (Nat num _) = Const  num
+    toIndex (Nat num _) = toConstIdx  num
 
 extractLineNum :: Token -> LineNumber
 extractLineNum (Plus line) = line
@@ -174,13 +175,13 @@ toBinIdxOp  op opTok fstArg sndArg = (toBinIdxOp' op (extractLineNum opTok) `on`
     toBinIdxOp' op line fstIdx = flip WithContext line . op fstIdx
 
 toIdxSum :: Token -> Idx -> Idx -> Idx
-toIdxSum = toBinIdxOp Sum
+toIdxSum = toBinIdxOp (+)
 
 toIdxDiff :: Token -> Idx -> Idx -> Idx
-toIdxDiff = toBinIdxOp Diff
+toIdxDiff = toBinIdxOp (-)
 
 toIdxProd :: Token -> Idx -> Idx -> Idx
-toIdxProd = toBinIdxOp Prod
+toIdxProd = toBinIdxOp (*)
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

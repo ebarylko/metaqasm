@@ -59,7 +59,8 @@ module Generators(outOfScopeVar,
                  gateThatTakesAnInvalidGate,
                  validThirdOrderGateDecl,
                  regAccessedByValidProdOfIndices,
-                 validGateDeclThatDoesNotDependOnIndexVars)
+                 validGateDeclThatDoesNotDependOnIndexVars,
+                 circuitFamilyThatMayTakeEmptyRegColl)
   where
 
 import Control.Monad(join)
@@ -1102,8 +1103,8 @@ validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> gate
 
 -- Generates a declaration for a circuit family that takes
 -- a register collection that may be empty
-circuitFamilyThatCanTakeEmptyRegColl :: Gen MetaQasmProgram
-circuitFamilyThatCanTakeEmptyRegColl = formatToString invalidCircuitFam <$> gateThatTakesARegColl
+circuitFamilyThatMayTakeEmptyRegColl :: Gen MetaQasmProgram
+circuitFamilyThatMayTakeEmptyRegColl = formatToString invalidCircuitFam <$> gateThatTakesARegColl
   where
     invalidCircuitFam = replaced "gate" "family(n)" $ singleParamGateDecl varyingSizeRegColl gateApp
     varyingSizeRegColl = viewed paramInfo $ qubitRegCollAnnotation (fconst "n")

@@ -13,8 +13,7 @@ import Typecheck(TypeEvaluationError(..),
 import Syntax(Identifier,
               TermType(..),
               toConstIdx,
-              WithContext(..),
-              Index(..))
+              WithContext(..))
 import Lexer(LineNumber(..))
 import Grammar(parseText)
 import Test.QuickCheck(forAll)
@@ -78,7 +77,8 @@ import Generators(outOfScopeVar,
                  gateThatTakesAnInvalidGate,
                  validThirdOrderGateDecl,
                  regAccessedByValidProdOfIndices,
-                 validGateDeclThatDoesNotDependOnIndexVars)
+                 validGateDeclThatDoesNotDependOnIndexVars,
+                 circuitFamilyThatMayTakeEmptyRegColl)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -282,6 +282,17 @@ prop_cannotTakeInvalidCircuitAsArg (prog, invalidTypeAnnot) =
   calcTypeOf prog `shouldBe` invalidCircErr
   where
     invalidCircErr = InvalidCircuitAnnotation invalidTypeAnnot & errOnLine1
+
+-- Given a circuit family which takes a potentially
+-- empty register collection as an argument, checks that
+-- such a declaration is invalid and results in an error
+-- noting that a collection must be nonempty
+prop_cannotTakePotentiallyEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
+prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
+  calcTypeOf prog `shouldBe` emptyRegCollErr
+  where
+    emptyRegCollErr = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg >>> PotentiallyEmptyRegcoll >>> errOnLine1)
+    ignoreIndexVars = dropWhile (/= ')') >>> drop 1
 
 spec :: Spec
 spec =  do
@@ -489,3 +500,7 @@ spec =  do
   describe "Declaring a circuit family where the gate declaration does not depend on the index variables and is valid"  $ do
     prop "Is valid" $ do
       forAll validGateDeclThatDoesNotDependOnIndexVars prop_isValidProgram
+
+  describe "Declaring a circuit family where one of the arguments could be an empty collection"  $ do
+    prop "Is invalid" $ do
+      forAll circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg

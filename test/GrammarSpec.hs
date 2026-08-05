@@ -25,6 +25,7 @@ import Generators (MetaQasmProgram)
 import Typecheck(Term)
 import Control.Arrow((>>>))
 import Data.Function(on)
+import Data.Map as M
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -120,12 +121,19 @@ scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 
 -- Takes the kind of the register collection k, the name of the collection n,
 -- the number of elements in the collection N, and generates a type annotation noting that
--- n is a N sized register collection of kind k
+-- n is a constant N sized register collection of kind k
 regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
 regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateArg collName
 quantumRegColl  = regCollAnnotation Quantum
 classicalRegColl = regCollAnnotation Classical
 
+-- Takes the name of the register collection n, the family variable
+-- indicating the size of the collection, and generates a
+-- type annotation noting that n is a variable size quantum collection
+varyingSizeQuantRegColl :: Identifier -> Identifier -> GateArg
+varyingSizeQuantRegColl collName =  indexVar >>> RegisterGroup Quantum >>> GateArg collName
+  where
+    indexVar = IndexVar >>> flip M.singleton 1 >>> Index 0 >>> onLine1
 
 spec :: Spec
 
@@ -219,3 +227,4 @@ spec = do
     describe "Parsing circuit family declarations" $ do
       it "Generates a term representing a parameterized circuit" $ do
         "family (n, y) f(coll : Qbit[1]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n", IndexVar "y"] (GateInfo "f" [quantumRegColl "coll" 1] (gateApp "h" [var "x"]))
+        "family (n) f(coll : Qbit[n]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n"] (GateInfo "f" [varyingSizeQuantRegColl "coll" "n"] (gateApp "h" [var "x"]))

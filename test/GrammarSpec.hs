@@ -72,35 +72,26 @@ index = onLine1 . toConstIdx
 binOpOnIndices :: (Index -> Index -> Index) -> Int -> Int -> Idx
 binOpOnIndices op arg = (op `on` toConstIdx) arg >>> onLine1
 
+regCollAccessThatUsesBinOpOnIndices :: (Index -> Index -> Index) -> Identifier -> Int -> Int -> Expression
+regCollAccessThatUsesBinOpOnIndices op regCollName fstIdx  = binOpOnIndices op fstIdx >>> RegisterAccess (onLine1 regCollName)
+
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
 -- (x + y)th element of the collection
 indexSumRegAccess :: Identifier -> Int -> Int -> Expression
-indexSumRegAccess regCollName fstIdx = sumOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
-  where
-    -- Takes two numbers and returns an index
-    -- representing their summation
-    sumOfIndices :: Int -> Int -> Idx
-    sumOfIndices  = binOpOnIndices (+)
+indexSumRegAccess = regCollAccessThatUsesBinOpOnIndices (+)
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
 -- (x - y)th element of the collection
 indexDiffRegAccess :: Identifier -> Int -> Int -> Expression
-indexDiffRegAccess regCollName fstIdx = diffOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
-  where
-    diffOfIndices :: Int -> Int -> Idx
-    diffOfIndices = binOpOnIndices (-)
+indexDiffRegAccess = regCollAccessThatUsesBinOpOnIndices (-)
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
 -- (x * y)th element of the collection
 indexProdRegAccess ::  Identifier -> Int -> Int -> Expression
-indexProdRegAccess regCollName fstIdx = prodOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
-  where
-    prodOfIndices :: Int -> Int -> Idx
-    prodOfIndices = binOpOnIndices (*)
-
+indexProdRegAccess = regCollAccessThatUsesBinOpOnIndices (*)
 
 -- Takes the name of a variable and
 -- generates the corresponding MetaQASM term for

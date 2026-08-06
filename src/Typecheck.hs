@@ -234,6 +234,9 @@ verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType m 
 
 verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
 
+-- Takes a circuit family declaration, the context to evaluate it under, and
+-- returns an error if the gate may take an empty collection. Approves the
+-- declaration otherwise
 verifyParametricGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult
 verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args $>  Unit
   where

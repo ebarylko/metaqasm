@@ -232,7 +232,14 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQub
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType m Bit bitToTest *> verifyGateApp m toBeExecuted
 
-verifyCommand m GateFamilyDecl{indexVars, gate} = verifyGateDecl gate m
+verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
+
+verifyParametricGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult
+verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args $>  Unit
+  where
+    verifyParametricTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
+    verifyParametricTypeAnnotation (GateArg _ (RegisterGroup _ numOfRegs)) = error "Not implemented"
+    verifyParametricTypeAnnotation x = return x
 
 zero :: Index
 zero = Index 0 M.empty

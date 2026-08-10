@@ -303,13 +303,16 @@ isNegIdx = extractVal >>> (< zero)
 isZero :: Idx -> Bool
 isZero = extractVal >>> (== zero)
 
+fromTypeCal :: Either TypeErrAt a -> ExceptT TypeErrAt IO a
+fromTypeCal = return >>> ExceptT
+
 type TypeCalculationResult' = ExceptT TypeErrAt IO TermType
 
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
 verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyGateDecl GateInfo{..} m = return gateDeclCtx >>= (`verifyGateApp'`  gateBody)
+verifyGateDecl GateInfo{..} m = (fromTypeCal gateDeclCtx) >>= (`verifyGateApp'`  gateBody)
   where
     gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
@@ -354,13 +357,16 @@ verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculation
 
 verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)
 
+toTypeCalculationResult :: TypeCalculationResult -> TypeCalculationResult'
+toTypeCalculationResult = return >>> ExceptT
+
 -- Takes a function determining the type of an expression that depends on a register collection,
 -- information about the collection, and returns the type of the expression if the collection
 -- and expression is valid. Returns an error otherwise
 applyFIfRegCollDeclIsValid :: (RegCollInfo ->  TypeCalculationResult')  -> RegCollInfo -> TypeCalculationResult'
 applyFIfRegCollDeclIsValid f info
-  | isEmptyRegColl info = return  $ genEmptyRegCollDeclErr info
-  | isNegLengthColl info = return $ genNegLengthRegCollDeclErr info
+  | isEmptyRegColl info = toTypeCalculationResult  $ genEmptyRegCollDeclErr info
+  | isNegLengthColl info = toTypeCalculationResult $ genNegLengthRegCollDeclErr info
   | otherwise = f info
   where
     isNegLengthColl :: RegCollInfo -> Bool

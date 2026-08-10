@@ -38,7 +38,7 @@ import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
 import Data.Ix(inRange)
 import qualified Grisette as G
-import Control.Monad.Except(ExceptT)
+import Control.Monad.Except(ExceptT(..))
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -203,7 +203,7 @@ verifyGateApp' m  = verifyGateApp m >>> return
 
 type Term = Vary '[Expression, GateApp, Command]
 
-verifyCommand :: EvaluationContext -> Command -> IO TypeCalculationResult
+verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult'
 
 -- Verifies that applying a gate produces a valid type.
 verifyCommand m (Gate x@(GateApp{})) = verifyGateApp' m x
@@ -220,7 +220,7 @@ verifyCommand m ScopedRegCollDecl{..} = evalIfRegCollDeclIsValid m coll innerExp
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
-  (verifyMeasuredQubit *> verifyStoredBit) & fmap ($> Unit)
+  (verifyMeasuredQubit *> verifyStoredBit) $> Unit
   where
     verifyMeasuredQubit = verifyExprType' m Qbit toMeasure
     verifyStoredBit = verifyExprType' m Bit toStoreIn
@@ -229,29 +229,33 @@ verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m
 
 verifyCommand _ (RegCollDecl info)  = doNothingIfRegCollDeclIsValid info
   where
-    doNothingIfRegCollDeclIsValid :: RegCollInfo -> IO TypeCalculationResult
+    doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult'
     doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid  (const (Right Unit) >>> return)
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
-verifyCommand m (QubitReset potentialQubit) = verifyExprType' m Qbit potentialQubit & fmap ($> Unit)
+verifyCommand m (QubitReset potentialQubit) = verifyExprType' m Qbit potentialQubit $> Unit
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType' m Bit bitToTest *> verifyGateApp' m toBeExecuted
 
 verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
 
-verifyExprType' :: EvaluationContext -> TermType -> Expression -> IO TypeCalculationResult
+verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
 verifyExprType' m expectedType = verifyExprType m expectedType >>> return
 
 -- Takes the number of elements in a parametric collection
 -- declaration and  validates it if the collection is always
 -- nonempty. Returns an error otherwise
-proveCollIsNonEmpty :: Identifier -> Idx -> IO (Either TypeErrAt ())
-proveCollIsNonEmpty collId (WithContext (Index _constPortion, _idxVarsCoefficients) line) = collSizeProof & either (const $ Right ()) (const invalidLengthRegCollErr)
+proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
+proveCollIsNonEmpty collId (WithContext (Index _constPortion, _idxVarsCoefficients) line) = interpretProof collSizeProof
   where
     invalidLengthRegCollErr :: Either TypeErrAt ()
     invalidLengthRegCollErr = Left $ WithContext (PotentiallyEmptyRegcoll collId) line
+    collSizeProof :: IO (Either G.SolvingFailure G.Model)
     collSizeProof = G.solve G.z3 $ G.symNot $ givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
+
+    interpretProof :: IO a -> ExceptT TypeErrAt IO ()
+    interpretProof = return . fmap $ either (const $ Right ()) $ const invalidLengthRegCollErr
     givenIdxVarsAreNonNeg :: G.SymBool
     givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & foldr genAndCombineConstraints G.true
     genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
@@ -265,15 +269,15 @@ proveCollIsNonEmpty collId (WithContext (Index _constPortion, _idxVarsCoefficien
 -- Takes a circuit family declaration, the context to evaluate it under, and
 -- returns an error if the gate may take an empty collection. Approves the
 -- declaration otherwise
-verifyParametricGateDecl :: GateInfo -> EvaluationContext -> IO TypeCalculationResult
+verifyParametricGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
 verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args & fmap ($>  Unit)
   where
-    verifyParametricTypeAnnotation :: GateArg -> IO (Either TypeErrAt GateArg)
-    verifyParametricTypeAnnotation arg@(GateArg collId info@(RegisterGroup{})) = verifyParametricCollDecl info collId & fmap ($> arg)
+    verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
+    verifyParametricTypeAnnotation arg@(GateArg collId info@(RegisterGroup{})) = verifyParametricCollDecl info collId $> arg
     verifyParametricTypeAnnotation x = return (Right x)
 
-    verifyParametricCollDecl :: TermType -> Identifier -> Either TypeErrAt TermType
-    verifyParametricCollDecl typ@(RegisterGroup _ numOfRegs) collId = proveCollIsNonEmpty collId numOfRegs & fmap ($> typ)
+    verifyParametricCollDecl :: TermType -> Identifier -> TypeCalculationResult'
+    verifyParametricCollDecl typ@(RegisterGroup _ numOfRegs) collId = proveCollIsNonEmpty collId numOfRegs $> typ
 
 zero :: Index
 zero = Index 0 M.empty
@@ -353,7 +357,7 @@ verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred 
 -- Takes a function determining the type of an expression that depends on a register collection,
 -- information about the collection, and returns the type of the expression if the collection
 -- and expression is valid. Returns an error otherwise
-applyFIfRegCollDeclIsValid :: (RegCollInfo ->  IO TypeCalculationResult)  -> RegCollInfo -> IO TypeCalculationResult
+applyFIfRegCollDeclIsValid :: (RegCollInfo ->  TypeCalculationResult')  -> RegCollInfo -> TypeCalculationResult'
 applyFIfRegCollDeclIsValid f info
   | isEmptyRegColl info = return  $ genEmptyRegCollDeclErr info
   | isNegLengthColl info = return $ genNegLengthRegCollDeclErr info
@@ -366,7 +370,7 @@ applyFIfRegCollDeclIsValid f info
 -- declaration, a command to evaluate, and evaluates the command under
 -- the context updated with the declaration if an empty collection is not
 -- being declared. Returns an error otherwise
-evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> IO TypeCalculationResult
+evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult'
 evalIfRegCollDeclIsValid ctx declInfo toEval =  applyFIfRegCollDeclIsValid evalTermThatDependsOnRegColl declInfo
   where
     evalTermThatDependsOnRegColl = flip addRegCollToCtx ctx >>> (`verifyCommand` toEval)
@@ -396,6 +400,9 @@ genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl
 
 
+verifyExpr' :: EvaluationContext -> Expression -> TypeCalculationResult'
+verifyExpr' m = verifyExpr m >>> return >>> ExceptT
+
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if
 -- possible. Returns an error otherwise explaining why the type
@@ -403,7 +410,7 @@ genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl
 determineType :: EvaluationContext -> Term -> TypeCalculationResult'
 
 determineType m term = term &
-  (Vary.on @Expression (verifyExpr m >>> return)
+  (Vary.on @Expression (verifyExpr' m)
   $ Vary.on @GateApp (verifyGateApp' m)
   $ Vary.on @Command (verifyCommand m)
    $ Vary.exhaustiveCase  )

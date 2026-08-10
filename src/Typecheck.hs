@@ -270,11 +270,11 @@ proveCollIsNonEmpty collId (WithContext (Index _constPortion, _idxVarsCoefficien
 -- returns an error if the gate may take an empty collection. Approves the
 -- declaration otherwise
 verifyParametricGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args & fmap ($>  Unit)
+verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args $>  Unit
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId info@(RegisterGroup{})) = verifyParametricCollDecl info collId $> arg
-    verifyParametricTypeAnnotation x = return (Right x)
+    verifyParametricTypeAnnotation x = fromTypeCal (Right x)
 
     verifyParametricCollDecl :: TermType -> Identifier -> TypeCalculationResult'
     verifyParametricCollDecl typ@(RegisterGroup _ numOfRegs) collId = proveCollIsNonEmpty collId numOfRegs $> typ
@@ -407,7 +407,7 @@ genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl
 
 
 verifyExpr' :: EvaluationContext -> Expression -> TypeCalculationResult'
-verifyExpr' m = verifyExpr m >>> return >>> ExceptT
+verifyExpr' m = verifyExpr m >>> fromTypeCal
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

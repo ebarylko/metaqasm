@@ -36,10 +36,7 @@ instance (Ord a, Ord b) => Ord (WithContext a b) where
 
 type Id = WithContext Identifier LineNumber
 
-
 newtype IndexVar = IndexVar String deriving (Eq, Show, Ord, Generic)
-
-
 
 -- This data type represents values used to access and declare
 -- register collections, being  a linear combination of

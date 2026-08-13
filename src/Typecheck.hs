@@ -7,6 +7,7 @@
 module Typecheck
     (determineType,
       TypeEvaluationError(..),
+      CounterExample(..),
       TypeErrAt,
       fromEither,
       Term)
@@ -48,13 +49,19 @@ import Data.Generics.Product (position)
 -- the type of a term
 type EvaluationContext = M.Map Identifier TermType
 
+-- This data type represents pairs of numbers which are supposed to
+-- satisfy certain conditions and an example of how that condition
+-- is not satisfied in a specific case
+data CounterExample = CounterExample{toBeRefuted :: Index, example :: M.Map IndexVar Int} deriving (Show, Eq)
+
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
 data TypeEvaluationError =
   VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
   | NegSizeRegCollDecl Identifier
-  | PotentiallyEmptyRegcoll Identifier 
+  | PotentiallyEmptyRegcoll Identifier
+  | InvalidParametricRegCollDecl Identifier CounterExample
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}

@@ -7,6 +7,7 @@ module TypecheckSpec(spec) where
 import Test.Hspec
 import Typecheck(TypeEvaluationError(..),
                 determineType,
+                CounterExample(..),
                 fromEither,
                 TypeErrAt,
                 Term)
@@ -14,6 +15,8 @@ import Typecheck(TypeEvaluationError(..),
 import Syntax(Identifier,
               TermType(..),
               toConstIdx,
+              IndexVar(..),
+              Index(..),
               WithContext(..))
 import Lexer(LineNumber(..))
 import Grammar(parseText)
@@ -296,12 +299,14 @@ prop_cannotTakeInvalidCircuitAsArg (prog, invalidTypeAnnot) =
 -- Given a circuit family which takes a potentially
 -- empty register collection as an argument, checks that
 -- such a declaration is invalid and results in an error
--- noting that a collection must be nonempty
+-- noting that the collection must be nonempty
 prop_cannotTakePotentiallyEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
 prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
   calcTypeOf prog `shouldHaveType` emptyRegCollErr
   where
-    emptyRegCollErr = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg >>> PotentiallyEmptyRegcoll >>> errOnLine1)
+    emptyRegCollErr = InvalidParametricRegCollDecl regCollId counterExample & errOnLine1
+    counterExample = CounterExample (Index  0 (M.singleton (IndexVar "n" ) 1)) (M.singleton (IndexVar "n") 0)
+    regCollId = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg)
     ignoreIndexVars = dropWhile (/= ')') >>> drop 1
 
 spec :: Spec

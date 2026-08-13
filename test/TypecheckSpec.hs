@@ -23,7 +23,7 @@ import Data.Bifunctor (Bifunctor(first))
 import Control.Arrow((>>>))
 import Control.Monad.Except(ExceptT(..), withExceptT, runExceptT)
 import qualified Data.Map as M
-import Control.Monad ((>=>))
+import Control.Monad ((>=>), liftM2, join)
 import Formatting
 import Generators(outOfScopeVar,
                   outOfScopeExpr,
@@ -121,7 +121,7 @@ line1 = LineNumber 1
 -- -- the current evaluation scope always fails.
 prop_cannotAccessOutOfScopeVar :: Identifier -> IO ()
 prop_cannotAccessOutOfScopeVar var  =
-  calcTypeOf var `shouldBe` variableNotInScopeErr
+  calcTypeOf var `shouldHaveType` variableNotInScopeErr
   where
     expectedLineNum = line1
     variableNotInScopeErr = genNotInScopeErr var expectedLineNum
@@ -131,7 +131,7 @@ prop_cannotAccessOutOfScopeVar var  =
 prop_cannotApplyGateToOutOfScopeExpr :: MetaQasmProgram -> IO ()
 
 prop_cannotApplyGateToOutOfScopeExpr expr =
-  calcTypeOf hGateApp `shouldBe` variableNotInScopeErr
+  calcTypeOf hGateApp `shouldHaveType` variableNotInScopeErr
   where
     hGateApp = formatToString ("h" % parenthesised string ) expr
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) line1
@@ -147,7 +147,7 @@ getNameFromRegCollDecl = drop 5 >>> takeWhile (/= '[')
 -- the program results in an error about the size of the declared collection
 prop_cannotDeclareSizeNRegColl :: (Identifier -> TypeEvaluationError) -> MetaQasmProgram -> IO ()
 prop_cannotDeclareSizeNRegColl errFn prog =
-  calcTypeOf prog `shouldBe` nSizedRegCollDeclErr
+  calcTypeOf prog `shouldHaveType` nSizedRegCollDeclErr
   where
     nSizedRegCollDeclErr = prog & getNameFromRegCollDecl & errFn & errOnLine1
 
@@ -161,7 +161,7 @@ prop_cannotDeclareEmptyRegColl  = prop_cannotDeclareSizeNRegColl EmptyRegCollDec
 -- and checks that running the program produces the same kind of error
 prop_cannotAccessRegOutsideOfRegColl :: ProgramWithExpectedErr -> IO ()
 prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
-  calcTypeOf program `shouldBe` invalidRegAccessErr
+  calcTypeOf program `shouldHaveType` invalidRegAccessErr
   where
     invalidRegAccessErr = errOnLine1 expectedErr
 
@@ -180,7 +180,7 @@ genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
 prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
 
 prop_cannotApplyGateToTooManyQubits prog =
-  calcTypeOf prog `shouldBe` tooManyArgsErr
+  calcTypeOf prog `shouldHaveType` tooManyArgsErr
   where
     tooManyArgsErr = genExpectedNumOfArgsErr 2 3
 
@@ -189,21 +189,23 @@ prop_cannotApplyGateToTooManyQubits prog =
 prop_cannotApplyGateToTooFewQubits :: MetaQasmProgram -> IO ()
 
 prop_cannotApplyGateToTooFewQubits prog =
-  calcTypeOf prog `shouldBe` tooFewArgsErr
+  calcTypeOf prog `shouldHaveType` tooFewArgsErr
   where
     tooFewArgsErr = genExpectedNumOfArgsErr 2 1
 
 -- Takes the actual type of an expression, the expected type, and returns true if
 -- they match. Throws an error otherwise
-shouldHaveType :: ProgramTypeEvaluationResult -> Either MetaQasmError TermType -> IO ()
-shouldHaveType actualType expectedType = runExceptT actualType `shouldReturn` expectedType
+shouldHaveType :: ProgramTypeEvaluationResult -> ProgramTypeEvaluationResult -> IO ()
+shouldHaveType actualType = (liftM2 shouldBe  `on` runExceptT) actualType  >>> join
 
 
 -- Checks that running a given MetaQASM program does not produce
 -- any errors
 prop_isValidProgram :: MetaQasmProgram -> IO ()
 
-prop_isValidProgram prog = calcTypeOf prog `shouldHaveType` Right Unit
+prop_isValidProgram prog = calcTypeOf prog `shouldHaveType` expectedType
+  where
+    expectedType = fromEither $ Right Unit
 
 -- Takes a MetaQASM program that applies a register collection
 -- to a qubit as if it were a gate, the name of the collection,
@@ -212,7 +214,7 @@ prop_isValidProgram prog = calcTypeOf prog `shouldHaveType` Right Unit
 prop_cannotTreatRegCollAsGate :: InvalidRegCollApp -> IO ()
 
 prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
-  calcTypeOf invalidProg `shouldBe` typeMismatchErr
+  calcTypeOf invalidProg `shouldHaveType` typeMismatchErr
   where
     typeMismatchErr = errOnLine1 $ ExpectedAGate collType regColl
 
@@ -222,7 +224,7 @@ prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
 prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgCausedByTerm -> IO ()
 
 prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
-  calcTypeOf prog `shouldBe` typeMismatchErr
+  calcTypeOf prog `shouldHaveType` typeMismatchErr
   where
     typeMismatchErr = errOnLine1 $ TypeMismatch expectedType actualType erroneousTerm
 
@@ -247,7 +249,7 @@ extractNameOfFirstGateArg = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhil
 -- running the program results in an error about the length of the collection
 prop_cannotTakeInvalidLengthRegCollAsArg :: (Identifier -> TypeEvaluationError) -> MetaQasmProgram -> IO ()
 prop_cannotTakeInvalidLengthRegCollAsArg errFn prog =
-  calcTypeOf prog `shouldBe` invalidLengthRegCollErr
+  calcTypeOf prog `shouldHaveType` invalidLengthRegCollErr
   where
     invalidLengthRegCollErr = prog & extractNameOfFirstGateArg & errFn & errOnLine1
 
@@ -261,16 +263,16 @@ prop_cannotTakeEmptyRegCollAsArg = prop_cannotTakeInvalidLengthRegCollAsArg Empt
 prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgCausedByTerm -> IO ()
 
 prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
-  calcTypeOf prog `shouldBe` expectedRegCollErr
+  calcTypeOf prog `shouldHaveType` expectedRegCollErr
   where
     expectedRegCollErr = errOnLine1 (ExpectedARegColl gateType gateName)
     gateType = Circuit [Qbit]
 
 errOnLine1 :: TypeEvaluationError -> ProgramTypeEvaluationResult
-errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left
+errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left >>> fromEither
 
 prop_cannotHaveNegIdx :: ProgramWithExpectedErr -> IO ()
-prop_cannotHaveNegIdx (prog, negIdxErr) = calcTypeOf prog `shouldBe` errOnLine1 negIdxErr
+prop_cannotHaveNegIdx (prog, negIdxErr) = calcTypeOf prog `shouldHaveType` errOnLine1 negIdxErr
 
 -- Takes a program with a negative length register collection declaration
 -- and tests that such a declaration is invalid
@@ -287,7 +289,7 @@ prop_cannotTakeNegLengthCollAsGateArg = prop_cannotTakeInvalidLengthRegCollAsArg
 -- the annotation is invalid
 prop_cannotTakeInvalidCircuitAsArg :: InvalidProgBcOfTypeAnnotation -> IO ()
 prop_cannotTakeInvalidCircuitAsArg (prog, invalidTypeAnnot) =
-  calcTypeOf prog `shouldBe` invalidCircErr
+  calcTypeOf prog `shouldHaveType` invalidCircErr
   where
     invalidCircErr = InvalidCircuitAnnotation invalidTypeAnnot & errOnLine1
 
@@ -297,7 +299,7 @@ prop_cannotTakeInvalidCircuitAsArg (prog, invalidTypeAnnot) =
 -- noting that a collection must be nonempty
 prop_cannotTakePotentiallyEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
 prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
-  calcTypeOf prog `shouldBe` emptyRegCollErr
+  calcTypeOf prog `shouldHaveType` emptyRegCollErr
   where
     emptyRegCollErr = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg >>> PotentiallyEmptyRegcoll >>> errOnLine1)
     ignoreIndexVars = dropWhile (/= ')') >>> drop 1

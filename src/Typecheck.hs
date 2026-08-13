@@ -8,6 +8,7 @@ module Typecheck
     (determineType,
       TypeEvaluationError(..),
       TypeErrAt,
+      fromEither,
       Term)
 where
 
@@ -318,6 +319,9 @@ isNegIdx = extractVal >>> (< zero)
 
 isZero :: Idx -> Bool
 isZero = extractVal >>> (== zero)
+
+fromEither :: Monad m => Either err a -> ExceptT err m a
+fromEither = return >>> ExceptT
 
 fromTypeCal :: Either TypeErrAt a -> ExceptT TypeErrAt IO a
 fromTypeCal = return >>> ExceptT

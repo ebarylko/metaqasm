@@ -7,6 +7,7 @@ module TypecheckSpec(spec) where
 import Test.Hspec
 import Typecheck(TypeEvaluationError(..),
                 determineType,
+                fromEither,
                 TypeErrAt,
                 Term)
 
@@ -20,6 +21,7 @@ import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))
 import Control.Arrow((>>>))
+import Control.Monad.Except(ExceptT(..), withExceptT, runExceptT)
 import qualified Data.Map as M
 import Control.Monad ((>=>))
 import Formatting
@@ -86,7 +88,7 @@ import Data.Function(on, (&))
 -- when evaluating the types of the program
 data MetaQasmError = ParseError String | TypeErr TypeErrAt deriving (Eq, Show)
 
-type ProgramTypeEvaluationResult = Either MetaQasmError TermType
+type ProgramTypeEvaluationResult = ExceptT MetaQasmError IO TermType
 
 -- Takes metaQASM code and parses it before checking the
 -- type of the program. If it could be parsed and has a valid type,
@@ -98,8 +100,8 @@ calcTypeOf = parseCode >=> calcType
   where
     changeErrTo :: (a -> b) -> Either a c -> Either b c
     changeErrTo = first
-    parseCode =  parseText >>> changeErrTo ParseError
-    calcType = determineType initialCtx >>> changeErrTo TypeErr
+    parseCode =  parseText >>> changeErrTo ParseError >>> fromEither
+    calcType = determineType initialCtx >>> withExceptT TypeErr
     initialCtx = M.fromList [("h", Circuit [Qbit]),
                              ("t", Circuit [Qbit]),
                              ("tdg", Circuit [Qbit]),
@@ -110,7 +112,7 @@ calcTypeOf = parseCode >=> calcType
 -- and generates an error stating that the variable on the given line is out
 -- of scope
 genNotInScopeErr :: Identifier -> LineNumber -> ProgramTypeEvaluationResult
-genNotInScopeErr varName lineInfo = Left $ TypeErr $ WithContext (VariableNotInScope varName) lineInfo
+genNotInScopeErr varName lineInfo = fromEither $  Left $ TypeErr $ WithContext (VariableNotInScope varName) lineInfo
 
 line1 :: LineNumber
 line1 = LineNumber 1
@@ -191,11 +193,17 @@ prop_cannotApplyGateToTooFewQubits prog =
   where
     tooFewArgsErr = genExpectedNumOfArgsErr 2 1
 
+-- Takes the actual type of an expression, the expected type, and returns true if
+-- they match. Throws an error otherwise
+shouldHaveType :: ProgramTypeEvaluationResult -> Either MetaQasmError TermType -> IO ()
+shouldHaveType actualType expectedType = runExceptT actualType `shouldReturn` expectedType
+
+
 -- Checks that running a given MetaQASM program does not produce
 -- any errors
 prop_isValidProgram :: MetaQasmProgram -> IO ()
 
-prop_isValidProgram prog = calcTypeOf prog `shouldBe` Right Unit
+prop_isValidProgram prog = calcTypeOf prog `shouldHaveType` Right Unit
 
 -- Takes a MetaQASM program that applies a register collection
 -- to a qubit as if it were a gate, the name of the collection,

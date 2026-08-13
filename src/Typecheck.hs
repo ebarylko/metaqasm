@@ -19,6 +19,7 @@ import Syntax(Identifier,
               WithContext(..),
               Id,
               Index(..),
+              IndexVar(..),
               RegCollInfo(..),
               toConstIdx,
               GateInfo(..),
@@ -201,7 +202,7 @@ verifyGateApp m (GateSequence a b)
   = verifyGateApp m a *> verifyGateApp m b
 
 verifyGateApp' :: EvaluationContext -> GateApp -> TypeCalculationResult'
-verifyGateApp' m  = verifyGateApp m >>> return
+verifyGateApp' m  = verifyGateApp m >>> fromTypeCal
 
 type Term = Vary '[Expression, GateApp, Command]
 
@@ -232,7 +233,7 @@ verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m
 verifyCommand _ (RegCollDecl info)  = doNothingIfRegCollDeclIsValid info
   where
     doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult'
-    doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid  (const (Right Unit) >>> return)
+    doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid  (const (Right Unit) >>> fromTypeCal)
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
@@ -243,7 +244,7 @@ verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType' m
 verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
 
 verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
-verifyExprType' m expectedType = verifyExprType m expectedType >>> return
+verifyExprType' m expectedType = verifyExprType m expectedType >>> fromTypeCal
 
 -- Takes the number of elements in a parametric collection
 -- declaration and  validates it if the collection is always
@@ -256,20 +257,30 @@ proveCollIsNonEmpty collId (WithContext (Index _constPortion _idxVarsCoefficient
     collSizeProof :: IO (Either G.SolvingFailure G.Model)
     collSizeProof = G.solve G.z3 $ G.symNot $ givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
 
-    interpretProof :: IO a -> ExceptT TypeErrAt IO ()
-    interpretProof = return . fmap $ either (const $ Right ()) $ const invalidLengthRegCollErr
+    interpretProof :: IO (Either a b) -> ExceptT TypeErrAt IO ()
+    interpretProof = ExceptT . (fmap $ either (const $ Right ()) $ const invalidLengthRegCollErr)
     givenIdxVarsAreNonNeg :: G.SymBool
-    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & foldr genAndCombineConstraints G.true
+    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & foldr (genAndCombineConstraints . toSymVar) G.true
     genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
     genAndCombineConstraints = (G..>= 0) >>> (G..&&)
 
     numOfRegsIsPos :: G.SymBool
-    numOfRegsIsPos = G.con _constPortion + linearCombOfIdxVars G..> 0
+    numOfRegsIsPos = toSymInt _constPortion + linearCombOfIdxVars G..> 0
     linearCombOfIdxVars :: G.SymInteger
     linearCombOfIdxVars = M.toList _idxVarsCoefficients
-      & (L.each . L._1) L.%~ ((L.^. position @1) >>>  fromString >>> G.ssym)
-      & (L.each . L._2) L.%~ (toInteger >>> G.con)
+      & (L.each . L._1) L.%~ toSymVar
+      & (L.each . L._2) L.%~ toSymInt
       & foldr (uncurry (*) >>> (+)) 0
+
+-- Takes a number and returns the symbolic representation
+-- of that number
+toSymInt :: Int -> G.SymInteger
+toSymInt = toInteger >>> G.con
+
+-- Takes an index variable and converts it into a
+-- symbolic variable
+toSymVar :: IndexVar -> G.SymInteger
+toSymVar = (L.^. position @1) >>>  fromString >>> G.ssym
 
 -- Takes a circuit family declaration, the context to evaluate it under, and
 -- returns an error if the gate may take an empty collection. Approves the

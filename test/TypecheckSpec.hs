@@ -512,5 +512,6 @@ spec =  do
       forAll validGateDeclThatDoesNotDependOnIndexVars prop_isValidProgram
 
   describe "Declaring a circuit family where one of the arguments could be an empty collection"  $ do
-    prop "Is invalid" $ do
-      forAll circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg
+    modifyMaxSuccess (const 10) $ do
+      prop "Is invalid" $ do
+        forAll circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg

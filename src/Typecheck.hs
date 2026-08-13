@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE TypeApplications #-}
 
 module Typecheck
     (determineType,
@@ -38,7 +38,9 @@ import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
 import Data.Ix(inRange)
 import qualified Grisette as G
+import Data.String(fromString)
 import Control.Monad.Except(ExceptT(..))
+import Data.Generics.Product (position)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -247,7 +249,7 @@ verifyExprType' m expectedType = verifyExprType m expectedType >>> return
 -- declaration and  validates it if the collection is always
 -- nonempty. Returns an error otherwise
 proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
-proveCollIsNonEmpty collId (WithContext (Index _constPortion, _idxVarsCoefficients) line) = interpretProof collSizeProof
+proveCollIsNonEmpty collId (WithContext (Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
   where
     invalidLengthRegCollErr :: Either TypeErrAt ()
     invalidLengthRegCollErr = Left $ WithContext (PotentiallyEmptyRegcoll collId) line
@@ -262,9 +264,12 @@ proveCollIsNonEmpty collId (WithContext (Index _constPortion, _idxVarsCoefficien
     genAndCombineConstraints = (G..>= 0) >>> (G..&&)
 
     numOfRegsIsPos :: G.SymBool
-    numOfRegsIsPos = _constPortion + linearCombOfIdxVars G..> 0
+    numOfRegsIsPos = G.con _constPortion + linearCombOfIdxVars G..> 0
     linearCombOfIdxVars :: G.SymInteger
-    linearCombOfIdxVars = M.toList _idxVarsCoefficients & foldr (uncurry (*) >>> (+)) 0
+    linearCombOfIdxVars = M.toList _idxVarsCoefficients
+      & (L.each . L._1) L.%~ ((L.^. position @1) >>>  fromString >>> G.ssym)
+      & (L.each . L._2) L.%~ (toInteger >>> G.con)
+      & foldr (uncurry (*) >>> (+)) 0
 
 -- Takes a circuit family declaration, the context to evaluate it under, and
 -- returns an error if the gate may take an empty collection. Approves the

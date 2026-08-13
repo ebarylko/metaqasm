@@ -1,4 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 module Syntax(Expression(..),
           WithContext(..),
           Identifier,
@@ -22,7 +24,7 @@ import Control.Monad(join)
 import Data.Ix(Ix, range, inRange)
 import qualified Data.Map as M
 import qualified Control.Lens as L
-
+import GHC.Generics (Generic)
 type Identifier = String
 
 -- This data type represents a value along with its associated
@@ -35,7 +37,9 @@ instance (Ord a, Ord b) => Ord (WithContext a b) where
 type Id = WithContext Identifier LineNumber
 
 
-newtype IndexVar = IndexVar String deriving (Eq, Show, Ord)
+newtype IndexVar = IndexVar String deriving (Eq, Show, Ord, Generic)
+
+
 
 -- This data type represents values used to access and declare
 -- register collections, being  a linear combination of

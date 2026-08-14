@@ -271,15 +271,14 @@ genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx coun
 proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
 proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
   where
-    invalidLengthRegCollErr :: Either TypeErrAt ()
-    invalidLengthRegCollErr = Left $ WithContext (PotentiallyEmptyRegcoll collId) line
-    genInvalidLengthRegCollErr'  :: G.Model -> Either TypeErrAt ()
-    genInvalidLengthRegCollErr' m = Left $ flip WithContext line $ InvalidParametricRegCollDecl collId $  genCounterExample idx m
+    genInvalidLengthRegCollErr  :: G.Model -> Either TypeErrAt ()
+    genInvalidLengthRegCollErr  = genCounterExample idx  >>> InvalidParametricRegCollDecl collId  >>> flip WithContext line  >>> Left
     collSizeProof :: IO (Either G.SolvingFailure G.Model)
     collSizeProof = G.solve G.z3 $ G.symNot $ givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
 
     interpretProof :: IO (Either a G.Model) -> ExceptT TypeErrAt IO ()
-    interpretProof = ExceptT . (fmap $ either (const $ Right ())  genInvalidLengthRegCollErr')
+    interpretProof = fmap convertProofToTyp >>> ExceptT
+    convertProofToTyp = either (const $ Right ())  genInvalidLengthRegCollErr
     givenIdxVarsAreNonNeg :: G.SymBool
     givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & foldr (genAndCombineConstraints . toSymVar) G.true
     genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool

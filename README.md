@@ -75,7 +75,7 @@ Look at the `test/Generators.hs` and `src/Typecheck.hs` files.
 Used for expressing that a term in MetaQASM is either an expression, gate, or command.
 Look at the `Grammer.y` file to see how it is used
 
-### grisette
+### [grisette](https://hackage.haskell.org/package/grisette)
 
 Used for proving the validity of a parametric gate declaration.
 Is only used in the `src/Typecheck.hs` file.

@@ -14,7 +14,7 @@ module Typecheck
 where
 
 import qualified Data.Map as M
-import Control.Arrow ((>>>))
+import Control.Arrow ((>>>), (&&&))
 import Syntax(Identifier,
               Expression(..),
               TermType(..),
@@ -254,19 +254,32 @@ verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
 verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
 verifyExprType' m expectedType = verifyExprType m expectedType >>> fromTypeCal
 
+-- Takes a number which is supposed to satisfy a property, an example of
+-- how the number may not always satisfy the property, and yields a
+-- counterexample about the validity of the number
+genCounterExample :: Index ->  G.Model -> CounterExample
+genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx counterExample
+  where
+    counterExample :: M.Map IndexVar Int
+    counterExample = map (id &&& getVarVal)  (M.keys _idxVarsCoefficients) & M.fromList
+    getVarVal :: IndexVar -> Int
+    getVarVal = toSymVar >>> G.evalSymToCon m >>> fromInteger
+
 -- Takes the number of elements in a parametric collection
 -- declaration and  validates it if the collection is always
 -- nonempty. Returns an error otherwise
 proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
-proveCollIsNonEmpty collId (WithContext (Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
+proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
   where
     invalidLengthRegCollErr :: Either TypeErrAt ()
     invalidLengthRegCollErr = Left $ WithContext (PotentiallyEmptyRegcoll collId) line
+    genInvalidLengthRegCollErr'  :: G.Model -> Either TypeErrAt ()
+    genInvalidLengthRegCollErr' m = Left $ flip WithContext line $ InvalidParametricRegCollDecl collId $  genCounterExample idx m
     collSizeProof :: IO (Either G.SolvingFailure G.Model)
     collSizeProof = G.solve G.z3 $ G.symNot $ givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
 
-    interpretProof :: IO (Either a b) -> ExceptT TypeErrAt IO ()
-    interpretProof = ExceptT . (fmap $ either (const $ Right ()) $ const invalidLengthRegCollErr)
+    interpretProof :: IO (Either a G.Model) -> ExceptT TypeErrAt IO ()
+    interpretProof = ExceptT . (fmap $ either (const $ Right ())  genInvalidLengthRegCollErr')
     givenIdxVarsAreNonNeg :: G.SymBool
     givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & foldr (genAndCombineConstraints . toSymVar) G.true
     genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool

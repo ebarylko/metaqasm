@@ -309,11 +309,9 @@ verifyParametricGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResu
 verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args $>  Unit
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
-    verifyParametricTypeAnnotation arg@(GateArg collId info@(RegisterGroup{})) = verifyParametricCollDecl info collId $> arg
+    verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg
     verifyParametricTypeAnnotation x = fromTypeCal (Right x)
 
-    verifyParametricCollDecl :: TermType -> Identifier -> TypeCalculationResult'
-    verifyParametricCollDecl typ@(RegisterGroup _ numOfRegs) collId = proveCollIsNonEmpty collId numOfRegs $> typ
 
 zero :: Index
 zero = Index 0 M.empty

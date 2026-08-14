@@ -19,7 +19,7 @@ module Syntax(Expression(..),
 
 import Lexer(LineNumber)
 import Data.Function(on)
-import Control.Arrow((&&&), (***))
+import Control.Arrow((***))
 import Control.Monad(join)
 import Data.Ix(Ix, range, inRange)
 import qualified Data.Map as M

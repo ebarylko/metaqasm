@@ -1106,6 +1106,5 @@ validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> gate
 circuitFamilyThatMayTakeEmptyRegColl :: Gen MetaQasmProgram
 circuitFamilyThatMayTakeEmptyRegColl = formatToString invalidCircuitFam <$> gateThatTakesARegColl
   where
-    invalidCircuitFam = replaced "gate" "family(n)" $ singleParamGateDecl varyingSizeRegColl gateApp
+    invalidCircuitFam = replaced "gate" "family(n)" $ singleParamGateDecl varyingSizeRegColl appHGate
     varyingSizeRegColl = viewed paramInfo $ qubitRegCollAnnotation (fconst "n")
-    gateApp = viewed paramInfo hadamardApp'

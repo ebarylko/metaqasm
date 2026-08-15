@@ -85,3 +85,8 @@ Is only used in the `src/Typecheck.hs` file.
 Used for expressing that a theorem solver is sometimes required
 for determining the type of a term.
 Used mainly in `src/Typecheck.hs`
+
+# Working with the repository
+
+Z3 must be installed and be available in the shell path. A future goal is to add a dockerfile to the
+repository containing all the dependencies needed to develop the project

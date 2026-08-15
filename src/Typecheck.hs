@@ -231,7 +231,7 @@ verifyCommand m ScopedRegCollDecl{..} = evalIfRegCollDeclIsValid m coll innerExp
 
 -- Verifies that a qubit is being measured and stored in a bit
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
-  (verifyMeasuredQubit *> verifyStoredBit) $> Unit
+  verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
     verifyMeasuredQubit = verifyExprType' m Qbit toMeasure
     verifyStoredBit = verifyExprType' m Bit toStoreIn

@@ -209,7 +209,10 @@ verifyGateApp m (GateSequence a b)
   = verifyGateApp m a *> verifyGateApp m b
 
 verifyGateApp' :: EvaluationContext -> GateApp -> TypeCalculationResult'
-verifyGateApp' m  = verifyGateApp m >>> fromTypeCal
+verifyGateApp' m  = verifyGateApp m >>> fromEither
+
+fromEither :: Monad m => Either err a -> ExceptT err m a
+fromEither = return >>> ExceptT
 
 type Term = Vary '[Expression, GateApp, Command]
 
@@ -240,7 +243,7 @@ verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m
 verifyCommand _ (RegCollDecl info)  = doNothingIfRegCollDeclIsValid info
   where
     doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult'
-    doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid  (const (Right Unit) >>> fromTypeCal)
+    doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid  (const (Right Unit) >>> fromEither)
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
@@ -251,7 +254,7 @@ verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType' m
 verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
 
 verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
-verifyExprType' m expectedType = verifyExprType m expectedType >>> fromTypeCal
+verifyExprType' m expectedType = verifyExprType m expectedType >>> fromEither
 
 -- Takes a number which is supposed to satisfy a property, an example of
 -- how the number may not always satisfy the property, and yields a
@@ -309,7 +312,7 @@ verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotat
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg
-    verifyParametricTypeAnnotation x = fromTypeCal (Right x)
+    verifyParametricTypeAnnotation x = fromEither (Right x)
 
 
 zero :: Index
@@ -336,19 +339,13 @@ isNegIdx = extractVal >>> (< zero)
 isZero :: Idx -> Bool
 isZero = extractVal >>> (== zero)
 
-fromEither :: Monad m => Either err a -> ExceptT err m a
-fromEither = return >>> ExceptT
-
-fromTypeCal :: Either TypeErrAt a -> ExceptT TypeErrAt IO a
-fromTypeCal = return >>> ExceptT
-
 type TypeCalculationResult' = ExceptT TypeErrAt IO TermType
 
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
 verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyGateDecl GateInfo{..} m = (fromTypeCal gateDeclCtx) >>= (`verifyGateApp'`  gateBody)
+verifyGateDecl GateInfo{..} m = (fromEither gateDeclCtx) >>= (`verifyGateApp'`  gateBody)
   where
     gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
@@ -443,7 +440,7 @@ genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl
 
 
 verifyExpr' :: EvaluationContext -> Expression -> TypeCalculationResult'
-verifyExpr' m = verifyExpr m >>> fromTypeCal
+verifyExpr' m = verifyExpr m >>> fromEither
 
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if

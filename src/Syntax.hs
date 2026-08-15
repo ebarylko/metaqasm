@@ -18,7 +18,7 @@ module Syntax(Expression(..),
           GateArg(..)) where
 
 import Lexer(LineNumber)
-import Data.Function(on)
+import Data.Function(on, (&))
 import Control.Arrow((***))
 import Control.Monad(join)
 import Data.Ix(Ix, range, inRange)
@@ -57,13 +57,23 @@ toConstIdx val = Index val M.empty
 tupleMap :: (a -> b) -> (a, a) -> (b, b)
 tupleMap = join (***)
 
+type IndexCoeffs = M.Map IndexVar Int
+
+-- Takes two linear combinations of index variables, a, b,
+-- and returns the difference of a and b
+difference :: IndexCoeffs -> IndexCoeffs -> IndexCoeffs
+difference a b = M.union negIdxVars presentIdxVars
+  where
+    negIdxVars = M.difference b a  & M.map (* (-1))
+    presentIdxVars = M.unionWith (-) a b
+
 instance Ix Index where
   range _ = error "Did not implement this yet"
   inRange idxBound x = inRange (tupleMap (L.view constPortion) idxBound) (L.view constPortion x)
 
 instance Num Index where
   (Index left _) + (Index right _) = Index (left + right) M.empty
-  (Index left indexVarsL) - (Index right indexVarsR) = Index (left - right) $ M.unionWith (-) indexVarsL indexVarsR 
+  (Index left indexVarsL) - (Index right indexVarsR) = Index (left - right) $ difference indexVarsL indexVarsR
   (Index left _) * (Index right _) = Index (left * right) M.empty
   abs = error "Need to implement this"
   signum = error "Need to implement this"

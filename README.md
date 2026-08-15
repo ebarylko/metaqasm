@@ -79,3 +79,9 @@ Look at the `Grammer.y` file to see how it is used
 
 Used for proving the validity of a parametric gate declaration.
 Is only used in the `src/Typecheck.hs` file.
+
+### [mtl](https://hackage.haskell.org/package/mtl)
+
+Used for expressing that a theorem solver is sometimes required
+for determining the type of a term.
+Used mainly in `src/Typecheck.hs`

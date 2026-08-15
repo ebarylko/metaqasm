@@ -62,7 +62,7 @@ type IndexCoeffs = M.Map IndexVar Int
 -- Takes two linear combinations of index variables, a, b,
 -- and returns the difference of a and b
 difference :: IndexCoeffs -> IndexCoeffs -> IndexCoeffs
-difference a b = M.union negIdxVars presentIdxVars
+difference a b = M.union negIdxVars presentIdxVars & M.filter (/= 0)
   where
     negIdxVars = M.difference b a  & M.map (* (-1))
     presentIdxVars = M.unionWith (-) a b

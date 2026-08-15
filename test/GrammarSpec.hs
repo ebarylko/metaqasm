@@ -234,6 +234,7 @@ spec = do
           "x[0 - 0]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0
           "x[n - 1]" `shouldParseToExpr` indexDiffRegAccess' "x" "n" 1
           "x[1 - n]" `shouldParseToExpr` indexDiffRegAccess'' "x" 1 "n"
+          "x[n - n]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0
 
       describe "Taking the product of two indices" $ do
         it "Yields a term representing the product" $ do

@@ -8,6 +8,7 @@ import Syntax(Expression(..),
            WithContext(..),
            Identifier,
            RegCollInfo(..),
+           toConstIdx,
            GateInfo(..),
            GateApp(..),
            Index(..),
@@ -24,6 +25,7 @@ import Generators (MetaQasmProgram)
 import Typecheck(Term)
 import Control.Arrow((>>>))
 import Data.Function(on)
+import Data.Map as M
 
 -- Takes a name for a variable, the line it was found, and constructs
 -- a MetaQASM term representing the variable.
@@ -62,47 +64,35 @@ onLine1 = flip WithContext line1
 regAccess :: Identifier -> Int -> Expression
 regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (index idx)
 
-toConstIndex :: Int -> Index
-toConstIndex =  Const
-
 index :: Int -> Idx
-index = onLine1 . toConstIndex
+index = onLine1 . toConstIdx
 
 -- Takes an binary operation on indices, two numbers representing
 -- the indices, and applies the operations on the index equivalent
 -- form of the numbers
 binOpOnIndices :: (Index -> Index -> Index) -> Int -> Int -> Idx
-binOpOnIndices op arg = (op `on` toConstIndex) arg >>> onLine1
+binOpOnIndices op arg = (op `on` toConstIdx) arg >>> onLine1
+
+regCollAccessThatUsesBinOpOnIndices :: (Index -> Index -> Index) -> Identifier -> Int -> Int -> Expression
+regCollAccessThatUsesBinOpOnIndices op regCollName fstIdx  = binOpOnIndices op fstIdx >>> RegisterAccess (onLine1 regCollName)
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
 -- (x + y)th element of the collection
 indexSumRegAccess :: Identifier -> Int -> Int -> Expression
-indexSumRegAccess regCollName fstIdx = sumOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
-  where
-    -- Takes two numbers and returns an index
-    -- representing their summation
-    sumOfIndices :: Int -> Int -> Idx
-    sumOfIndices  = binOpOnIndices Sum
+indexSumRegAccess = regCollAccessThatUsesBinOpOnIndices (+)
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
 -- (x - y)th element of the collection
 indexDiffRegAccess :: Identifier -> Int -> Int -> Expression
-indexDiffRegAccess regCollName fstIdx = diffOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
-  where
-    diffOfIndices :: Int -> Int -> Idx
-    diffOfIndices = binOpOnIndices Diff
+indexDiffRegAccess = regCollAccessThatUsesBinOpOnIndices (-)
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
 -- (x * y)th element of the collection
 indexProdRegAccess ::  Identifier -> Int -> Int -> Expression
-indexProdRegAccess regCollName fstIdx = prodOfIndices fstIdx >>> RegisterAccess (onLine1 regCollName)
-  where
-    prodOfIndices :: Int -> Int -> Idx
-    prodOfIndices = binOpOnIndices Prod
-
+indexProdRegAccess = regCollAccessThatUsesBinOpOnIndices (*)
 
 -- Takes the name of a variable and
 -- generates the corresponding MetaQASM term for
@@ -131,12 +121,19 @@ scopedClassicalRegCollDecl = scopedRegCollDecl Classical
 
 -- Takes the kind of the register collection k, the name of the collection n,
 -- the number of elements in the collection N, and generates a type annotation noting that
--- n is a N sized register collection of kind k
+-- n is a constant N sized register collection of kind k
 regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
 regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateArg collName
 quantumRegColl  = regCollAnnotation Quantum
 classicalRegColl = regCollAnnotation Classical
 
+-- Takes the name of the register collection n, the family variable
+-- indicating the size of the collection, and generates a
+-- type annotation noting that n is a parametric size quantum collection
+parametricQuantRegColl :: Identifier -> Identifier -> GateArg
+parametricQuantRegColl collName =  indexVar >>> RegisterGroup Quantum >>> GateArg collName
+  where
+    indexVar = IndexVar >>> flip M.singleton 1 >>> Index 0 >>> onLine1
 
 spec :: Spec
 
@@ -230,3 +227,4 @@ spec = do
     describe "Parsing circuit family declarations" $ do
       it "Generates a term representing a parameterized circuit" $ do
         "family (n, y) f(coll : Qbit[1]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n", IndexVar "y"] (GateInfo "f" [quantumRegColl "coll" 1] (gateApp "h" [var "x"]))
+        "family (n) f(coll : Qbit[n]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n"] (GateInfo "f" [parametricQuantRegColl "coll" "n"] (gateApp "h" [var "x"]))

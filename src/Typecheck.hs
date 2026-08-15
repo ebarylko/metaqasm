@@ -1,24 +1,29 @@
 {-# LANGUAGE GHC2024 #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
-
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Typecheck
     (determineType,
       TypeEvaluationError(..),
+      CounterExample(..),
       TypeErrAt,
+      fromEither,
       Term)
 where
 
 import qualified Data.Map as M
-import Control.Arrow ((>>>))
+import Control.Arrow ((>>>), (&&&))
 import Syntax(Identifier,
               Expression(..),
               TermType(..),
               WithContext(..),
               Id,
               Index(..),
+              IndexVar(..),
               RegCollInfo(..),
+              toConstIdx,
               GateInfo(..),
               GateArg(..),
               Idx,
@@ -34,19 +39,28 @@ import Data.Functor(($>))
 import Data.List(findIndex)
 import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
-import Control.Lens.Prism(matching)
-import Control.Lens.Combinators(failing)
 import Data.Ix(inRange)
+import qualified Grisette as G
+import Data.String(fromString)
+import Control.Monad.Except(ExceptT(..))
+import Data.Generics.Product (position)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
 type EvaluationContext = M.Map Identifier TermType
 
+-- This data type represents pairs of numbers which are supposed to
+-- satisfy certain conditions and an example of how that condition
+-- is not satisfied in a specific case
+data CounterExample = CounterExample{toBeRefuted :: Index, example :: M.Map IndexVar Int} deriving (Show, Eq)
+
 -- This data type represents all the possible reasons for why the type of an expression cannot be
 -- determined
-data TypeEvaluationError = VariableNotInScope Identifier
+data TypeEvaluationError =
+  VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
   | NegSizeRegCollDecl Identifier
+  | InvalidParametricRegCollDecl Identifier CounterExample
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
@@ -85,8 +99,9 @@ isAccessingValidReg :: Idx -> TermType -> Bool
 isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (isIdxWithinArrayBounds `on` extractVal) regIdx' numOfRegs
   where
     isIdxWithinArrayBounds :: Index -> Index -> Bool
-    isIdxWithinArrayBounds idx collBound = idx `inRange'` (Const 0, collBound - Const 1)
+    isIdxWithinArrayBounds idx collBound = idx `inRange'` (zero, collBound - one)
     inRange' = flip inRange
+    one = Index 1 M.empty
 
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
@@ -161,7 +176,7 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     numOfActualTypes = length actualArgTypes
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
-    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = Const numOfExpectedTypes, actualNumOfParams = Const numOfActualTypes} line
+    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = toConstIdx numOfExpectedTypes, actualNumOfParams = toConstIdx numOfActualTypes} line
     gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
@@ -193,12 +208,18 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
 verifyGateApp m (GateSequence a b)
   = verifyGateApp m a *> verifyGateApp m b
 
+verifyGateApp' :: EvaluationContext -> GateApp -> TypeCalculationResult'
+verifyGateApp' m  = verifyGateApp m >>> fromEither
+
+fromEither :: Monad m => Either err a -> ExceptT err m a
+fromEither = return >>> ExceptT
+
 type Term = Vary '[Expression, GateApp, Command]
 
-verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult
+verifyCommand :: EvaluationContext -> Command -> TypeCalculationResult'
 
 -- Verifies that applying a gate produces a valid type.
-verifyCommand m (Gate x@(GateApp{})) = verifyGateApp m x
+verifyCommand m (Gate x@(GateApp{})) = verifyGateApp' m x
 
 -- Verifies that declaring a scoped gate and then applying it is valid
 verifyCommand m ScopedGateDecl{..} = verifyOnlyIfGateDeclIsValid info m innerExpr
@@ -214,26 +235,91 @@ verifyCommand m ScopedRegCollDecl{..} = evalIfRegCollDeclIsValid m coll innerExp
 verifyCommand m (QubitMeasurement toMeasure toStoreIn) =
   verifyMeasuredQubit *> verifyStoredBit $> Unit
   where
-    verifyMeasuredQubit = verifyExprType m Qbit toMeasure
-    verifyStoredBit = verifyExprType m Bit toStoreIn
+    verifyMeasuredQubit = verifyExprType' m Qbit toMeasure
+    verifyStoredBit = verifyExprType' m Bit toStoreIn
 
 verifyCommand m (Sequence (RegCollDecl collInfo) y) = evalIfRegCollDeclIsValid m collInfo y
 
 verifyCommand _ (RegCollDecl info)  = doNothingIfRegCollDeclIsValid info
   where
-    doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult
-    doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid $ const (Right Unit)
+    doNothingIfRegCollDeclIsValid :: RegCollInfo -> TypeCalculationResult'
+    doNothingIfRegCollDeclIsValid  = applyFIfRegCollDeclIsValid  (const (Right Unit) >>> fromEither)
 
 verifyCommand m (Sequence x y) = verifyCommand m x *> verifyCommand m y
 
-verifyCommand m (QubitReset potentialQubit) = verifyExprType m Qbit potentialQubit $> Unit
+verifyCommand m (QubitReset potentialQubit) = verifyExprType' m Qbit potentialQubit $> Unit
 
-verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType m Bit bitToTest *> verifyGateApp m toBeExecuted
+verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType' m Bit bitToTest *> verifyGateApp' m toBeExecuted
 
-verifyCommand m GateFamilyDecl{gate} = verifyGateDecl gate m
+verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
+
+verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
+verifyExprType' m expectedType = verifyExprType m expectedType >>> fromEither
+
+-- Takes a number which is supposed to satisfy a property, an example of
+-- how the number may not always satisfy the property, and yields a
+-- counterexample about the validity of the number
+genCounterExample :: Index ->  G.Model -> CounterExample
+genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx counterExample
+  where
+    counterExample :: M.Map IndexVar Int
+    counterExample = map (id &&& getVarVal)  (M.keys _idxVarsCoefficients) & M.fromList
+    getVarVal :: IndexVar -> Int
+    getVarVal = toSymVar >>> G.evalSymToCon m >>> fromInteger
+
+-- Takes the number of elements in a parametric collection
+-- declaration and  validates it if the collection is always
+-- nonempty. Returns an error otherwise
+proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
+proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
+  where
+    genInvalidLengthRegCollErr  :: G.Model -> Either TypeErrAt ()
+    genInvalidLengthRegCollErr  = genCounterExample idx  >>> InvalidParametricRegCollDecl collId  >>> flip WithContext line  >>> Left
+    collSizeProof :: IO (Either G.SolvingFailure G.Model)
+    collSizeProof = G.solve G.z3 $ G.symNot $ givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
+
+    interpretProof :: IO (Either a G.Model) -> ExceptT TypeErrAt IO ()
+    interpretProof = fmap convertProofToTyp >>> ExceptT
+    convertProofToTyp = either (const $ Right ())  genInvalidLengthRegCollErr
+    givenIdxVarsAreNonNeg :: G.SymBool
+    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & foldr (genAndCombineConstraints . toSymVar) G.true
+    genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
+    genAndCombineConstraints = (G..>= 0) >>> (G..&&)
+
+    numOfRegsIsPos :: G.SymBool
+    numOfRegsIsPos = toSymInt _constPortion + linearCombOfIdxVars G..> 0
+    linearCombOfIdxVars :: G.SymInteger
+    linearCombOfIdxVars = M.toList _idxVarsCoefficients
+      & (L.each . L._1) L.%~ toSymVar
+      & (L.each . L._2) L.%~ toSymInt
+      & foldr (uncurry (*) >>> (+)) 0
+
+-- Takes a number and returns the symbolic representation
+-- of that number
+toSymInt :: Int -> G.SymInteger
+toSymInt = toInteger >>> G.con
+
+-- Takes an index variable and converts it into a
+-- symbolic variable
+toSymVar :: IndexVar -> G.SymInteger
+toSymVar = (L.^. position @1) >>>  fromString >>> G.ssym
+
+-- Takes a circuit family declaration, the context to evaluate it under, and
+-- returns an error if the gate may take an empty collection. Approves the
+-- declaration otherwise
+verifyParametricGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
+verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args $>  Unit
+  where
+    verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
+    verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg
+    verifyParametricTypeAnnotation x = fromEither (Right x)
+
+
+zero :: Index
+zero = Index 0 M.empty
 
 isPosIdx :: Idx -> Bool
-isPosIdx = extractVal >>> (>= Const 0)
+isPosIdx = extractVal >>> (>= zero)
 
 -- Takes the types of the parameters to a circuit and verifies
 -- that each type is valid. Returns an error otherwise
@@ -248,16 +334,18 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
     verifyCircuitArg x = Right x
 
 isNegIdx :: Idx -> Bool
-isNegIdx = extractVal >>> (< Const 0)
+isNegIdx = extractVal >>> (< zero)
 
 isZero :: Idx -> Bool
-isZero = extractVal >>> (== Const 0)
+isZero = extractVal >>> (== zero)
+
+type TypeCalculationResult' = ExceptT TypeErrAt IO TermType
 
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
-verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult
-verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
+verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
+verifyGateDecl GateInfo{..} m = (fromEither gateDeclCtx) >>= (`verifyGateApp'`  gateBody)
   where
     gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
     extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
@@ -277,7 +365,7 @@ verifyGateDecl GateInfo{..} m = gateDeclCtx >>= (`verifyGateApp`  gateBody)
 -- Takes information about a gate declaration, the context under which to evaluate the
 -- declaration, a command, and evaluates the command with the gate type embedded in the context
 -- if the declaration is valid. Returns an error otherwise
-verifyOnlyIfGateDeclIsValid :: GateInfo -> EvaluationContext -> Command -> TypeCalculationResult
+verifyOnlyIfGateDeclIsValid :: GateInfo -> EvaluationContext -> Command -> TypeCalculationResult'
 verifyOnlyIfGateDeclIsValid info@GateInfo{gateName, args} m toVerify =  verifyGateDecl info m  *> verifyCommand extendedCtx toVerify
   where
     extendedCtx = extendCtxWithCircuit gateName args m
@@ -302,13 +390,16 @@ verifyExprType :: EvaluationContext -> TermType -> Expression -> TypeCalculation
 
 verifyExprType m expectedType toVerify = verifyExpr m toVerify & eitherFromPred (== expectedType) (genMismatchErr expectedType toVerify)
 
+toTypeCalculationResult :: TypeCalculationResult -> TypeCalculationResult'
+toTypeCalculationResult = return >>> ExceptT
+
 -- Takes a function determining the type of an expression that depends on a register collection,
 -- information about the collection, and returns the type of the expression if the collection
 -- and expression is valid. Returns an error otherwise
-applyFIfRegCollDeclIsValid :: (RegCollInfo ->  TypeCalculationResult)  -> RegCollInfo -> TypeCalculationResult
+applyFIfRegCollDeclIsValid :: (RegCollInfo ->  TypeCalculationResult')  -> RegCollInfo -> TypeCalculationResult'
 applyFIfRegCollDeclIsValid f info
-  | isEmptyRegColl info = genEmptyRegCollDeclErr info
-  | isNegLengthColl info = genNegLengthRegCollDeclErr info
+  | isEmptyRegColl info = toTypeCalculationResult  $ genEmptyRegCollDeclErr info
+  | isNegLengthColl info = toTypeCalculationResult $ genNegLengthRegCollDeclErr info
   | otherwise = f info
   where
     isNegLengthColl :: RegCollInfo -> Bool
@@ -318,8 +409,8 @@ applyFIfRegCollDeclIsValid f info
 -- declaration, a command to evaluate, and evaluates the command under
 -- the context updated with the declaration if an empty collection is not
 -- being declared. Returns an error otherwise
-evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult
-evalIfRegCollDeclIsValid ctx declInfo toEval = declInfo & applyFIfRegCollDeclIsValid  evalTermThatDependsOnRegColl
+evalIfRegCollDeclIsValid :: EvaluationContext -> RegCollInfo -> Command -> TypeCalculationResult'
+evalIfRegCollDeclIsValid ctx declInfo toEval =  applyFIfRegCollDeclIsValid evalTermThatDependsOnRegColl declInfo
   where
     evalTermThatDependsOnRegColl = flip addRegCollToCtx ctx >>> (`verifyCommand` toEval)
 
@@ -348,14 +439,17 @@ genEmptyRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genEmptyRegCollDeclErr = genInvalidRegCollLengthErr EmptyRegCollDecl
 
 
+verifyExpr' :: EvaluationContext -> Expression -> TypeCalculationResult'
+verifyExpr' m = verifyExpr m >>> fromEither
+
 -- Takes a context under which to evaluate an expression, an
 -- expression, and returns the type of the evaluated expression if
 -- possible. Returns an error otherwise explaining why the type
 -- could not be determined
-determineType :: EvaluationContext -> Term -> TypeCalculationResult
+determineType :: EvaluationContext -> Term -> TypeCalculationResult'
 
 determineType m term = term &
-  (Vary.on @Expression (verifyExpr m)
-  $ Vary.on @GateApp (verifyGateApp m)
+  (Vary.on @Expression (verifyExpr' m)
+  $ Vary.on @GateApp (verifyGateApp' m)
   $ Vary.on @Command (verifyCommand m)
    $ Vary.exhaustiveCase  )

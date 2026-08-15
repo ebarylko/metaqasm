@@ -1,3 +1,6 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 module Syntax(Expression(..),
           WithContext(..),
           Identifier,
@@ -11,12 +14,17 @@ module Syntax(Expression(..),
           RegCollInfo(..),
           RegisterType(..),
           Command(..),
+          toConstIdx,
           GateArg(..)) where
 
 import Lexer(LineNumber)
 import Data.Function(on)
+import Control.Arrow((***))
+import Control.Monad(join)
 import Data.Ix(Ix, range, inRange)
-
+import qualified Data.Map as M
+import qualified Control.Lens as L
+import GHC.Generics (Generic)
 type Identifier = String
 
 -- This data type represents a value along with its associated
@@ -28,43 +36,39 @@ instance (Ord a, Ord b) => Ord (WithContext a b) where
 
 type Id = WithContext Identifier LineNumber
 
-data Index =
-  Const Int
-  | Sum Index Index
-  | Diff Index Index
-  | Prod Index Index
-  deriving (Show)
+newtype IndexVar = IndexVar String deriving (Eq, Show, Ord, Generic)
+
+-- This data type represents values used to access and declare
+-- register collections, being  a linear combination of
+-- constants and index variables
+data Index = Index{_constPortion :: Int, _idxVarsCoefficients :: M.Map IndexVar Int} deriving (Show, Eq)
+L.makeLenses ''Index
 
 applyBinOpOnIndices :: (Int -> Int -> a) -> Index -> Index -> a
-applyBinOpOnIndices = (`on` simplifyIdx)
+applyBinOpOnIndices = (`on` L.view constPortion)
 
--- Takes an index and returns the value represented by it
-simplifyIdx :: Index -> Int
-simplifyIdx (Const num) = num
-simplifyIdx (Sum a b) = (applyBinOpOnIndices (+)) a b
-simplifyIdx (Diff a b) = (applyBinOpOnIndices (-)) a b
-simplifyIdx (Prod a b) = (applyBinOpOnIndices (*)) a b
-
-instance Eq Index where
-  (==) = applyBinOpOnIndices (==)
 
 instance Ord Index where
   (<=) = applyBinOpOnIndices (<=)
 
+toConstIdx :: Int -> Index
+toConstIdx val = Index val M.empty
+
+tupleMap :: (a -> b) -> (a, a) -> (b, b)
+tupleMap = join (***)
+
 instance Ix Index where
-  range (a, b) = map Const $ (applyBinOpOnIndices enumFromTo) a b
-  inRange (a, b) x = inRange (simplifyIdx a, simplifyIdx b) (simplifyIdx x)
+  range _ = error "Did not implement this yet"
+  inRange idxBound x = inRange (tupleMap (L.view constPortion) idxBound) (L.view constPortion x)
 
 instance Num Index where
-  (+)  = Sum
-  (-) = Diff
-  (*) = error "Need to implement this"
+  (Index left _) + (Index right _) = Index (left + right) M.empty
+  (Index left _) - (Index right _) = Index (left - right) M.empty
+  (Index left _) * (Index right _) = Index (left * right) M.empty
   abs = error "Need to implement this"
   signum = error "Need to implement this"
   fromInteger = error "Need to implement this"
   negate = error "Need to implement this"
-
-
 
 
 type Idx = WithContext Index LineNumber
@@ -111,7 +115,6 @@ data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifi
 -- and the body of the gate
 data GateInfo = GateInfo{gateName :: Identifier, args :: [GateArg], gateBody :: GateApp} deriving (Show, Eq)
 
-newtype IndexVar = IndexVar String deriving (Eq, Show)
 
 -- This data type represents all possible commands a user can execute.
 data Command = Gate GateApp -- Apply a gate to one or more qubits

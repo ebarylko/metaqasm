@@ -8,6 +8,7 @@ import Syntax(Expression(..),
               Index(..),
               Idx,
               IndexVar(..),
+              toConstIdx,
               Id,
               GateInfo(..),
               RegisterType(..),
@@ -20,6 +21,7 @@ import qualified Vary
 import Typecheck(Term)
 import Control.Arrow((>>>))
 import Data.Function((&), on)
+import qualified Data.Map as M
 }
 
 %name parseTokens
@@ -104,6 +106,7 @@ idx : nat {toIdx $1}
 | idx '+' idx {toIdxSum $2 $1 $3}
 | idx '-' idx {toIdxDiff $2 $1 $3}
 | idx '*' idx {toIdxProd $2 $1 $3}
+| id {toIdx $1}
 
 arg : id             {(Var . toVar) $1 }
 | id '[' idx ']' { RegisterAccess (toVar $1) $3 }
@@ -150,10 +153,11 @@ extractVal :: WithContext a b -> a
 extractVal (WithContext x _) = x
 
 toIdx :: Token -> Idx
-toIdx x@(Nat _ lineNum) = toIndex x & flip WithContext lineNum
+toIdx (Nat v lineNum) = toConstIdx v & flip WithContext lineNum
+toIdx (Id indexVarName lineNum) = singleIndexVar indexVarName &  flip WithContext lineNum
   where
-    toIndex :: Token -> Index
-    toIndex (Nat num _) = Const  num
+  singleIndexVar = IndexVar >>> flip M.singleton 1 >>> Index 0
+
 
 extractLineNum :: Token -> LineNumber
 extractLineNum (Plus line) = line
@@ -174,13 +178,13 @@ toBinIdxOp  op opTok fstArg sndArg = (toBinIdxOp' op (extractLineNum opTok) `on`
     toBinIdxOp' op line fstIdx = flip WithContext line . op fstIdx
 
 toIdxSum :: Token -> Idx -> Idx -> Idx
-toIdxSum = toBinIdxOp Sum
+toIdxSum = toBinIdxOp (+)
 
 toIdxDiff :: Token -> Idx -> Idx -> Idx
-toIdxDiff = toBinIdxOp Diff
+toIdxDiff = toBinIdxOp (-)
 
 toIdxProd :: Token -> Idx -> Idx -> Idx
-toIdxProd = toBinIdxOp Prod
+toIdxProd = toBinIdxOp (*)
 
 -- Takes a token representing the name of a register collection
 -- and extracts the name

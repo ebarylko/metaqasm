@@ -59,7 +59,8 @@ module Generators(outOfScopeVar,
                  gateThatTakesAnInvalidGate,
                  validThirdOrderGateDecl,
                  regAccessedByValidProdOfIndices,
-                 validGateDeclThatDoesNotDependOnIndexVars)
+                 validGateDeclThatDoesNotDependOnIndexVars,
+                 circuitFamilyThatMayTakeEmptyRegColl)
   where
 
 import Control.Monad(join)
@@ -70,6 +71,7 @@ import Syntax(Identifier,
               Expression(..),
               WithContext(..),
               TermType(..),
+              toConstIdx,
               Index(..),
               Id,
               RegisterType(..))
@@ -262,7 +264,7 @@ programWithOutOfBoundsRegAccess = invalidRegCollAccess & fmap ((&&&) toProgWithI
     toProgWithInvalidAccess = formatToString (appGateToQubits hadamardApp')
 
     toErr :: RegCollAccessSpec -> TypeEvaluationError
-    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId $ Const regIdx'
+    toErr (RegCollAccessSpec regCollId _ regIdx') = InvalidRegAccess regCollId $ toConstIdx regIdx'
 
 tGateApp :: RegAccessFormatter
 tGateApp = singleParamGateApp (fconst "t") regCollAccess'
@@ -449,7 +451,7 @@ toRegAccessOnLine1 RegCollAccessSpec{_regCollName, _wantedRegIdx} =
   RegisterAccess{registerName, registerNumber}
   where
     registerName = WithContext _regCollName line1
-    registerNumber = WithContext (Const _wantedRegIdx) line1
+    registerNumber = WithContext (toConstIdx _wantedRegIdx) line1
     line1 = LineNumber 1
 
 -- Represents pairs of invalid programs and an
@@ -505,7 +507,7 @@ toRegCollType :: RegisterType -> RegCollAccessSpec -> TermType
 toRegCollType collType accessInfo =
   RegisterGroup collType $ WithContext  registerCount (LineNumber 1)
   where
-    registerCount = (Const . _numOfRegs) accessInfo
+    registerCount = (toConstIdx . _numOfRegs) accessInfo
 
 toQuantRegColl :: RegCollAccessSpec -> TermType
 toQuantRegColl = toRegCollType Quantum
@@ -1011,7 +1013,7 @@ programThatAccessesCollWithNegIdx = (&&&) (formatToString invalidAccess) toErr <
     invalidAccess :: RegAccessFormatter
     invalidAccess = quantumRegCollDecl `sepBySemicolon` (hadamardApp  $ regCollAccess oneMinusTwiceNumOfRegsInColl)
     toErr :: RegCollAccessSpec -> TypeEvaluationError
-    toErr RegCollAccessSpec{_regCollName, _numOfRegs} = InvalidRegAccess _regCollName $ Const $ 1 - 2 * _numOfRegs
+    toErr RegCollAccessSpec{_regCollName, _numOfRegs} = InvalidRegAccess _regCollName $ toConstIdx $ 1 - 2 * _numOfRegs
 
 -- Creates programs that declare a negative sized
 -- unscoped register collection
@@ -1097,3 +1099,12 @@ validGateDeclThatDoesNotDependOnIndexVars :: Gen MetaQasmProgram
 validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> gateDecl'
   where
     gateDecl' = drop 5 <$> unscopedTwoQubitGateDecl
+
+
+-- Generates a declaration for a circuit family that takes
+-- a register collection that may be empty
+circuitFamilyThatMayTakeEmptyRegColl :: Gen MetaQasmProgram
+circuitFamilyThatMayTakeEmptyRegColl = formatToString invalidCircuitFam <$> gateThatTakesARegColl
+  where
+    invalidCircuitFam = replaced "gate" "family(n)" $ singleParamGateDecl varyingSizeRegColl appHGate
+    varyingSizeRegColl = viewed paramInfo $ qubitRegCollAnnotation (fconst "n")

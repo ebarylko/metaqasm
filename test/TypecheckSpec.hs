@@ -7,21 +7,26 @@ module TypecheckSpec(spec) where
 import Test.Hspec
 import Typecheck(TypeEvaluationError(..),
                 determineType,
+                CounterExample(..),
+                fromEither,
                 TypeErrAt,
                 Term)
 
 import Syntax(Identifier,
               TermType(..),
-              WithContext(..),
-              Index(..))
+              toConstIdx,
+              IndexVar(..),
+              Index(..),
+              WithContext(..))
 import Lexer(LineNumber(..))
 import Grammar(parseText)
 import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))
 import Control.Arrow((>>>))
+import Control.Monad.Except(ExceptT(..), withExceptT, runExceptT)
 import qualified Data.Map as M
-import Control.Monad ((>=>))
+import Control.Monad ((>=>), liftM2, join)
 import Formatting
 import Generators(outOfScopeVar,
                   outOfScopeExpr,
@@ -77,7 +82,8 @@ import Generators(outOfScopeVar,
                  gateThatTakesAnInvalidGate,
                  validThirdOrderGateDecl,
                  regAccessedByValidProdOfIndices,
-                 validGateDeclThatDoesNotDependOnIndexVars)
+                 validGateDeclThatDoesNotDependOnIndexVars,
+                 circuitFamilyThatMayTakeEmptyRegColl)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -85,7 +91,7 @@ import Data.Function(on, (&))
 -- when evaluating the types of the program
 data MetaQasmError = ParseError String | TypeErr TypeErrAt deriving (Eq, Show)
 
-type ProgramTypeEvaluationResult = Either MetaQasmError TermType
+type ProgramTypeEvaluationResult = ExceptT MetaQasmError IO TermType
 
 -- Takes metaQASM code and parses it before checking the
 -- type of the program. If it could be parsed and has a valid type,
@@ -97,8 +103,8 @@ calcTypeOf = parseCode >=> calcType
   where
     changeErrTo :: (a -> b) -> Either a c -> Either b c
     changeErrTo = first
-    parseCode =  parseText >>> changeErrTo ParseError
-    calcType = determineType initialCtx >>> changeErrTo TypeErr
+    parseCode =  parseText >>> changeErrTo ParseError >>> fromEither
+    calcType = determineType initialCtx >>> withExceptT TypeErr
     initialCtx = M.fromList [("h", Circuit [Qbit]),
                              ("t", Circuit [Qbit]),
                              ("tdg", Circuit [Qbit]),
@@ -109,16 +115,21 @@ calcTypeOf = parseCode >=> calcType
 -- and generates an error stating that the variable on the given line is out
 -- of scope
 genNotInScopeErr :: Identifier -> LineNumber -> ProgramTypeEvaluationResult
-genNotInScopeErr varName lineInfo = Left $ TypeErr $ WithContext (VariableNotInScope varName) lineInfo
+genNotInScopeErr varName lineInfo = fromEither $  Left $ TypeErr $ WithContext (VariableNotInScope varName) lineInfo
 
 line1 :: LineNumber
 line1 = LineNumber 1
+
+-- Takes a program, the expected type of the program, and returns true if
+-- running the program yields the expected type. Throws an error otherwise
+shouldHaveType :: MetaQasmProgram -> ProgramTypeEvaluationResult -> IO ()
+shouldHaveType prog = (liftM2 shouldBe  `on` runExceptT) (calcTypeOf prog)  >>> join
 
 -- -- Tests that accessing a variable that is not in
 -- -- the current evaluation scope always fails.
 prop_cannotAccessOutOfScopeVar :: Identifier -> IO ()
 prop_cannotAccessOutOfScopeVar var  =
-  calcTypeOf var `shouldBe` variableNotInScopeErr
+  var `shouldHaveType` variableNotInScopeErr
   where
     expectedLineNum = line1
     variableNotInScopeErr = genNotInScopeErr var expectedLineNum
@@ -128,7 +139,7 @@ prop_cannotAccessOutOfScopeVar var  =
 prop_cannotApplyGateToOutOfScopeExpr :: MetaQasmProgram -> IO ()
 
 prop_cannotApplyGateToOutOfScopeExpr expr =
-  calcTypeOf hGateApp `shouldBe` variableNotInScopeErr
+  hGateApp `shouldHaveType` variableNotInScopeErr
   where
     hGateApp = formatToString ("h" % parenthesised string ) expr
     variableNotInScopeErr = genNotInScopeErr (extractVarName expr) line1
@@ -144,7 +155,7 @@ getNameFromRegCollDecl = drop 5 >>> takeWhile (/= '[')
 -- the program results in an error about the size of the declared collection
 prop_cannotDeclareSizeNRegColl :: (Identifier -> TypeEvaluationError) -> MetaQasmProgram -> IO ()
 prop_cannotDeclareSizeNRegColl errFn prog =
-  calcTypeOf prog `shouldBe` nSizedRegCollDeclErr
+  prog `shouldHaveType` nSizedRegCollDeclErr
   where
     nSizedRegCollDeclErr = prog & getNameFromRegCollDecl & errFn & errOnLine1
 
@@ -158,7 +169,7 @@ prop_cannotDeclareEmptyRegColl  = prop_cannotDeclareSizeNRegColl EmptyRegCollDec
 -- and checks that running the program produces the same kind of error
 prop_cannotAccessRegOutsideOfRegColl :: ProgramWithExpectedErr -> IO ()
 prop_cannotAccessRegOutsideOfRegColl (program, expectedErr) =
-  calcTypeOf program `shouldBe` invalidRegAccessErr
+  program `shouldHaveType` invalidRegAccessErr
   where
     invalidRegAccessErr = errOnLine1 expectedErr
 
@@ -170,14 +181,14 @@ genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
   errOnLine1 $ toUnexpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs
   where
     toUnexpectedNumOfArgsErr :: Int -> Int -> TypeEvaluationError
-    toUnexpectedNumOfArgsErr = ExpectedNParams `on` Const
+    toUnexpectedNumOfArgsErr = ExpectedNParams `on` toConstIdx
 
 -- Checks that a MetaQASM program that applies a two qubit gate
 -- to three qubits is invalid
 prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
 
 prop_cannotApplyGateToTooManyQubits prog =
-  calcTypeOf prog `shouldBe` tooManyArgsErr
+  prog `shouldHaveType` tooManyArgsErr
   where
     tooManyArgsErr = genExpectedNumOfArgsErr 2 3
 
@@ -186,15 +197,19 @@ prop_cannotApplyGateToTooManyQubits prog =
 prop_cannotApplyGateToTooFewQubits :: MetaQasmProgram -> IO ()
 
 prop_cannotApplyGateToTooFewQubits prog =
-  calcTypeOf prog `shouldBe` tooFewArgsErr
+  prog `shouldHaveType` tooFewArgsErr
   where
     tooFewArgsErr = genExpectedNumOfArgsErr 2 1
+
+
 
 -- Checks that running a given MetaQASM program does not produce
 -- any errors
 prop_isValidProgram :: MetaQasmProgram -> IO ()
 
-prop_isValidProgram prog = calcTypeOf prog `shouldBe` Right Unit
+prop_isValidProgram prog = prog `shouldHaveType` expectedType
+  where
+    expectedType = fromEither $ Right Unit
 
 -- Takes a MetaQASM program that applies a register collection
 -- to a qubit as if it were a gate, the name of the collection,
@@ -203,7 +218,7 @@ prop_isValidProgram prog = calcTypeOf prog `shouldBe` Right Unit
 prop_cannotTreatRegCollAsGate :: InvalidRegCollApp -> IO ()
 
 prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
-  calcTypeOf invalidProg `shouldBe` typeMismatchErr
+  invalidProg `shouldHaveType` typeMismatchErr
   where
     typeMismatchErr = errOnLine1 $ ExpectedAGate collType regColl
 
@@ -213,7 +228,7 @@ prop_cannotTreatRegCollAsGate InvalidRegCollApp{..} =
 prog_cannotSubstituteAForB :: TermType -> TermType -> InvalidProgCausedByTerm -> IO ()
 
 prog_cannotSubstituteAForB expectedType actualType (prog, erroneousTerm) =
-  calcTypeOf prog `shouldBe` typeMismatchErr
+  prog `shouldHaveType` typeMismatchErr
   where
     typeMismatchErr = errOnLine1 $ TypeMismatch expectedType actualType erroneousTerm
 
@@ -238,7 +253,7 @@ extractNameOfFirstGateArg = dropWhile isNotPartOfArgList >>> drop 1 >>> takeWhil
 -- running the program results in an error about the length of the collection
 prop_cannotTakeInvalidLengthRegCollAsArg :: (Identifier -> TypeEvaluationError) -> MetaQasmProgram -> IO ()
 prop_cannotTakeInvalidLengthRegCollAsArg errFn prog =
-  calcTypeOf prog `shouldBe` invalidLengthRegCollErr
+  prog `shouldHaveType` invalidLengthRegCollErr
   where
     invalidLengthRegCollErr = prog & extractNameOfFirstGateArg & errFn & errOnLine1
 
@@ -252,16 +267,16 @@ prop_cannotTakeEmptyRegCollAsArg = prop_cannotTakeInvalidLengthRegCollAsArg Empt
 prop_cannotTreatSingleQubitUnitaryAsRegColl :: InvalidProgCausedByTerm -> IO ()
 
 prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
-  calcTypeOf prog `shouldBe` expectedRegCollErr
+  prog `shouldHaveType` expectedRegCollErr
   where
     expectedRegCollErr = errOnLine1 (ExpectedARegColl gateType gateName)
     gateType = Circuit [Qbit]
 
 errOnLine1 :: TypeEvaluationError -> ProgramTypeEvaluationResult
-errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left
+errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left >>> fromEither
 
 prop_cannotHaveNegIdx :: ProgramWithExpectedErr -> IO ()
-prop_cannotHaveNegIdx (prog, negIdxErr) = calcTypeOf prog `shouldBe` errOnLine1 negIdxErr
+prop_cannotHaveNegIdx (prog, negIdxErr) = prog `shouldHaveType` errOnLine1 negIdxErr
 
 -- Takes a program with a negative length register collection declaration
 -- and tests that such a declaration is invalid
@@ -278,9 +293,22 @@ prop_cannotTakeNegLengthCollAsGateArg = prop_cannotTakeInvalidLengthRegCollAsArg
 -- the annotation is invalid
 prop_cannotTakeInvalidCircuitAsArg :: InvalidProgBcOfTypeAnnotation -> IO ()
 prop_cannotTakeInvalidCircuitAsArg (prog, invalidTypeAnnot) =
-  calcTypeOf prog `shouldBe` invalidCircErr
+  prog `shouldHaveType` invalidCircErr
   where
     invalidCircErr = InvalidCircuitAnnotation invalidTypeAnnot & errOnLine1
+
+-- Given a circuit family which takes a potentially
+-- empty register collection as an argument, checks that
+-- such a declaration is invalid and results in an error
+-- noting that the collection must be nonempty
+prop_cannotTakePotentiallyEmptyRegCollAsArg :: MetaQasmProgram -> IO ()
+prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
+  prog `shouldHaveType` emptyRegCollErr
+  where
+    emptyRegCollErr = InvalidParametricRegCollDecl regCollId counterExample & errOnLine1
+    counterExample = CounterExample (Index  0 (M.singleton (IndexVar "n" ) 1)) (M.singleton (IndexVar "n") 0)
+    regCollId = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg)
+    ignoreIndexVars = dropWhile (/= ')') >>> drop 1
 
 spec :: Spec
 spec =  do
@@ -488,3 +516,8 @@ spec =  do
   describe "Declaring a circuit family where the gate declaration does not depend on the index variables and is valid"  $ do
     prop "Is valid" $ do
       forAll validGateDeclThatDoesNotDependOnIndexVars prop_isValidProgram
+
+  describe "Declaring a circuit family where one of the arguments could be an empty collection"  $ do
+    modifyMaxSuccess (const 10) $ do
+      prop "Is invalid" $ do
+        forAll circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg

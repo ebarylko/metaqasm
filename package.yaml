@@ -25,6 +25,10 @@ dependencies:
 - array
 - vary
 - lens
+- grisette
+- mtl
+- generic-lens
+
 
 ghc-options:
 - -Wall

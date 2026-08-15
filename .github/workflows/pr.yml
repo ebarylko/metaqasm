@@ -6,6 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: cda-tum/setup-z3@v1
       - uses: haskell-actions/setup@v2
         with:
           enable-stack: true

@@ -92,6 +92,16 @@ toIndexVar :: Identifier -> Index
 toIndexVar = IndexVar >>> flip M.singleton 1 >>> Index 0
 
 -- Takes the name of a register collection, an index variable n,
+--  a number N, a function that generates an index  i,
+-- and returns a register access for the ith element
+indexDiffRegAccessUsing :: (Identifier -> Int -> Index) -> Identifier -> Identifier -> Int -> Expression
+
+indexDiffRegAccessUsing f regCollName indexVarName idx = RegisterAccess (onLine1 regCollName) $ onLine1 $ f indexVarName idx
+
+subNumFromIndexVar = indexDiffRegAccessUsing $ \indexVarName idx -> Index (-idx) (M.singleton (IndexVar indexVarName) 1) 
+subIndexVarFromNum = indexDiffRegAccessUsing $ \indexVarName idx -> Index idx (M.singleton (IndexVar indexVarName) (-1)) 
+
+-- Takes the name of a register collection, an index variable n,
 -- a number N, and returns a register access for the
 -- (n - N)th element
 indexDiffRegAccess' :: Identifier -> Identifier -> Int -> Expression
@@ -232,8 +242,8 @@ spec = do
       describe "Taking the difference of two indices" $ do
         it "Yields a term representing the difference" $ do
           "x[0 - 0]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0
-          "x[n - 1]" `shouldParseToExpr` indexDiffRegAccess' "x" "n" 1
-          "x[1 - n]" `shouldParseToExpr` indexDiffRegAccess'' "x" 1 "n"
+          "x[n - 1]" `shouldParseToExpr` subNumFromIndexVar "x" "n" 1
+          "x[1 - n]" `shouldParseToExpr` subIndexVarFromNum "x" "n" 1
           "x[n - n]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0
 
       describe "Taking the product of two indices" $ do

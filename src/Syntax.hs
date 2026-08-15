@@ -38,10 +38,12 @@ type Id = WithContext Identifier LineNumber
 
 newtype IndexVar = IndexVar String deriving (Eq, Show, Ord, Generic)
 
+type IndexCoeffs = M.Map IndexVar Int
+
 -- This data type represents values used to access and declare
 -- register collections, being  a linear combination of
 -- constants and index variables
-data Index = Index{_constPortion :: Int, _idxVarsCoefficients :: M.Map IndexVar Int} deriving (Show, Eq)
+data Index = Index{_constPortion :: Int, _idxVarsCoefficients :: IndexCoeffs} deriving (Show, Eq)
 L.makeLenses ''Index
 
 applyBinOpOnIndices :: (Int -> Int -> a) -> Index -> Index -> a
@@ -57,7 +59,6 @@ toConstIdx val = Index val M.empty
 tupleMap :: (a -> b) -> (a, a) -> (b, b)
 tupleMap = join (***)
 
-type IndexCoeffs = M.Map IndexVar Int
 
 -- Takes two linear combinations of index variables, a, b,
 -- and returns the difference of a and b

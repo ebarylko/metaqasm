@@ -83,8 +83,10 @@ import Generators(outOfScopeVar,
                  validThirdOrderGateDecl,
                  regAccessedByValidProdOfIndices,
                  validGateDeclThatDoesNotDependOnIndexVars,
-                 circuitFamilyThatMayTakeEmptyRegColl)
+                 circuitFamilyThatMayTakeEmptyRegColl,
+                 circuitFamilyThatMayTakeNegLengthRegColl)
 import Data.Function(on, (&))
+import Data.Functor((<&>), ($>))
 
 -- This represents the possible errors in a metaQasm program, being
 -- either an error that occurred when parsing the code or
@@ -310,6 +312,17 @@ prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
     regCollId = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg)
     ignoreIndexVars = dropWhile (/= ')') >>> drop 1
 
+-- Given a circuit family declaration which takes a
+-- register collection that may be of negative length, checks that
+-- such a declaration is invalid and results in an error
+-- noting this
+prop_cannotTakePotentialNegLengthRegCollAsArg :: MetaQasmProgram -> IO ()
+prop_cannotTakePotentialNegLengthRegCollAsArg prog =
+  (runExceptT . calcTypeOf) prog <&> isCounterExample $> ()
+  where
+    isCounterExample :: Either MetaQasmError TermType -> Bool
+    isCounterExample (Left (TypeErr (WithContext (InvalidParametricRegCollDecl{}) _))) = True
+
 spec :: Spec
 spec =  do
   describe "Accessing an out of scope variable" $ do
@@ -521,3 +534,9 @@ spec =  do
     modifyMaxSuccess (const 10) $ do
       prop "Is invalid" $ do
         forAll circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg
+
+
+  describe "Declaring a circuit family where one of the arguments could be a collection of negative length"  $ do
+    modifyMaxSuccess (const 10) $ do
+      prop "Is invalid" $ do
+        forAll circuitFamilyThatMayTakeNegLengthRegColl prop_cannotTakePotentialNegLengthRegCollAsArg

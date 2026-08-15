@@ -60,7 +60,8 @@ module Generators(outOfScopeVar,
                  validThirdOrderGateDecl,
                  regAccessedByValidProdOfIndices,
                  validGateDeclThatDoesNotDependOnIndexVars,
-                 circuitFamilyThatMayTakeEmptyRegColl)
+                 circuitFamilyThatMayTakeEmptyRegColl,
+                 circuitFamilyThatMayTakeNegLengthRegColl)
   where
 
 import Control.Monad(join)
@@ -1112,7 +1113,7 @@ circuitFamilyThatMayTakeEmptyRegColl :: Gen MetaQasmProgram
 circuitFamilyThatMayTakeEmptyRegColl = formatToString invalidCircuitFamDecl <$> gateThatTakesARegColl
 
 -- Generates a declaration for a circuit family that takes
--- a register collection that may be empty
+-- a register collection that may be of negative length
 circuitFamilyThatMayTakeNegLengthRegColl :: Gen MetaQasmProgram
 circuitFamilyThatMayTakeNegLengthRegColl = formatToString invalidCircuitFamDecl' <$> gateThatTakesARegColl
   where

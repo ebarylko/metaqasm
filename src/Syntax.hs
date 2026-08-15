@@ -63,7 +63,7 @@ instance Ix Index where
 
 instance Num Index where
   (Index left _) + (Index right _) = Index (left + right) M.empty
-  (Index left _) - (Index right _) = Index (left - right) M.empty
+  (Index left indexVarsL) - (Index right indexVarsR) = Index (left - right) $ M.unionWith (-) indexVarsL indexVarsR 
   (Index left _) * (Index right _) = Index (left * right) M.empty
   abs = error "Need to implement this"
   signum = error "Need to implement this"

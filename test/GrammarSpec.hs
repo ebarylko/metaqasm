@@ -9,6 +9,7 @@ import Syntax(Expression(..),
            Identifier,
            RegCollInfo(..),
            toConstIdx,
+           IndexCoeffs,
            GateInfo(..),
            GateApp(..),
            Index(..),
@@ -88,8 +89,8 @@ indexSumRegAccess = regCollAccessThatUsesBinOpOnIndices (+)
 indexDiffRegAccess :: Identifier -> Int -> Int -> Expression
 indexDiffRegAccess = regCollAccessThatUsesBinOpOnIndices (-)
 
-toIndexVar :: Identifier -> Index
-toIndexVar = IndexVar >>> flip M.singleton 1 >>> Index 0
+toIndexVarWithCoeff :: Identifier -> Int -> IndexCoeffs
+toIndexVarWithCoeff = IndexVar >>> M.singleton
 
 -- Takes the name of a register collection, an index variable n,
 --  a number N, a function that generates an index  i,
@@ -98,18 +99,9 @@ indexDiffRegAccessUsing :: (Identifier -> Int -> Index) -> Identifier -> Identif
 
 indexDiffRegAccessUsing f regCollName indexVarName idx = RegisterAccess (onLine1 regCollName) $ onLine1 $ f indexVarName idx
 
-subNumFromIndexVar = indexDiffRegAccessUsing $ \indexVarName idx -> Index (-idx) (M.singleton (IndexVar indexVarName) 1) 
-subIndexVarFromNum = indexDiffRegAccessUsing $ \indexVarName idx -> Index idx (M.singleton (IndexVar indexVarName) (-1)) 
+subNumFromIndexVar = indexDiffRegAccessUsing $ \indexVarName idx -> Index (-idx) $ toIndexVarWithCoeff indexVarName 1 
+subIndexVarFromNum = indexDiffRegAccessUsing $ \indexVarName idx -> Index idx $ toIndexVarWithCoeff indexVarName (-1) 
 
--- Takes the name of a register collection, an index variable n,
--- a number N, and returns a register access for the
--- (n - N)th element
-indexDiffRegAccess' :: Identifier -> Identifier -> Int -> Expression
-indexDiffRegAccess' regCollName indexVarName sndIdx = RegisterAccess (onLine1 regCollName) $ onLine1 $ Index (-sndIdx) (M.singleton (IndexVar indexVarName) 1)
-
-
-indexDiffRegAccess'' :: Identifier -> Int -> Identifier -> Expression
-indexDiffRegAccess'' regCollName fstIdx indexVarName = RegisterAccess (onLine1 regCollName) $ onLine1 $ Index fstIdx (M.singleton (IndexVar indexVarName) (-1))
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the

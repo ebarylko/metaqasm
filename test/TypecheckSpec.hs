@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module TypecheckSpec(spec) where
 
@@ -24,6 +25,7 @@ import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))
 import Control.Arrow((>>>))
+import qualified Control.Lens as L
 import Control.Monad.Except(ExceptT(..), withExceptT, runExceptT)
 import qualified Data.Map as M
 import Control.Monad ((>=>), liftM2, join)
@@ -92,6 +94,7 @@ import Data.Functor((<&>), ($>))
 -- either an error that occurred when parsing the code or
 -- when evaluating the types of the program
 data MetaQasmError = ParseError String | TypeErr TypeErrAt deriving (Eq, Show)
+L.makePrisms ''MetaQasmError
 
 type ProgramTypeEvaluationResult = ExceptT MetaQasmError IO TermType
 
@@ -312,16 +315,19 @@ prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
     regCollId = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg)
     ignoreIndexVars = dropWhile (/= ')') >>> drop 1
 
+L.makePrisms ''WithContext
+L.makePrisms ''TypeEvaluationError
+
 -- Given a circuit family declaration which takes a
 -- register collection that may be of negative length, checks that
 -- such a declaration is invalid and results in an error
 -- noting this
 prop_cannotTakePotentialNegLengthRegCollAsArg :: MetaQasmProgram -> IO ()
 prop_cannotTakePotentialNegLengthRegCollAsArg prog =
-  (runExceptT . calcTypeOf) prog <&> isCounterExample $> ()
+  (runExceptT . calcTypeOf) prog <&> isInvalidLegnthCollErr $> ()
   where
-    isCounterExample :: Either MetaQasmError TermType -> Bool
-    isCounterExample (Left (TypeErr (WithContext (InvalidParametricRegCollDecl{}) _))) = True
+    isInvalidLegnthCollErr :: Either MetaQasmError TermType -> Bool
+    isInvalidLegnthCollErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegCollDecl)
 
 spec :: Spec
 spec =  do

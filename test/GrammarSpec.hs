@@ -88,6 +88,15 @@ indexSumRegAccess = regCollAccessThatUsesBinOpOnIndices (+)
 indexDiffRegAccess :: Identifier -> Int -> Int -> Expression
 indexDiffRegAccess = regCollAccessThatUsesBinOpOnIndices (-)
 
+toIndexVar :: Identifier -> Index
+toIndexVar = IndexVar >>> flip M.singleton 1 >>> Index 0
+
+-- Takes the name of a register collection, an index variable n,
+-- a number N, and returns a register access for the
+-- (n - N)th element
+indexDiffRegAccess' :: Identifier -> Identifier -> Int -> Expression
+indexDiffRegAccess' regCollName indexVarName sndIdx = RegisterAccess (onLine1 regCollName) $ onLine1 $ Index (-sndIdx) (M.singleton (IndexVar indexVarName) 1)
+
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
 -- (x * y)th element of the collection
@@ -126,6 +135,7 @@ regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
 regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateArg collName
 quantumRegColl  = regCollAnnotation Quantum
 classicalRegColl = regCollAnnotation Classical
+
 
 -- Takes the name of the register collection n, the family variable
 -- indicating the size of the collection, and generates a
@@ -218,6 +228,7 @@ spec = do
       describe "Taking the difference of two indices" $ do
         it "Yields a term representing the difference" $ do
           "x[0 - 0]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0
+          "x[n - 1]" `shouldParseToExpr` indexDiffRegAccess' "x" "n" 1
 
       describe "Taking the product of two indices" $ do
         it "Yields a term representing the product" $ do

@@ -563,5 +563,4 @@ spec =  do
 
   describe "Declaring a circuit family that uses a free index variable"  $ do
     prop "Is invalid" $ do
-      pending
-      --forAll circuitFamilyThatUsesFreeIndexVar prop_cannotUseFreeIndexVarInCircuitFamDecl
+      forAll circuitFamilyThatUsesFreeIndexVar prop_cannotUseFreeIndexVarInCircuitFamDecl

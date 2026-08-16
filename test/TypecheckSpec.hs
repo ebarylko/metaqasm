@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module TypecheckSpec(spec) where
 
@@ -24,6 +25,7 @@ import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))
 import Control.Arrow((>>>))
+import qualified Control.Lens as L
 import Control.Monad.Except(ExceptT(..), withExceptT, runExceptT)
 import qualified Data.Map as M
 import Control.Monad ((>=>), liftM2, join)
@@ -83,7 +85,8 @@ import Generators(outOfScopeVar,
                  validThirdOrderGateDecl,
                  regAccessedByValidProdOfIndices,
                  validGateDeclThatDoesNotDependOnIndexVars,
-                 circuitFamilyThatMayTakeEmptyRegColl)
+                 circuitFamilyThatMayTakeEmptyRegColl,
+                 circuitFamilyThatMayTakeNegLengthRegColl)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -310,6 +313,22 @@ prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
     regCollId = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg)
     ignoreIndexVars = dropWhile (/= ')') >>> drop 1
 
+L.makePrisms ''WithContext
+L.makePrisms ''TypeEvaluationError
+L.makePrisms ''MetaQasmError
+
+-- Given a circuit family declaration which takes a
+-- register collection that may be of negative length, checks that
+-- evaluating the declaration is invalid and yields an error
+-- noting this
+prop_cannotTakePotentialNegLengthRegCollAsArg :: MetaQasmProgram -> IO ()
+prop_cannotTakePotentialNegLengthRegCollAsArg  =
+  calcTypeOf'  >=> (`shouldSatisfy` isInvalidLengthCollErr )
+  where
+    isInvalidLengthCollErr :: Either MetaQasmError TermType -> Bool
+    isInvalidLengthCollErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegCollDecl)
+    calcTypeOf' = runExceptT . calcTypeOf
+
 spec :: Spec
 spec =  do
   describe "Accessing an out of scope variable" $ do
@@ -521,3 +540,9 @@ spec =  do
     modifyMaxSuccess (const 10) $ do
       prop "Is invalid" $ do
         forAll circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg
+
+
+  describe "Declaring a circuit family where one of the arguments could be a collection of negative length"  $ do
+    modifyMaxSuccess (const 10) $ do
+      prop "Is invalid" $ do
+        forAll circuitFamilyThatMayTakeNegLengthRegColl prop_cannotTakePotentialNegLengthRegCollAsArg

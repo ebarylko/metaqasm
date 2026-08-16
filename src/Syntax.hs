@@ -7,6 +7,7 @@ module Syntax(Expression(..),
           Index(..),
           Idx,
           GateInfo(..),
+          IndexCoeffs,
           Id,
           GateApp(..),
           IndexVar(..),
@@ -18,7 +19,7 @@ module Syntax(Expression(..),
           GateArg(..)) where
 
 import Lexer(LineNumber)
-import Data.Function(on)
+import Data.Function(on, (&))
 import Control.Arrow((***))
 import Control.Monad(join)
 import Data.Ix(Ix, range, inRange)
@@ -38,10 +39,12 @@ type Id = WithContext Identifier LineNumber
 
 newtype IndexVar = IndexVar String deriving (Eq, Show, Ord, Generic)
 
+type IndexCoeffs = M.Map IndexVar Int
+
 -- This data type represents values used to access and declare
 -- register collections, being  a linear combination of
 -- constants and index variables
-data Index = Index{_constPortion :: Int, _idxVarsCoefficients :: M.Map IndexVar Int} deriving (Show, Eq)
+data Index = Index{_constPortion :: Int, _idxVarsCoefficients :: IndexCoeffs} deriving (Show, Eq)
 L.makeLenses ''Index
 
 applyBinOpOnIndices :: (Int -> Int -> a) -> Index -> Index -> a
@@ -57,13 +60,22 @@ toConstIdx val = Index val M.empty
 tupleMap :: (a -> b) -> (a, a) -> (b, b)
 tupleMap = join (***)
 
+
+-- Takes two linear combinations of index variables, a, b,
+-- and returns the difference of a and b
+difference :: IndexCoeffs -> IndexCoeffs -> IndexCoeffs
+difference a b = M.union negVarsOnlyInB varsInAOrB & M.filter (/= 0)
+  where
+    negVarsOnlyInB = M.difference b a  & M.map negate
+    varsInAOrB = M.unionWith (-) a b
+
 instance Ix Index where
   range _ = error "Did not implement this yet"
   inRange idxBound x = inRange (tupleMap (L.view constPortion) idxBound) (L.view constPortion x)
 
 instance Num Index where
   (Index left _) + (Index right _) = Index (left + right) M.empty
-  (Index left _) - (Index right _) = Index (left - right) M.empty
+  (Index left indexVarsL) - (Index right indexVarsR) = Index (left - right) $ difference indexVarsL indexVarsR
   (Index left _) * (Index right _) = Index (left * right) M.empty
   abs = error "Need to implement this"
   signum = error "Need to implement this"

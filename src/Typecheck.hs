@@ -69,6 +69,7 @@ data TypeEvaluationError =
   | InvalidCircuitAnnotation{invalidPart :: TermType}
   deriving (Show, Eq)
 
+
 type TypeErrAt = WithContext TypeEvaluationError LineNumber
 
 -- This type represents the result of determining the type of an

@@ -9,6 +9,7 @@ import Syntax(Expression(..),
            Identifier,
            RegCollInfo(..),
            toConstIdx,
+           IndexCoeffs,
            GateInfo(..),
            GateApp(..),
            Index(..),
@@ -88,6 +89,20 @@ indexSumRegAccess = regCollAccessThatUsesBinOpOnIndices (+)
 indexDiffRegAccess :: Identifier -> Int -> Int -> Expression
 indexDiffRegAccess = regCollAccessThatUsesBinOpOnIndices (-)
 
+toIndexVarWithCoeff :: Identifier -> Int -> IndexCoeffs
+toIndexVarWithCoeff = IndexVar >>> M.singleton
+
+-- Takes the name of a register collection, an index variable n,
+--  a number N, a function that generates an index  i which is a difference of other indices,
+-- and returns a register access for the ith element
+indexDiffRegAccessUsing :: (Identifier -> Int -> Index) -> Identifier -> Identifier -> Int -> Expression
+
+indexDiffRegAccessUsing f regCollName indexVarName = f indexVarName  >>> onLine1  >>> RegisterAccess (onLine1 regCollName)
+
+subNumFromIndexVar = indexDiffRegAccessUsing $ \indexVarName idx -> Index (-idx) $ toIndexVarWithCoeff indexVarName 1 
+subIndexVarFromNum = indexDiffRegAccessUsing $ \indexVarName idx -> Index idx $ toIndexVarWithCoeff indexVarName (-1) 
+
+
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
 -- (x * y)th element of the collection
@@ -126,6 +141,7 @@ regCollAnnotation ::  RegisterType -> Identifier  -> Int -> GateArg
 regCollAnnotation collKind collName = index >>> RegisterGroup collKind >>> GateArg collName
 quantumRegColl  = regCollAnnotation Quantum
 classicalRegColl = regCollAnnotation Classical
+
 
 -- Takes the name of the register collection n, the family variable
 -- indicating the size of the collection, and generates a
@@ -218,6 +234,9 @@ spec = do
       describe "Taking the difference of two indices" $ do
         it "Yields a term representing the difference" $ do
           "x[0 - 0]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0
+          "x[n - 1]" `shouldParseToExpr` subNumFromIndexVar "x" "n" 1
+          "x[1 - n]" `shouldParseToExpr` subIndexVarFromNum "x" "n" 1
+          "x[n - n]" `shouldParseToExpr` indexDiffRegAccess "x" 0 0
 
       describe "Taking the product of two indices" $ do
         it "Yields a term representing the product" $ do

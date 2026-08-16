@@ -60,6 +60,7 @@ data TypeEvaluationError =
   VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
   | NegSizeRegCollDecl Identifier
+  | UsesFreeIndexVar{invalidIdx :: Index, freeIdxVar :: IndexVar}
   | InvalidParametricRegCollDecl Identifier CounterExample
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}

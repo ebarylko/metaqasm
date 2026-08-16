@@ -61,7 +61,8 @@ module Generators(outOfScopeVar,
                  regAccessedByValidProdOfIndices,
                  validGateDeclThatDoesNotDependOnIndexVars,
                  circuitFamilyThatMayTakeEmptyRegColl,
-                 circuitFamilyThatMayTakeNegLengthRegColl)
+                 circuitFamilyThatMayTakeNegLengthRegColl,
+                 circuitFamilyThatUsesFreeIndexVar)
   where
 
 import Control.Monad(join)
@@ -1118,3 +1119,10 @@ circuitFamilyThatMayTakeNegLengthRegColl :: Gen MetaQasmProgram
 circuitFamilyThatMayTakeNegLengthRegColl = formatToString invalidCircuitFamDecl' <$> gateThatTakesARegColl
   where
     invalidCircuitFamDecl' = replaced "Qbit[n]" "Qbit[1 - n]" invalidCircuitFamDecl
+
+-- Generates a declaration for a circuit family that uses
+-- an index variable that is not in scope
+circuitFamilyThatUsesFreeIndexVar :: Gen MetaQasmProgram
+circuitFamilyThatUsesFreeIndexVar = formatToString invalidCircuitFamDecl' <$> gateThatTakesARegColl
+  where
+    invalidCircuitFamDecl' = replaced "family(n)" "family(g)" invalidCircuitFamDecl

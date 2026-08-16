@@ -86,7 +86,8 @@ import Generators(outOfScopeVar,
                  regAccessedByValidProdOfIndices,
                  validGateDeclThatDoesNotDependOnIndexVars,
                  circuitFamilyThatMayTakeEmptyRegColl,
-                 circuitFamilyThatMayTakeNegLengthRegColl)
+                 circuitFamilyThatMayTakeNegLengthRegColl,
+                 circuitFamilyThatUsesFreeIndexVar)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -300,6 +301,9 @@ prop_cannotTakeInvalidCircuitAsArg (prog, invalidTypeAnnot) =
   where
     invalidCircErr = InvalidCircuitAnnotation invalidTypeAnnot & errOnLine1
 
+indexVarWithCoeff :: Identifier -> Int ->  Index
+indexVarWithCoeff varName coeff = IndexVar varName & flip M.singleton coeff & Index 0
+
 -- Given a circuit family which takes a potentially
 -- empty register collection as an argument, checks that
 -- such a declaration is invalid and results in an error
@@ -309,7 +313,7 @@ prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
   prog `shouldHaveType` emptyRegCollErr
   where
     emptyRegCollErr = InvalidParametricRegCollDecl regCollId counterExample & errOnLine1
-    counterExample = CounterExample (Index  0 (M.singleton (IndexVar "n" ) 1)) (M.singleton (IndexVar "n") 0)
+    counterExample = CounterExample (indexVarWithCoeff "n" 1) (M.singleton (IndexVar "n") 0)
     regCollId = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg)
     ignoreIndexVars = dropWhile (/= ')') >>> drop 1
 
@@ -328,6 +332,16 @@ prop_cannotTakePotentialNegLengthRegCollAsArg  =
     isInvalidLengthCollErr :: Either MetaQasmError TermType -> Bool
     isInvalidLengthCollErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegCollDecl)
     calcTypeOf' = runExceptT . calcTypeOf
+
+
+-- Takes a program containing a circuit family declaration which
+-- uses a free index variable and asserts that the program has
+-- an invalid type
+prop_cannotUseFreeIndexVarInCircuitFamDecl :: MetaQasmProgram -> IO ()
+prop_cannotUseFreeIndexVarInCircuitFamDecl  prog =
+  prog `shouldHaveType` freeIndexVarUsageErr
+  where
+    freeIndexVarUsageErr = UsesFreeIndexVar (indexVarWithCoeff "n" 1)  (IndexVar "n") & errOnLine1
 
 spec :: Spec
 spec =  do
@@ -546,3 +560,8 @@ spec =  do
     modifyMaxSuccess (const 10) $ do
       prop "Is invalid" $ do
         forAll circuitFamilyThatMayTakeNegLengthRegColl prop_cannotTakePotentialNegLengthRegCollAsArg
+
+  describe "Declaring a circuit family that uses a free index variable"  $ do
+    prop "Is invalid" $ do
+      pending
+      --forAll circuitFamilyThatUsesFreeIndexVar prop_cannotUseFreeIndexVarInCircuitFamDecl

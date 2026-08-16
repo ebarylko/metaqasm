@@ -93,11 +93,11 @@ toIndexVarWithCoeff :: Identifier -> Int -> IndexCoeffs
 toIndexVarWithCoeff = IndexVar >>> M.singleton
 
 -- Takes the name of a register collection, an index variable n,
---  a number N, a function that generates an index  i,
+--  a number N, a function that generates an index  i which is a difference of other indices,
 -- and returns a register access for the ith element
 indexDiffRegAccessUsing :: (Identifier -> Int -> Index) -> Identifier -> Identifier -> Int -> Expression
 
-indexDiffRegAccessUsing f regCollName indexVarName idx = RegisterAccess (onLine1 regCollName) $ onLine1 $ f indexVarName idx
+indexDiffRegAccessUsing f regCollName indexVarName = f indexVarName  >>> onLine1  >>> RegisterAccess (onLine1 regCollName)
 
 subNumFromIndexVar = indexDiffRegAccessUsing $ \indexVarName idx -> Index (-idx) $ toIndexVarWithCoeff indexVarName 1 
 subIndexVarFromNum = indexDiffRegAccessUsing $ \indexVarName idx -> Index idx $ toIndexVarWithCoeff indexVarName (-1) 

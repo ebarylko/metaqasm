@@ -88,13 +88,11 @@ import Generators(outOfScopeVar,
                  circuitFamilyThatMayTakeEmptyRegColl,
                  circuitFamilyThatMayTakeNegLengthRegColl)
 import Data.Function(on, (&))
-import Data.Functor((<&>), ($>))
 
 -- This represents the possible errors in a metaQasm program, being
 -- either an error that occurred when parsing the code or
 -- when evaluating the types of the program
 data MetaQasmError = ParseError String | TypeErr TypeErrAt deriving (Eq, Show)
-L.makePrisms ''MetaQasmError
 
 type ProgramTypeEvaluationResult = ExceptT MetaQasmError IO TermType
 
@@ -317,17 +315,19 @@ prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
 
 L.makePrisms ''WithContext
 L.makePrisms ''TypeEvaluationError
+L.makePrisms ''MetaQasmError
 
 -- Given a circuit family declaration which takes a
 -- register collection that may be of negative length, checks that
--- such a declaration is invalid and results in an error
+-- evaluating the declaration is invalid and yields an error
 -- noting this
 prop_cannotTakePotentialNegLengthRegCollAsArg :: MetaQasmProgram -> IO ()
-prop_cannotTakePotentialNegLengthRegCollAsArg prog =
-  (runExceptT . calcTypeOf) prog <&> isInvalidLegnthCollErr $> ()
+prop_cannotTakePotentialNegLengthRegCollAsArg  =
+  calcTypeOf'  >=> (`shouldSatisfy` isInvalidLegnthCollErr )
   where
     isInvalidLegnthCollErr :: Either MetaQasmError TermType -> Bool
     isInvalidLegnthCollErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegCollDecl)
+    calcTypeOf' = runExceptT . calcTypeOf
 
 spec :: Spec
 spec =  do

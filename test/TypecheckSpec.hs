@@ -323,10 +323,10 @@ L.makePrisms ''MetaQasmError
 -- noting this
 prop_cannotTakePotentialNegLengthRegCollAsArg :: MetaQasmProgram -> IO ()
 prop_cannotTakePotentialNegLengthRegCollAsArg  =
-  calcTypeOf'  >=> (`shouldSatisfy` isInvalidLegnthCollErr )
+  calcTypeOf'  >=> (`shouldSatisfy` isInvalidLengthCollErr )
   where
-    isInvalidLegnthCollErr :: Either MetaQasmError TermType -> Bool
-    isInvalidLegnthCollErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegCollDecl)
+    isInvalidLengthCollErr :: Either MetaQasmError TermType -> Bool
+    isInvalidLengthCollErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegCollDecl)
     calcTypeOf' = runExceptT . calcTypeOf
 
 spec :: Spec

@@ -205,13 +205,6 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
   actualTypes <- traverse (verifyExpr m) args
   verifyGateArgs line expectedTypes actualTypes args
   where
-    isCircuit :: TermType -> Bool
-    isCircuit = L.has _Circuit
-
-    findGateType :: Id -> EvaluationContext -> TypeCalculationResult
-    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genIsNotGateErr
-    genIsNotGateErr :: TermType -> TypeErrAt
-    genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
 
 verifyGateApp m (GateSequence a b)
   = verifyGateApp m a *> verifyGateApp m b
@@ -329,15 +322,39 @@ isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
 extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
 extendCtxWithGateParam (GateArg{..}) = M.insert name argType
 
-verifyParametricGateBody :: GateApp -> EvaluationContext -> TypeCalculationResult'
 
-verifyParametricGateBody = error "Not implemented yet"
+findGateType :: Id -> EvaluationContext -> TypeCalculationResult
+findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genIsNotGateErr
+  where
+    genIsNotGateErr :: TermType -> TypeErrAt
+    genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
+    isCircuit :: TermType -> Bool
+    isCircuit = L.has _Circuit
+
+-- Takes the context under which to evaluate an expression, a
+-- parametric expression, and returns the type of the expression if it is
+-- valid. Returns an error otherwise
+verifyParametricExpr :: EvaluationContext -> Expression -> TypeCalculationResult'
+
+verifyParametricExpr m x@(Var{})  = verifyExpr' m x
+
+-- Takes the body of a gate within a parametric gate declaration, the context
+-- under which to evaluate the body, and returns an error if any part of the
+-- gate body has an invalid type. Returns the overall type of the gate otherwise
+verifyParametricGateBody :: EvaluationContext  -> GateApp  -> TypeCalculationResult'
+
+verifyParametricGateBody m GateApp{gateId, gateArgs} = do
+  expectedTypes <- findGateType' gateName m
+  actualTypes <- traverse (verifyParametricExpr m) args
+  verifyGateArgs line expectedTypes actualTypes args
+  where
+    findGateType' = findGateType >>> fromEither
 
 -- Takes a circuit family declaration, the context to evaluate it under, and
 -- returns an error if the gate may take an empty collection. Approves the
 -- declaration otherwise
 verifyParametricGateDecl :: [IndexVar] -> GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m = allM (isNotUsingFreeIdxVar validIndexVars) args *>  gateCtx >>= verifyParametricGateBody gateBody
+verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m = allM (isNotUsingFreeIdxVar validIndexVars) args *>  gateCtx >>= flip verifyParametricGateBody gateBody
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg

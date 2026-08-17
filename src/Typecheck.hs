@@ -80,13 +80,16 @@ type TypeErrAt = WithContext TypeEvaluationError LineNumber
 -- expression, being either a valid type or one that is invalid due to one or more reasons.
 type TypeCalculationResult = Either TypeErrAt TermType
 
+toTypeErrAtLoc :: TypeEvaluationError -> LineNumber -> Either TypeErrAt a
+toTypeErrAtLoc err = Left . WithContext err
+
 -- Takes an id referring to an expression, an evaluation scope, and returns the type of the referenced
 -- expression if it exists. Returns an error otherwise.
 findTypeWithinScope :: Id -> EvaluationContext -> TypeCalculationResult
 
 findTypeWithinScope (WithContext varName lineNum) = M.lookup varName >>> maybe lookupErr Right
   where
-    lookupErr = Left $ WithContext (VariableNotInScope varName) lineNum
+    lookupErr = toTypeErrAtLoc (VariableNotInScope varName) lineNum
 
 eitherFromPred :: (a -> Bool) -> (a -> err) -> Either err a -> Either err a
 eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Left (errFn x))
@@ -181,8 +184,8 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     numOfActualTypes = length actualArgTypes
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
-    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = toConstIdx numOfExpectedTypes, actualNumOfParams = toConstIdx numOfActualTypes} line
-    gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
+    unexpectedNumOfArgsErr = toTypeErrAtLoc ExpectedNParams{expectedNumOfParams = toConstIdx numOfExpectedTypes, actualNumOfParams = toConstIdx numOfActualTypes} line
+    gateArgMismatchErr = toTypeErrAtLoc (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
 -- Takes the current context, an expression, and calculates its type
@@ -309,6 +312,7 @@ toSymInt = toInteger >>> G.con
 toSymVar :: IndexVar -> G.SymInteger
 toSymVar = (L.^. position @1) >>>  fromString >>> G.ssym
 
+
 -- Takes a collection of index variables that can be used, an argument to a gate, and
 -- checks that the argument does not reference any free index variables
 isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
@@ -318,7 +322,7 @@ isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = all
     isValidIndexVar :: [IndexVar] -> IndexVar -> ExceptT TypeErrAt IO Bool
     isValidIndexVar inScopeIndexVars usedVar = bool  (fromEither $ genFreeIdxVarErr usedVar numOfRegs) (return True) $ usedVar `elem` inScopeIndexVars
     genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
-    genFreeIdxVarErr freeVar (WithContext regCount line) = Left $ WithContext (UsesFreeIndexVar regCount freeVar) line
+    genFreeIdxVarErr freeVar (WithContext regCount line) = toTypeErrAtLoc (UsesFreeIndexVar regCount freeVar) line
 
 isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
 
@@ -347,7 +351,7 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
     verifyCircuitArg :: TermType -> TypeCalculationResult
     verifyCircuitArg x@(RegisterGroup _ numOfRegs)
       | isPosIdx numOfRegs = Right x
-      | otherwise = Left $ WithContext (InvalidCircuitAnnotation x) (extractCtx numOfRegs)
+      | otherwise = toTypeErrAtLoc (InvalidCircuitAnnotation x) $ extractCtx numOfRegs
     verifyCircuitArg x@(Circuit argTypes) = traverse verifyCircuitArg argTypes $>  x
     verifyCircuitArg x = Right x
 
@@ -445,7 +449,7 @@ extractCtx (WithContext _ x) = x
 -- information about a collection, and generates an error about the collection
 -- using the function
 genInvalidRegCollLengthErr :: (Identifier -> TypeEvaluationError) -> RegCollInfo -> Either TypeErrAt a
-genInvalidRegCollLengthErr errFn RegCollInfo{..} =  Left $ WithContext (errFn regCollName) (extractCtx numOfRegs)
+genInvalidRegCollLengthErr errFn RegCollInfo{..} =  toTypeErrAtLoc (errFn regCollName) $ extractCtx numOfRegs
 
 genNegLengthRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genNegLengthRegCollDeclErr = genInvalidRegCollLengthErr NegSizeRegCollDecl

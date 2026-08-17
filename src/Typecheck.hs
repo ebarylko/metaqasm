@@ -312,11 +312,11 @@ toSymVar = (L.^. position @1) >>>  fromString >>> G.ssym
 -- Takes a collection of index variables that can be used, an argument to a gate, and
 -- checks that the argument does not reference any free index variables
 isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
-isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = allM (isUsingIndexVar validIdxVars) usedIdxVars
+isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = allM (isValidIndexVar validIdxVars) usedIdxVars
   where
     usedIdxVars = extractVal numOfRegs & L.view idxVarsCoefficients & M.keys
-    isUsingIndexVar :: [IndexVar] -> IndexVar -> ExceptT TypeErrAt IO Bool
-    isUsingIndexVar inScopeIndexVars usedVar = bool  (fromEither $ genFreeIdxVarErr usedVar numOfRegs) (return True) $ usedVar `elem` inScopeIndexVars
+    isValidIndexVar :: [IndexVar] -> IndexVar -> ExceptT TypeErrAt IO Bool
+    isValidIndexVar inScopeIndexVars usedVar = bool  (fromEither $ genFreeIdxVarErr usedVar numOfRegs) (return True) $ usedVar `elem` inScopeIndexVars
     genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
     genFreeIdxVarErr freeVar (WithContext regCount line) = Left $ WithContext (UsesFreeIndexVar regCount freeVar) line
 

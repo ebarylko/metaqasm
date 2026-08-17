@@ -326,15 +326,23 @@ isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = all
 
 isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
 
+extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
+extendCtxWithGateParam (GateArg{..}) = M.insert name argType
+
+verifyParametricGateBody :: GateApp -> EvaluationContext -> TypeCalculationResult'
+
+verifyParametricGateBody = error "Not implemented yet"
+
 -- Takes a circuit family declaration, the context to evaluate it under, and
 -- returns an error if the gate may take an empty collection. Approves the
 -- declaration otherwise
 verifyParametricGateDecl :: [IndexVar] -> GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyParametricGateDecl validIndexVars GateInfo{args} _ = allM (isNotUsingFreeIdxVar validIndexVars) args *>  traverse verifyParametricTypeAnnotation args $>  Unit
+verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m = allM (isNotUsingFreeIdxVar validIndexVars) args *>  gateCtx >>= verifyParametricGateBody gateBody
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg
     verifyParametricTypeAnnotation x = fromEither (Right x)
+    gateCtx = foldr extendCtxWithGateParam m <$> traverse verifyParametricTypeAnnotation args
 
 
 zero :: Index
@@ -363,6 +371,7 @@ isZero = extractVal >>> (== zero)
 
 type TypeCalculationResult' = ExceptT TypeErrAt IO TermType
 
+
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
@@ -370,8 +379,6 @@ verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
 verifyGateDecl GateInfo{..} m = (fromEither gateDeclCtx) >>= (`verifyGateApp'`  gateBody)
   where
     gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
-    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
-    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))

@@ -62,7 +62,8 @@ module Generators(outOfScopeVar,
                  validGateDeclThatDoesNotDependOnIndexVars,
                  circuitFamilyThatMayTakeEmptyRegColl,
                  circuitFamilyThatMayTakeNegLengthRegColl,
-                 circuitFamilyThatUsesFreeIndexVar)
+                 circuitFamilyThatUsesFreeIndexVar,
+                 circuitFamilyThatAccessesValidReg)
   where
 
 import Control.Monad(join)
@@ -1135,6 +1136,6 @@ circuitFamilyThatAccessesValidReg :: Gen MetaQasmProgram
 
 circuitFamilyThatAccessesValidReg = formatToString validCircuitDecl <$> gateThatTakesARegColl
   where
-    validCircuitDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl $ viewed paramInfo hGate
+    validCircuitDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl $ hGate
     nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
-    hGate = hadamardApp (regCollAccess $ fconst "n")
+    hGate = viewed paramInfo $ hadamardApp (regCollAccess $ fconst "n")

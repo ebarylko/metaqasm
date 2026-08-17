@@ -129,10 +129,6 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genExpectedRegCollErr :: TermType -> TypeErrAt
     genExpectedRegCollErr = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)
 
-    determineRegElemType :: TermType -> TermType
-    determineRegElemType (RegisterGroup Quantum _) = Qbit
-    determineRegElemType (RegisterGroup Classical _) = Bit
-
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
@@ -324,10 +320,10 @@ extendCtxWithGateParam (GateArg{..}) = M.insert name argType
 
 
 findGateType :: Id -> EvaluationContext -> TypeCalculationResult
-findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genIsNotGateErr
+findGateType gateName = findTypeWithinScope gateName  >>> eitherFromPred isCircuit genIsNotGateErr
   where
     genIsNotGateErr :: TermType -> TypeErrAt
-    genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
+    genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext (extractCtx gateName)
     isCircuit :: TermType -> Bool
     isCircuit = L.has _Circuit
 
@@ -336,7 +332,36 @@ findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genI
 -- valid. Returns an error otherwise
 verifyParametricExpr :: EvaluationContext -> Expression -> TypeCalculationResult'
 
+
+determineRegElemType :: TermType -> TermType
+determineRegElemType (RegisterGroup Quantum _) = Qbit
+determineRegElemType (RegisterGroup Classical _) = Bit
+
+wrappedEitherFromPred :: Monad m => (a -> ExceptT err m Bool) -> (a -> err) -> a -> ExceptT err m a
+
+wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
+
+
 verifyParametricExpr m x@(Var{})  = verifyExpr' m x
+
+verifyParametricExpr m RegisterAccess{registerName, registerNumber}
+  = findTypeWithinScope' registerName m
+  >>= (wrappedEitherFromPred (isAccessingValidReg registerNumber) (error "Not handled yet"))
+  & fmap determineRegElemType
+  where
+    findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
+    isAccessingValidReg :: Idx -> TermType -> ExceptT TypeErrAt IO Bool
+    isAccessingValidReg = error "Not implemented yet"
+
+
+-- Takes the line where a gate was applied,
+-- the types of the expected arguments for a gate,
+-- the types of the actual arguments passed to the gate,
+-- the arguments passed to the gate, and checks if the
+-- expected and actual types match. Returns an error otherwise
+verifyParametricGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
+
+verifyParametricGateArgs line (Circuit expectedArgTypes) actualArgTypes args = error "Not doneyet"
 
 -- Takes the body of a gate within a parametric gate declaration, the context
 -- under which to evaluate the body, and returns an error if any part of the
@@ -344,11 +369,11 @@ verifyParametricExpr m x@(Var{})  = verifyExpr' m x
 verifyParametricGateBody :: EvaluationContext  -> GateApp  -> TypeCalculationResult'
 
 verifyParametricGateBody m GateApp{gateId, gateArgs} = do
-  expectedTypes <- findGateType' gateName m
-  actualTypes <- traverse (verifyParametricExpr m) args
-  verifyGateArgs line expectedTypes actualTypes args
+  expectedTypes <- findGateType' gateId m
+  actualTypes <- traverse (verifyParametricExpr m) gateArgs
+  verifyParametricGateArgs (extractCtx gateId) expectedTypes actualTypes gateArgs
   where
-    findGateType' = findGateType >>> fromEither
+    findGateType' a = findGateType a >>> fromEither
 
 -- Takes a circuit family declaration, the context to evaluate it under, and
 -- returns an error if the gate may take an empty collection. Approves the

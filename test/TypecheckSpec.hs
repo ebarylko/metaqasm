@@ -206,7 +206,6 @@ prop_cannotApplyGateToTooFewQubits  =
     tooFewArgsErr = genExpectedNumOfArgsErr 2 1
 
 
-
 -- Checks that running a given MetaQASM program does not produce
 -- any errors
 prop_isValidProgram :: MetaQasmProgram -> IO ()

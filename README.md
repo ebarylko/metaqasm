@@ -52,6 +52,8 @@ for indices such as m * n
 
 ## Declaring an unscoped/scoped gate family
 
+### Pass a circuit family as an argument
+
 ## Operating over a slice of an array
 
 ## Detecting the use of free index variables

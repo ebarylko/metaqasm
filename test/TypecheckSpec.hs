@@ -86,7 +86,8 @@ import Generators(outOfScopeVar,
                  regAccessedByValidProdOfIndices,
                  validGateDeclThatDoesNotDependOnIndexVars,
                  circuitFamilyThatMayTakeEmptyRegColl,
-                 circuitFamilyThatMayTakeNegLengthRegColl)
+                 circuitFamilyThatMayTakeNegLengthRegColl,
+                 circuitFamilyThatUsesFreeIndexVar)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -190,8 +191,8 @@ genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
 -- to three qubits is invalid
 prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
 
-prop_cannotApplyGateToTooManyQubits prog =
-  prog `shouldHaveType` tooManyArgsErr
+prop_cannotApplyGateToTooManyQubits  =
+   (`shouldHaveType` tooManyArgsErr)
   where
     tooManyArgsErr = genExpectedNumOfArgsErr 2 3
 
@@ -199,18 +200,17 @@ prop_cannotApplyGateToTooManyQubits prog =
 -- to one qubit is invalid
 prop_cannotApplyGateToTooFewQubits :: MetaQasmProgram -> IO ()
 
-prop_cannotApplyGateToTooFewQubits prog =
-  prog `shouldHaveType` tooFewArgsErr
+prop_cannotApplyGateToTooFewQubits  =
+   (`shouldHaveType` tooFewArgsErr)
   where
     tooFewArgsErr = genExpectedNumOfArgsErr 2 1
-
 
 
 -- Checks that running a given MetaQASM program does not produce
 -- any errors
 prop_isValidProgram :: MetaQasmProgram -> IO ()
 
-prop_isValidProgram prog = prog `shouldHaveType` expectedType
+prop_isValidProgram = (`shouldHaveType` expectedType)
   where
     expectedType = fromEither $ Right Unit
 
@@ -300,6 +300,9 @@ prop_cannotTakeInvalidCircuitAsArg (prog, invalidTypeAnnot) =
   where
     invalidCircErr = InvalidCircuitAnnotation invalidTypeAnnot & errOnLine1
 
+indexVarWithCoeff :: Identifier -> Int ->  Index
+indexVarWithCoeff varName coeff = IndexVar varName & flip M.singleton coeff & Index 0
+
 -- Given a circuit family which takes a potentially
 -- empty register collection as an argument, checks that
 -- such a declaration is invalid and results in an error
@@ -309,7 +312,7 @@ prop_cannotTakePotentiallyEmptyRegCollAsArg prog =
   prog `shouldHaveType` emptyRegCollErr
   where
     emptyRegCollErr = InvalidParametricRegCollDecl regCollId counterExample & errOnLine1
-    counterExample = CounterExample (Index  0 (M.singleton (IndexVar "n" ) 1)) (M.singleton (IndexVar "n") 0)
+    counterExample = CounterExample (indexVarWithCoeff "n" 1) (M.singleton (IndexVar "n") 0)
     regCollId = prog & (ignoreIndexVars >>> extractNameOfFirstGateArg)
     ignoreIndexVars = dropWhile (/= ')') >>> drop 1
 
@@ -328,6 +331,15 @@ prop_cannotTakePotentialNegLengthRegCollAsArg  =
     isInvalidLengthCollErr :: Either MetaQasmError TermType -> Bool
     isInvalidLengthCollErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegCollDecl)
     calcTypeOf' = runExceptT . calcTypeOf
+
+
+-- Takes a program containing a circuit family declaration which
+-- uses a free index variable and asserts that the program is
+-- invalid
+prop_cannotUseFreeIndexVarInCircuitFamDecl :: MetaQasmProgram -> IO ()
+prop_cannotUseFreeIndexVarInCircuitFamDecl  = (`shouldHaveType` freeIndexVarUsageErr)
+  where
+    freeIndexVarUsageErr = UsesFreeIndexVar (indexVarWithCoeff "n" 1)  (IndexVar "n") & errOnLine1
 
 spec :: Spec
 spec =  do
@@ -546,3 +558,7 @@ spec =  do
     modifyMaxSuccess (const 10) $ do
       prop "Is invalid" $ do
         forAll circuitFamilyThatMayTakeNegLengthRegColl prop_cannotTakePotentialNegLengthRegCollAsArg
+
+  describe "Declaring a circuit family that uses a free index variable"  $ do
+    prop "Is invalid" $ do
+      forAll circuitFamilyThatUsesFreeIndexVar prop_cannotUseFreeIndexVarInCircuitFamDecl

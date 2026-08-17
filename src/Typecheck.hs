@@ -13,6 +13,7 @@ module Typecheck
       Term)
 where
 
+import Data.Bool(bool)
 import qualified Data.Map as M
 import Control.Arrow ((>>>), (&&&))
 import Syntax(Identifier,
@@ -23,6 +24,7 @@ import Syntax(Identifier,
               Index(..),
               IndexVar(..),
               RegCollInfo(..),
+              idxVarsCoefficients,
               toConstIdx,
               GateInfo(..),
               GateArg(..),
@@ -44,6 +46,7 @@ import qualified Grisette as G
 import Data.String(fromString)
 import Control.Monad.Except(ExceptT(..))
 import Data.Generics.Product (position)
+import Control.Monad.Extra(allM)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -60,6 +63,7 @@ data TypeEvaluationError =
   VariableNotInScope Identifier
   | EmptyRegCollDecl Identifier
   | NegSizeRegCollDecl Identifier
+  | UsesFreeIndexVar{invalidIdx :: Index, freeIdxVar :: IndexVar}
   | InvalidParametricRegCollDecl Identifier CounterExample
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
@@ -76,13 +80,16 @@ type TypeErrAt = WithContext TypeEvaluationError LineNumber
 -- expression, being either a valid type or one that is invalid due to one or more reasons.
 type TypeCalculationResult = Either TypeErrAt TermType
 
+toTypeErrAtLoc :: TypeEvaluationError -> LineNumber -> Either TypeErrAt a
+toTypeErrAtLoc err = Left . WithContext err
+
 -- Takes an id referring to an expression, an evaluation scope, and returns the type of the referenced
 -- expression if it exists. Returns an error otherwise.
 findTypeWithinScope :: Id -> EvaluationContext -> TypeCalculationResult
 
 findTypeWithinScope (WithContext varName lineNum) = M.lookup varName >>> maybe lookupErr Right
   where
-    lookupErr = Left $ WithContext (VariableNotInScope varName) lineNum
+    lookupErr = toTypeErrAtLoc (VariableNotInScope varName) lineNum
 
 eitherFromPred :: (a -> Bool) -> (a -> err) -> Either err a -> Either err a
 eitherFromPred predicate errFn = (>>= \x -> if predicate x then return x else Left (errFn x))
@@ -177,8 +184,8 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     numOfActualTypes = length actualArgTypes
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
-    unexpectedNumOfArgsErr = Left $ WithContext ExpectedNParams{expectedNumOfParams = toConstIdx numOfExpectedTypes, actualNumOfParams = toConstIdx numOfActualTypes} line
-    gateArgMismatchErr = Left $ WithContext (findTypeMismatch args expectedArgTypes actualArgTypes) line
+    unexpectedNumOfArgsErr = toTypeErrAtLoc ExpectedNParams{expectedNumOfParams = toConstIdx numOfExpectedTypes, actualNumOfParams = toConstIdx numOfActualTypes} line
+    gateArgMismatchErr = toTypeErrAtLoc (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
 -- Takes the current context, an expression, and calculates its type
@@ -252,7 +259,7 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType' m Qbit potentialQu
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType' m Bit bitToTest *> verifyGateApp' m toBeExecuted
 
-verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
+verifyCommand m GateFamilyDecl{indexVars, gate} = verifyParametricGateDecl indexVars gate m
 
 verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
 verifyExprType' m expectedType = verifyExprType m expectedType >>> fromEither
@@ -305,11 +312,25 @@ toSymInt = toInteger >>> G.con
 toSymVar :: IndexVar -> G.SymInteger
 toSymVar = (L.^. position @1) >>>  fromString >>> G.ssym
 
+
+-- Takes a collection of index variables that can be used, an argument to a gate, and
+-- checks that the argument does not reference any free index variables
+isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
+isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = allM (isValidIndexVar validIdxVars) usedIdxVars
+  where
+    usedIdxVars = extractVal numOfRegs & L.view idxVarsCoefficients & M.keys
+    isValidIndexVar :: [IndexVar] -> IndexVar -> ExceptT TypeErrAt IO Bool
+    isValidIndexVar inScopeIndexVars usedVar = bool  (fromEither $ genFreeIdxVarErr usedVar numOfRegs) (return True) $ usedVar `elem` inScopeIndexVars
+    genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
+    genFreeIdxVarErr freeVar (WithContext regCount line) = toTypeErrAtLoc (UsesFreeIndexVar regCount freeVar) line
+
+isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
+
 -- Takes a circuit family declaration, the context to evaluate it under, and
 -- returns an error if the gate may take an empty collection. Approves the
 -- declaration otherwise
-verifyParametricGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args $>  Unit
+verifyParametricGateDecl :: [IndexVar] -> GateInfo -> EvaluationContext -> TypeCalculationResult'
+verifyParametricGateDecl validIndexVars GateInfo{args} _ = allM (isNotUsingFreeIdxVar validIndexVars) args *>  traverse verifyParametricTypeAnnotation args $>  Unit
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg
@@ -330,7 +351,7 @@ verifyCircuitAnnotation = traverse verifyCircuitArg
     verifyCircuitArg :: TermType -> TypeCalculationResult
     verifyCircuitArg x@(RegisterGroup _ numOfRegs)
       | isPosIdx numOfRegs = Right x
-      | otherwise = Left $ WithContext (InvalidCircuitAnnotation x) (extractCtx numOfRegs)
+      | otherwise = toTypeErrAtLoc (InvalidCircuitAnnotation x) $ extractCtx numOfRegs
     verifyCircuitArg x@(Circuit argTypes) = traverse verifyCircuitArg argTypes $>  x
     verifyCircuitArg x = Right x
 
@@ -428,7 +449,7 @@ extractCtx (WithContext _ x) = x
 -- information about a collection, and generates an error about the collection
 -- using the function
 genInvalidRegCollLengthErr :: (Identifier -> TypeEvaluationError) -> RegCollInfo -> Either TypeErrAt a
-genInvalidRegCollLengthErr errFn RegCollInfo{..} =  Left $ WithContext (errFn regCollName) (extractCtx numOfRegs)
+genInvalidRegCollLengthErr errFn RegCollInfo{..} =  toTypeErrAtLoc (errFn regCollName) $ extractCtx numOfRegs
 
 genNegLengthRegCollDeclErr :: RegCollInfo -> Either TypeErrAt a
 genNegLengthRegCollDeclErr = genInvalidRegCollLengthErr NegSizeRegCollDecl

@@ -1102,9 +1102,11 @@ validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> gate
   where
     gateDecl' = drop 5 <$> unscopedTwoQubitGateDecl
 
+gateToCircFamily :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
+gateToCircFamily = replaced "gate" "family(n)" 
 
 invalidCircuitFamDecl :: MetaQasmProgramFormatter GateThatTakesARegColl
-invalidCircuitFamDecl = replaced "gate" "family(n)" $ singleParamGateDecl varyingSizeRegColl appHGate
+invalidCircuitFamDecl = gateToCircFamily $ singleParamGateDecl varyingSizeRegColl appHGate
   where
     varyingSizeRegColl = viewed paramInfo $ qubitRegCollAnnotation (fconst "n")
 
@@ -1126,3 +1128,13 @@ circuitFamilyThatUsesFreeIndexVar :: Gen MetaQasmProgram
 circuitFamilyThatUsesFreeIndexVar = formatToString invalidCircuitFamDecl' <$> gateThatTakesARegColl
   where
     invalidCircuitFamDecl' = replaced "family(n)" "family(g)" invalidCircuitFamDecl
+
+-- Generates a program that accesses the nth element of a
+-- collection of size n + 1
+circuitFamilyThatAccessesValidReg :: Gen MetaQasmProgram
+
+circuitFamilyThatAccessesValidReg = formatToString validCircuitDecl <$> gateThatTakesARegColl
+  where
+    validCircuitDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl $ viewed paramInfo hGate
+    nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
+    hGate = hadamardApp (regCollAccess $ fconst "n")

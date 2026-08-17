@@ -191,8 +191,8 @@ genExpectedNumOfArgsErr expectedNumOfArgs actualNumOfArgs =
 -- to three qubits is invalid
 prop_cannotApplyGateToTooManyQubits :: MetaQasmProgram -> IO ()
 
-prop_cannotApplyGateToTooManyQubits prog =
-  prog `shouldHaveType` tooManyArgsErr
+prop_cannotApplyGateToTooManyQubits  =
+   (`shouldHaveType` tooManyArgsErr)
   where
     tooManyArgsErr = genExpectedNumOfArgsErr 2 3
 
@@ -200,8 +200,8 @@ prop_cannotApplyGateToTooManyQubits prog =
 -- to one qubit is invalid
 prop_cannotApplyGateToTooFewQubits :: MetaQasmProgram -> IO ()
 
-prop_cannotApplyGateToTooFewQubits prog =
-  prog `shouldHaveType` tooFewArgsErr
+prop_cannotApplyGateToTooFewQubits  =
+   (`shouldHaveType` tooFewArgsErr)
   where
     tooFewArgsErr = genExpectedNumOfArgsErr 2 1
 

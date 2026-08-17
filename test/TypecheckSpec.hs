@@ -211,7 +211,7 @@ prop_cannotApplyGateToTooFewQubits prog =
 -- any errors
 prop_isValidProgram :: MetaQasmProgram -> IO ()
 
-prop_isValidProgram prog = prog `shouldHaveType` expectedType
+prop_isValidProgram = (`shouldHaveType` expectedType)
   where
     expectedType = fromEither $ Right Unit
 
@@ -335,11 +335,10 @@ prop_cannotTakePotentialNegLengthRegCollAsArg  =
 
 
 -- Takes a program containing a circuit family declaration which
--- uses a free index variable and asserts that the program has
--- an invalid type
+-- uses a free index variable and asserts that the program is
+-- invalid
 prop_cannotUseFreeIndexVarInCircuitFamDecl :: MetaQasmProgram -> IO ()
-prop_cannotUseFreeIndexVarInCircuitFamDecl  prog =
-  prog `shouldHaveType` freeIndexVarUsageErr
+prop_cannotUseFreeIndexVarInCircuitFamDecl  = (`shouldHaveType` freeIndexVarUsageErr)
   where
     freeIndexVarUsageErr = UsesFreeIndexVar (indexVarWithCoeff "n" 1)  (IndexVar "n") & errOnLine1
 

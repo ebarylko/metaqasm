@@ -13,6 +13,7 @@ module Typecheck
       Term)
 where
 
+import Data.Bool(bool)
 import qualified Data.Map as M
 import Control.Arrow ((>>>), (&&&))
 import Syntax(Identifier,
@@ -23,6 +24,7 @@ import Syntax(Identifier,
               Index(..),
               IndexVar(..),
               RegCollInfo(..),
+              idxVarsCoefficients,
               toConstIdx,
               GateInfo(..),
               GateArg(..),
@@ -44,6 +46,7 @@ import qualified Grisette as G
 import Data.String(fromString)
 import Control.Monad.Except(ExceptT(..))
 import Data.Generics.Product (position)
+import Control.Monad.Extra(allM)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -253,7 +256,7 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType' m Qbit potentialQu
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType' m Bit bitToTest *> verifyGateApp' m toBeExecuted
 
-verifyCommand m GateFamilyDecl{gate} = verifyParametricGateDecl gate m
+verifyCommand m GateFamilyDecl{indexVars, gate} = verifyParametricGateDecl indexVars gate m
 
 verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
 verifyExprType' m expectedType = verifyExprType m expectedType >>> fromEither
@@ -306,11 +309,24 @@ toSymInt = toInteger >>> G.con
 toSymVar :: IndexVar -> G.SymInteger
 toSymVar = (L.^. position @1) >>>  fromString >>> G.ssym
 
+-- Takes a collection of index variables that can be used, an argument to a gate, and
+-- checks that the argument does not reference any free index variables
+isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
+isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = allM (isUsingIndexVar validIdxVars) usedIdxVars
+  where
+    usedIdxVars = extractVal numOfRegs & L.view idxVarsCoefficients & M.keys
+    isUsingIndexVar :: [IndexVar] -> IndexVar -> ExceptT TypeErrAt IO Bool
+    isUsingIndexVar inScopeIndexVars usedVar = bool (return True) (fromEither $ genFreeIdxVarErr usedVar numOfRegs) $ usedVar `elem` inScopeIndexVars
+    genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
+    genFreeIdxVarErr freeVar (WithContext regCount line) = Left $ WithContext (UsesFreeIndexVar regCount freeVar) line
+
+isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
+
 -- Takes a circuit family declaration, the context to evaluate it under, and
 -- returns an error if the gate may take an empty collection. Approves the
 -- declaration otherwise
-verifyParametricGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyParametricGateDecl GateInfo{args} _ = traverse verifyParametricTypeAnnotation args $>  Unit
+verifyParametricGateDecl :: [IndexVar] -> GateInfo -> EvaluationContext -> TypeCalculationResult'
+verifyParametricGateDecl validIndexVars GateInfo{args} _ = allM (isNotUsingFreeIdxVar validIndexVars) args *>  traverse verifyParametricTypeAnnotation args $>  Unit
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg

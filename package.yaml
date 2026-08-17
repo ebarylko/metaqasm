@@ -28,6 +28,7 @@ dependencies:
 - grisette
 - mtl
 - generic-lens
+- extra
 
 
 ghc-options:

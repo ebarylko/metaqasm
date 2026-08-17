@@ -316,7 +316,7 @@ isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = all
   where
     usedIdxVars = extractVal numOfRegs & L.view idxVarsCoefficients & M.keys
     isUsingIndexVar :: [IndexVar] -> IndexVar -> ExceptT TypeErrAt IO Bool
-    isUsingIndexVar inScopeIndexVars usedVar = bool (return True) (fromEither $ genFreeIdxVarErr usedVar numOfRegs) $ usedVar `elem` inScopeIndexVars
+    isUsingIndexVar inScopeIndexVars usedVar = bool  (fromEither $ genFreeIdxVarErr usedVar numOfRegs) (return True) $ usedVar `elem` inScopeIndexVars
     genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
     genFreeIdxVarErr freeVar (WithContext regCount line) = Left $ WithContext (UsesFreeIndexVar regCount freeVar) line
 

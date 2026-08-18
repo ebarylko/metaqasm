@@ -349,6 +349,11 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
 
     wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
 
+    -- Takes two numbers, a, b, and generates a condition checking
+    -- that a is in [0, b)
+    isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
+    isBoundedExclusivelyBy a lim = a G..>= 0 G..&& a G..< lim
+
 
 -- Takes two functions for interpreting the results of proving a proposition, a
 -- proposition, and returns the result of interpreting the proof of
@@ -360,10 +365,6 @@ proveNegationOf f g = proveNegationOf' >>> fmap (either (f >>> Right) (g >>> Lef
     proveNegationOf' :: G.SymBool -> IO (Either G.SolvingFailure G.Model)
     proveNegationOf' = G.symNot >>> G.solve G.z3
 
--- Takes two numbers, a, b, and generates a condition checking
--- that a is in [0, b)
-isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
-isBoundedExclusivelyBy a lim = a G..>= 0 G..&& a G..< lim
 
 -- Takes an index and returns the value represented by it
 valueOf :: Index -> G.SymInteger

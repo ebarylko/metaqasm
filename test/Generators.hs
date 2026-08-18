@@ -1136,6 +1136,6 @@ circuitFamilyThatAccessesValidReg :: Gen MetaQasmProgram
 
 circuitFamilyThatAccessesValidReg = formatToString validCircuitDecl <$> gateThatTakesARegColl
   where
-    validCircuitDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl $ hGate
+    validCircuitDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl hGate
     nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
     hGate = viewed paramInfo $ hadamardApp (regCollAccess $ fconst "n")

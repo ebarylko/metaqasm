@@ -269,28 +269,19 @@ genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx coun
 -- declaration and  validates it if the collection is always
 -- nonempty. Returns an error otherwise
 proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
-proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
+--proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
+proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = proveNegationOf (const ()) genInvalidLengthRegCollErr proposition
   where
-    genInvalidLengthRegCollErr  :: G.Model -> Either TypeErrAt ()
-    genInvalidLengthRegCollErr  = genCounterExample idx  >>> InvalidParametricRegCollDecl collId  >>> flip WithContext line  >>> Left
-    collSizeProof :: IO (Either G.SolvingFailure G.Model)
-    collSizeProof = G.solve G.z3 $ G.symNot $ givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
 
-    interpretProof :: IO (Either a G.Model) -> ExceptT TypeErrAt IO ()
-    interpretProof = fmap convertProofToTyp >>> ExceptT
-    convertProofToTyp = either (const $ Right ())  genInvalidLengthRegCollErr
+    genInvalidLengthRegCollErr  :: G.Model -> TypeErrAt
+    genInvalidLengthRegCollErr  = genCounterExample idx  >>> InvalidParametricRegCollDecl collId  >>> flip WithContext line
+
+    proposition = givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
     givenIdxVarsAreNonNeg :: G.SymBool
-    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & foldr (genAndCombineConstraints . toSymVar) G.true
-    genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
-    genAndCombineConstraints = (G..>= 0) >>> (G..&&)
+    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & assumeIdxVarsAreNonNeg
 
     numOfRegsIsPos :: G.SymBool
-    numOfRegsIsPos = toSymInt _constPortion + linearCombOfIdxVars G..> 0
-    linearCombOfIdxVars :: G.SymInteger
-    linearCombOfIdxVars = M.toList _idxVarsCoefficients
-      & (L.each . L._1) L.%~ toSymVar
-      & (L.each . L._2) L.%~ toSymInt
-      & foldr (uncurry (*) >>> (+)) 0
+    numOfRegsIsPos = valueOf idx G..> 0
 
 -- Takes a number and returns the symbolic representation
 -- of that number

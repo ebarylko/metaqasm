@@ -324,9 +324,6 @@ determineRegElemType :: TermType -> TermType
 determineRegElemType (RegisterGroup Quantum _) = Qbit
 determineRegElemType (RegisterGroup Classical _) = Bit
 
-wrappedEitherFromPred :: Monad m => (a -> ExceptT err m Bool) -> (a -> err) -> a -> ExceptT err m a
-
-wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
 
 -- Takes the context under which to evaluate an expression,
 -- the index variables currently in-scope,
@@ -347,6 +344,10 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
     proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) (error "Have not implemented right branch yet")  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
     targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf
+
+    wrappedEitherFromPred :: Monad m => (a -> ExceptT err m Bool) -> (a -> err) -> a -> ExceptT err m a
+
+    wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
 
 
 -- Takes two functions for interpreting the results of proving a proposition, a

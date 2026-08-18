@@ -25,6 +25,7 @@ import Syntax(Identifier,
               IndexVar(..),
               RegCollInfo(..),
               idxVarsCoefficients,
+              constPortion,
               toConstIdx,
               GateInfo(..),
               GateArg(..),
@@ -327,10 +328,6 @@ findGateType gateName = findTypeWithinScope gateName  >>> eitherFromPred isCircu
     isCircuit :: TermType -> Bool
     isCircuit = L.has _Circuit
 
--- Takes the context under which to evaluate an expression, a
--- parametric expression, and returns the type of the expression if it is
--- valid. Returns an error otherwise
-verifyParametricExpr :: EvaluationContext -> Expression -> TypeCalculationResult'
 
 
 determineRegElemType :: TermType -> TermType
@@ -341,37 +338,69 @@ wrappedEitherFromPred :: Monad m => (a -> ExceptT err m Bool) -> (a -> err) -> a
 
 wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
 
+-- Takes the context under which to evaluate an expression,
+-- the index variables currently in-scope,
+-- a parametric expression, and returns the type of the expression if it is
+-- valid. Returns an error otherwise
+verifyParametricExpr :: EvaluationContext -> [IndexVar] -> Expression -> TypeCalculationResult'
+verifyParametricExpr m _ x@(Var{})  = verifyExpr' m x
 
-verifyParametricExpr m x@(Var{})  = verifyExpr' m x
-
-verifyParametricExpr m RegisterAccess{registerName, registerNumber}
+verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
   = findTypeWithinScope' registerName m
-  >>= (wrappedEitherFromPred (isAccessingValidReg registerNumber) (error "Not handled yet"))
+  >>= wrappedEitherFromPred (isAccessingValidReg registerNumber validIdxVars) (error "Not handled yet")
   & fmap determineRegElemType
   where
     findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
-    isAccessingValidReg :: Idx -> TermType -> ExceptT TypeErrAt IO Bool
-    isAccessingValidReg = error "Not implemented yet"
+    isAccessingValidReg :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO Bool
+    isAccessingValidReg wantedIdx inScopeIdxVars (RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs
+    proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
+    proveAccessIsValid idxVarsInUse wantedIdx regCount =  G.solve G.z3 $ assumeIdxVarsAreNonNeg idxVarsInUse `G.symImplies` (valueOf wantedIdx) `isBoundedExclusivelyBy` (valueOf regCount)
 
+
+-- Takes two numbers, a, b, and generates a condition checking
+-- that a is in [0, b)
+isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
+isBoundedExclusivelyBy a lim = a G..>= 0 G..&& a G..< lim
+
+-- Takes an index and returns the value represented by it
+valueOf :: Index -> G.SymInteger
+
+valueOf idx = indexVarTerms + constTerm
+  where
+    indexVars = L.view idxVarsCoefficients idx & M.toList
+    indexVarTerms = indexVars
+      & (L.each . L._1) L.%~ toSymVar
+      & (L.each . L._2) L.%~ toSymInt
+      & foldr (uncurry (*) >>> (+)) 0
+    constTerm = L.view constPortion idx & toSymInt
+
+-- Takes a collection of index variables that are in scope and
+-- returns a term expressing the assumption that all of them are
+-- non-negative
+assumeIdxVarsAreNonNeg :: [IndexVar] -> G.SymBool
+assumeIdxVarsAreNonNeg = foldr (genAndCombineConstraints . toSymVar) G.true
+  where
+    genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
+    genAndCombineConstraints = (G..>= 0) >>> (G..&&)
 
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,
 -- the types of the actual arguments passed to the gate,
 -- the arguments passed to the gate, and checks if the
 -- expected and actual types match. Returns an error otherwise
-verifyParametricGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
+verifyParametricGateArgs :: LineNumber -> [IndexVar] ->  TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
 
-verifyParametricGateArgs line (Circuit expectedArgTypes) actualArgTypes args = error "Not doneyet"
+verifyParametricGateArgs line validIdxVars (Circuit expectedArgTypes) actualArgTypes args = error "Not doneyet"
 
--- Takes the body of a gate within a parametric gate declaration, the context
--- under which to evaluate the body, and returns an error if any part of the
+-- Takes the in-scope index variables, th ebody of a gate within a parametric gate declaration,
+--  the context under which to evaluate the body, and returns an error if any part of the
 -- gate body has an invalid type. Returns the overall type of the gate otherwise
-verifyParametricGateBody :: EvaluationContext  -> GateApp  -> TypeCalculationResult'
+verifyParametricGateBody ::[IndexVar] -> GateApp  -> EvaluationContext  -> TypeCalculationResult'
 
-verifyParametricGateBody m GateApp{gateId, gateArgs} = do
+verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
   expectedTypes <- findGateType' gateId m
-  actualTypes <- traverse (verifyParametricExpr m) gateArgs
-  verifyParametricGateArgs (extractCtx gateId) expectedTypes actualTypes gateArgs
+  actualTypes <- traverse (verifyParametricExpr m validIdxVars) gateArgs
+  verifyParametricGateArgs (extractCtx gateId) validIdxVars expectedTypes actualTypes gateArgs
   where
     findGateType' a = findGateType a >>> fromEither
 
@@ -379,7 +408,7 @@ verifyParametricGateBody m GateApp{gateId, gateArgs} = do
 -- returns an error if the gate may take an empty collection. Approves the
 -- declaration otherwise
 verifyParametricGateDecl :: [IndexVar] -> GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m = allM (isNotUsingFreeIdxVar validIndexVars) args *>  gateCtx >>= flip verifyParametricGateBody gateBody
+verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m = allM (isNotUsingFreeIdxVar validIndexVars) args *>  gateCtx >>= verifyParametricGateBody validIndexVars gateBody
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg

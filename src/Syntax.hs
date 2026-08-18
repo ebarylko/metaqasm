@@ -17,7 +17,8 @@ module Syntax(Expression(..),
           Command(..),
           toConstIdx,
           GateArg(..),
-          idxVarsCoefficients) where
+          idxVarsCoefficients,
+          constPortion) where
 
 import Lexer(LineNumber)
 import Data.Function(on, (&))

@@ -269,7 +269,6 @@ genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx coun
 -- declaration and  validates it if the collection is always
 -- nonempty. Returns an error otherwise
 proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
---proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
 proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = proveNegationOf (const ()) genInvalidLengthRegCollErr proposition
   where
 
@@ -278,7 +277,7 @@ proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoeffic
 
     proposition = givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
     givenIdxVarsAreNonNeg :: G.SymBool
-    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & assumeIdxVarsAreNonNeg
+    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & assumingIdxVarsAreNonNeg
 
     numOfRegsIsPos :: G.SymBool
     numOfRegsIsPos = valueOf idx G..> 0
@@ -344,11 +343,15 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
     isAccessingValidReg :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO Bool
     isAccessingValidReg wantedIdx inScopeIdxVars (RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs
+
     proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
-    proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) (error "Have not implemented right branch yet")  $ assumeIdxVarsAreNonNeg idxVarsInUse `G.symImplies` isBoundedBySndIdx wantedIdx regCount
-    isBoundedBySndIdx = isBoundedExclusivelyBy `on` valueOf
+    proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) (error "Have not implemented right branch yet")  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
+    targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf
 
 
+-- Takes two functions for interpreting the results of proving a proposition, a
+-- proposition, and returns the result of interpreting the proof of
+-- the negation of the proposition
 proveNegationOf :: (G.SolvingFailure -> a) -> (G.Model -> TypeErrAt) -> G.SymBool -> ExceptT TypeErrAt IO a
 
 proveNegationOf f g = proveNegationOf' >>> fmap (either (f >>> Right) (g >>> Left)) >>> ExceptT
@@ -376,8 +379,8 @@ valueOf idx = indexVarTerms + constTerm
 -- Takes a collection of index variables that are in scope and
 -- returns a term expressing the assumption that all of them are
 -- non-negative
-assumeIdxVarsAreNonNeg :: [IndexVar] -> G.SymBool
-assumeIdxVarsAreNonNeg = foldr (genAndCombineConstraints . toSymVar) G.true
+assumingIdxVarsAreNonNeg :: [IndexVar] -> G.SymBool
+assumingIdxVarsAreNonNeg = foldr (genAndCombineConstraints . toSymVar) G.true
   where
     genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
     genAndCombineConstraints = (G..>= 0) >>> (G..&&)

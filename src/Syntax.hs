@@ -71,14 +71,17 @@ difference a b = M.union negVarsOnlyInB varsInAOrB & M.filter (/= 0)
     negVarsOnlyInB = M.difference b a  & M.map negate
     varsInAOrB = M.unionWith (-) a b
 
+sumCoeffs :: IndexCoeffs -> IndexCoeffs -> IndexCoeffs
+sumCoeffs = M.unionWith (+)
+
 instance Ix Index where
   range _ = error "Did not implement this yet"
   inRange idxBound x = inRange (tupleMap (L.view constPortion) idxBound) (L.view constPortion x)
 
 instance Num Index where
-  (Index left _) + (Index right _) = Index (left + right) M.empty
+  (Index left indexVarsL) + (Index right indexVarsR) = Index (left + right) $ sumCoeffs indexVarsL indexVarsR
   (Index left indexVarsL) - (Index right indexVarsR) = Index (left - right) $ difference indexVarsL indexVarsR
-  (Index left _) * (Index right _) = Index (left * right) M.empty
+  (Index left _) * (Index right _) = Index (left * right) $ M.empty
   abs = error "Need to implement this"
   signum = error "Need to implement this"
   fromInteger = error "Need to implement this"

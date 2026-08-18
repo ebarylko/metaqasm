@@ -354,10 +354,13 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     isAccessingValidReg :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO Bool
     isAccessingValidReg wantedIdx inScopeIdxVars (RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs
     proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
-    proveAccessIsValid idxVarsInUse wantedIdx regCount =  ExceptT $ fmap (either (const (Right True)) (error "Have not implemented right branch yet")) $ solveUsingZ3 $ G.symNot $ assumeIdxVarsAreNonNeg idxVarsInUse `G.symImplies` ((valueOf wantedIdx) `isBoundedExclusivelyBy` (valueOf regCount))
+    proveAccessIsValid idxVarsInUse wantedIdx regCount =  ExceptT $ fmap (either (const (Right True)) (error "Have not implemented right branch yet")) $ proveNegationOf $ assumeIdxVarsAreNonNeg idxVarsInUse `G.symImplies` ((valueOf wantedIdx) `isBoundedExclusivelyBy` (valueOf regCount))
 
 solveUsingZ3 :: G.SymBool -> IO (Either G.SolvingFailure G.Model)
 solveUsingZ3 = G.solve G.z3
+
+proveNegationOf :: G.SymBool -> IO (Either G.SolvingFailure G.Model)
+proveNegationOf = G.symNot >>> solveUsingZ3
 
 -- Takes two numbers, a, b, and generates a condition checking
 -- that a is in [0, b)

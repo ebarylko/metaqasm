@@ -354,7 +354,7 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     isAccessingValidReg :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO Bool
     isAccessingValidReg wantedIdx inScopeIdxVars (RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs
     proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
-    proveAccessIsValid idxVarsInUse wantedIdx regCount =  ExceptT $ fmap (error "Have not implemented left branch yet") (error "Have not implemented right branch yet") $ solveUsingZ3 $ G.symNot $ assumeIdxVarsAreNonNeg idxVarsInUse `G.symImplies` ((valueOf wantedIdx) `isBoundedExclusivelyBy` (valueOf regCount))
+    proveAccessIsValid idxVarsInUse wantedIdx regCount =  ExceptT $ fmap (either (const (Right True)) (error "Have not implemented right branch yet")) $ solveUsingZ3 $ G.symNot $ assumeIdxVarsAreNonNeg idxVarsInUse `G.symImplies` ((valueOf wantedIdx) `isBoundedExclusivelyBy` (valueOf regCount))
 
 solveUsingZ3 :: G.SymBool -> IO (Either G.SolvingFailure G.Model)
 solveUsingZ3 = G.solve G.z3
@@ -392,7 +392,9 @@ assumeIdxVarsAreNonNeg = foldr (genAndCombineConstraints . toSymVar) G.true
 -- expected and actual types match. Returns an error otherwise
 verifyParametricGateArgs :: LineNumber -> [IndexVar] ->  TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
 
-verifyParametricGateArgs line validIdxVars (Circuit expectedArgTypes) actualArgTypes args = error "Not doneyet"
+verifyParametricGateArgs line validIdxVars (Circuit expectedArgTypes) actualArgTypes args
+  | expectedArgTypes == actualArgTypes = return Unit
+  | otherwise = error "Have not handled the case where a parametric gate application is invalid"
 
 -- Takes the in-scope index variables, th ebody of a gate within a parametric gate declaration,
 --  the context under which to evaluate the body, and returns an error if any part of the

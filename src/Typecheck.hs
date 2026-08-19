@@ -113,10 +113,13 @@ isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (isIdxWithinArrayBoun
     inRange' = flip inRange
     one = Index 1 M.empty
 
-isAccessingRegColl :: TermType -> Bool
-isAccessingRegColl = L.has _RegisterGroup
+isRegColl :: TermType -> Bool
+isRegColl = L.has _RegisterGroup
 
-
+-- Takes the name of a term that is not a register collection, the
+-- line at which it appears, the actual type of the term, and
+-- returns an error stating that the term was expected to
+-- be a register collection
 genExpectedRegCollErr :: Id -> LineNumber -> TermType -> TypeErrAt
 genExpectedRegCollErr registerName lineNum = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)
 
@@ -128,13 +131,10 @@ verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
-  & eitherFromPred isAccessingRegColl (genExpectedRegCollErr registerName lineNum)
+  & eitherFromPred isRegColl (genExpectedRegCollErr registerName lineNum)
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
   & fmap determineRegElemType
   where
-
-    --genExpectedRegCollErr :: TermType -> TypeErrAt
-    --genExpectedRegCollErr = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)
 
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
@@ -316,6 +316,7 @@ determineRegElemType (RegisterGroup Quantum _) = Qbit
 determineRegElemType (RegisterGroup Classical _) = Bit
 determineRegElemType _ = error "Was called on something that is not a register collection"
 
+
 -- Given a monadic predicate, a function that generates an error, and
 -- some data, checks that the data satisfies the predicate. If not,
 -- returns the result of applying the error function to the data
@@ -329,9 +330,10 @@ ensureM predicate errFn x = predicate x >>= bool (errFn x & throwError) (return 
 verifyParametricExpr :: EvaluationContext -> [IndexVar] -> Expression -> TypeCalculationResult'
 verifyParametricExpr m _ x@(Var{})  = verifyExpr' m x
 
-verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
+--verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
+verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ line) registerNumber)
   = findTypeWithinScope' registerName m
-  >>= ensureM (isAccessingRegColl >>> return) (genExpectedRegCollErr registerName (extractCtx registerName))
+  >>= ensureM (isRegColl >>> return) (genExpectedRegCollErr registerName line)
   >>= verifyRegAcc registerNumber validIdxVars
   where
     findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
@@ -342,7 +344,7 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     verifyRegAcc :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO TermType
     verifyRegAcc wantedIdx inScopeIdxVars regColl@(RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs  $> determineRegElemType regColl
 
-    genInvalidAccErr  = genCounterExample (extractVal registerNumber) >>> InvalidParametricRegAcc (extractVal registerName) >>> flip WithContext (extractCtx registerName)
+    genInvalidAccErr  = genCounterExample (extractVal registerNumber) >>> InvalidParametricRegAcc (extractVal registerName) >>> flip WithContext line
 
     -- Takes two numbers, a, b, and generates a condition checking
     -- that a is in [0, b)

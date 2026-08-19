@@ -89,7 +89,8 @@ import Generators(outOfScopeVar,
                  circuitFamilyThatMayTakeNegLengthRegColl,
                  circuitFamilyThatUsesFreeIndexVar,
                  circuitFamilyThatAccessesValidReg,
-                 circuitFamilyThatAccessesInvalidReg)
+                 circuitFamilyThatAccessesInvalidReg,
+                 circuitFamilyThatTreatsGateAsColl)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -590,3 +591,9 @@ spec =  do
     modifyMaxSuccess (const 10) $ do
       prop "Is invalid" $ do
         forAll circuitFamilyThatAccessesInvalidReg prop_cannotPerformInvalidParametricAccess
+
+
+  describe "Treating a gate like a collection inside a circuit family declaration"  $ do
+    modifyMaxSuccess (const 10) $ do
+      prop "Is invalid" $ do
+        forAll circuitFamilyThatTreatsGateAsColl prop_cannotTreatSingleQubitUnitaryAsRegColl

@@ -3,6 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
 
 module Generators(outOfScopeVar,
                   outOfScopeExpr,
@@ -64,13 +65,15 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatMayTakeNegLengthRegColl,
                  circuitFamilyThatUsesFreeIndexVar,
                  circuitFamilyThatAccessesValidReg,
-                 circuitFamilyThatAccessesInvalidReg)
+                 circuitFamilyThatAccessesInvalidReg,
+                 circuitFamilyThatTreatsGateAsColl)
   where
 
 import Control.Monad(join)
 import Test.QuickCheck
 import Formatting
 import qualified Data.Text.Lazy as Tl
+import Text.Regex as R
 import Syntax(Identifier,
               Expression(..),
               WithContext(..),
@@ -1150,3 +1153,14 @@ circuitFamilyThatAccessesInvalidReg = formatToString invalidFamCircDecl <$> gate
     nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation regCount
     regCount = numOfRegsInColl `plus` fconst "n"
     hGate = viewed paramInfo $ hadamardApp (regCollAccess regCount)
+
+
+-- Generates a circuit family that attempts to accesses an element
+-- of a gate
+circuitFamilyThatTreatsGateAsColl :: Gen InvalidProgCausedByTerm
+circuitFamilyThatTreatsGateAsColl = (, hGate) <$> addInvalidAcc <$> circuitFamilyThatAccessesValidReg
+  where
+    addInvalidAcc :: MetaQasmProgram -> MetaQasmProgram
+    addInvalidAcc = flip (R.subRegex  gate) "{h(h[0])}"
+    gate = R.mkRegex "[{][^}]+[}]"
+    hGate = Var $ WithContext "h" (LineNumber 1)

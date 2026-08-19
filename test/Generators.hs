@@ -1104,7 +1104,7 @@ validGateDeclThatDoesNotDependOnIndexVars = (<>) <$> pure "family (n) " <*> gate
     gateDecl' = drop 5 <$> unscopedTwoQubitGateDecl
 
 gateToCircFamily :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
-gateToCircFamily = replaced "gate" "family(n)" 
+gateToCircFamily = replaced "gate" "family(n)"
 
 invalidCircuitFamDecl :: MetaQasmProgramFormatter GateThatTakesARegColl
 invalidCircuitFamDecl = gateToCircFamily $ singleParamGateDecl varyingSizeRegColl appHGate
@@ -1130,7 +1130,7 @@ circuitFamilyThatUsesFreeIndexVar = formatToString invalidCircuitFamDecl' <$> ga
   where
     invalidCircuitFamDecl' = replaced "family(n)" "family(g)" invalidCircuitFamDecl
 
--- Generates a program that accesses the nth element of a
+-- Generates a circuit family that accesses the nth element of a
 -- collection of size n + 1
 circuitFamilyThatAccessesValidReg :: Gen MetaQasmProgram
 

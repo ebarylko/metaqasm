@@ -39,7 +39,7 @@ import Vary (Vary)
 import qualified Vary
 import Data.Function ((&), on)
 import Data.Functor(($>))
-import Data.List(findIndex)
+import Data.List(findIndex, find)
 import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
 import Data.Ix(inRange)
@@ -293,22 +293,9 @@ toSymVar :: IndexVar -> G.SymInteger
 toSymVar = (L.^. position @1) >>>  fromString >>> G.ssym
 
 
--- Takes a collection of index variables that can be used, an argument to a gate, and
--- checks that the argument does not reference any free index variables
-isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
-isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = allM (isValidIndexVar validIdxVars) usedIdxVars
-  where
-    usedIdxVars = extractVal numOfRegs & L.view idxVarsCoefficients & M.keys
-    isValidIndexVar :: [IndexVar] -> IndexVar -> ExceptT TypeErrAt IO Bool
-    isValidIndexVar inScopeIndexVars usedVar = bool  (fromEither $ genFreeIdxVarErr usedVar numOfRegs) (return True) $ usedVar `elem` inScopeIndexVars
-    genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
-    genFreeIdxVarErr freeVar (WithContext regCount line) = toTypeErrAtLoc (UsesFreeIndexVar regCount freeVar) line
-
-isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
 
 extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
 extendCtxWithGateParam (GateArg{..}) = M.insert name argType
-
 
 findGateType :: Id -> EvaluationContext -> TypeCalculationResult
 findGateType gateName = findTypeWithinScope gateName  >>> eitherFromPred isCircuit genIsNotGateErr
@@ -317,8 +304,6 @@ findGateType gateName = findTypeWithinScope gateName  >>> eitherFromPred isCircu
     genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext (extractCtx gateName)
     isCircuit :: TermType -> Bool
     isCircuit = L.has _Circuit
-
-
 
 determineRegElemType :: TermType -> TermType
 determineRegElemType (RegisterGroup Quantum _) = Qbit
@@ -398,7 +383,7 @@ verifyParametricGateArgs _ _ (Circuit expectedArgTypes) actualArgTypes _
   | expectedArgTypes == actualArgTypes = return Unit
   | otherwise = error "Have not handled the case where a parametric gate application is invalid"
 
--- Takes the in-scope index variables, th ebody of a gate within a parametric gate declaration,
+-- Takes the in-scope index variables, the body of a gate within a parametric gate declaration,
 --  the context under which to evaluate the body, and returns an error if any part of the
 -- gate body has an invalid type. Returns the overall type of the gate otherwise
 verifyParametricGateBody ::[IndexVar] -> GateApp  -> EvaluationContext  -> TypeCalculationResult'
@@ -410,11 +395,26 @@ verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
   where
     findGateType' a = findGateType a >>> fromEither
 
+-- Takes a collection of index variables that can be used, an argument to a gate, and
+-- checks that the argument does not reference any free index variables
+isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
+isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))
+  = find (`notElem` validIdxVars) usedIdxVars
+  & maybe (return True)  (flip genFreeIdxVarErr numOfRegs >>> fromEither)
+  where
+    usedIdxVars = extractVal numOfRegs & L.view idxVarsCoefficients & M.keys
+    genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
+    genFreeIdxVarErr freeVar (WithContext regCount line) = toTypeErrAtLoc (UsesFreeIndexVar regCount freeVar) line
+
+isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
+
 -- Takes a circuit family declaration, the context to evaluate it under, and
--- returns an error if the gate may take an empty collection. Approves the
--- declaration otherwise
+-- returns an error if the gate may take a collection of invalid length (i.e., negative or empty).
+-- Approves the declaration otherwise
 verifyParametricGateDecl :: [IndexVar] -> GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m = allM (isNotUsingFreeIdxVar validIndexVars) args *>  gateCtx >>= verifyParametricGateBody validIndexVars gateBody
+verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m =
+  allM (isNotUsingFreeIdxVar validIndexVars) args
+  *>  gateCtx >>= verifyParametricGateBody validIndexVars gateBody
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg

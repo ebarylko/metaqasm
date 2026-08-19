@@ -1161,6 +1161,6 @@ circuitFamilyThatTreatsGateAsColl :: Gen InvalidProgCausedByTerm
 circuitFamilyThatTreatsGateAsColl = (, hGate) <$> addInvalidAcc <$> circuitFamilyThatAccessesValidReg
   where
     addInvalidAcc :: MetaQasmProgram -> MetaQasmProgram
-    addInvalidAcc = flip (R.subRegex  pattern) "{h(h[0])}"
-    pattern = R.mkRegex "{.+}"
+    addInvalidAcc = flip (R.subRegex  gate) "{h(h[0])}"
+    gate = R.mkRegex "[{][^}]+[}]"
     hGate = Var $ WithContext "h" (LineNumber 1)

@@ -45,7 +45,7 @@ import qualified Control.Lens as L hiding (Control.Lens.Index)
 import Data.Ix(inRange)
 import qualified Grisette as G
 import Data.String(fromString)
-import Control.Monad.Except(ExceptT(..))
+import Control.Monad.Except(ExceptT(..), MonadError(..))
 import Data.Generics.Product (position)
 import Control.Monad.Extra(allM)
 
@@ -113,6 +113,13 @@ isAccessingValidReg regIdx' (RegisterGroup _ numOfRegs) =  (isIdxWithinArrayBoun
     inRange' = flip inRange
     one = Index 1 M.empty
 
+isAccessingRegColl :: TermType -> Bool
+isAccessingRegColl = L.has _RegisterGroup
+
+
+genExpectedRegCollErr :: Id -> LineNumber -> TermType -> TypeErrAt
+genExpectedRegCollErr registerName lineNum = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)
+
 -- Takes the current context, an request to access a register collection, and
 -- verifies if the request is valid, i.e., if the register collection exists and
 -- a valid register is selected. Returns the type of the register if so or an
@@ -121,15 +128,13 @@ verifyRegAccess :: EvaluationContext -> Expression -> TypeCalculationResult
 
 verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(WithContext num lineNum)) =
   findTypeWithinScope registerName m
-  & eitherFromPred isAccessingRegColl genExpectedRegCollErr
+  & eitherFromPred isAccessingRegColl (genExpectedRegCollErr registerName lineNum)
   & eitherFromPred (isAccessingValidReg regIdx) genInvalidAccessErr
   & fmap determineRegElemType
   where
-    isAccessingRegColl :: TermType -> Bool
-    isAccessingRegColl = L.has _RegisterGroup
 
-    genExpectedRegCollErr :: TermType -> TypeErrAt
-    genExpectedRegCollErr = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)
+    --genExpectedRegCollErr :: TermType -> TypeErrAt
+    --genExpectedRegCollErr = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)
 
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
@@ -311,6 +316,11 @@ determineRegElemType (RegisterGroup Quantum _) = Qbit
 determineRegElemType (RegisterGroup Classical _) = Bit
 determineRegElemType _ = error "Was called on something that is not a register collection"
 
+-- Given a monadic predicate, a function that generates an error, and
+-- some data, checks that the data satisfies the predicate. If not,
+-- returns the result of applying the error function to the data
+ensureM :: MonadError err m => (a -> m Bool) -> (a -> err) -> a -> m a
+ensureM predicate errFn x = predicate x >>= bool (errFn x & throwError) (return x)
 
 -- Takes the context under which to evaluate an expression,
 -- the index variables currently in-scope,
@@ -321,6 +331,7 @@ verifyParametricExpr m _ x@(Var{})  = verifyExpr' m x
 
 verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
   = findTypeWithinScope' registerName m
+  >>= ensureM (isAccessingRegColl >>> return) (genExpectedRegCollErr registerName (extractCtx registerName))
   >>= verifyRegAcc registerNumber validIdxVars
   where
     findTypeWithinScope' a = findTypeWithinScope a >>> fromEither

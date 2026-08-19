@@ -368,7 +368,7 @@ prop_cannotHaveDuplicateIndexVarsInDecl prog =
   prog `shouldHaveType` duplicateIdxVarsErr
   where
     duplicateIdxVarsErr = prog & extractCircname & flip DeclUsesDuplicateIdxVars [IndexVar "n", IndexVar "n"] & errOnLine1
-    extractCircname = dropWhile (/= ')') >>> drop 2 >>> takeWhile (/= ')')
+    extractCircname = dropWhile (/= ')') >>> drop 2 >>> takeWhile (/= '(')
 
 spec :: Spec
 spec =  do

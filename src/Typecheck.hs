@@ -39,7 +39,7 @@ import Vary (Vary)
 import qualified Vary
 import Data.Function ((&), on)
 import Data.Functor(($>))
-import Data.List(findIndex, find)
+import Data.List(findIndex, find, nub)
 import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
 import Data.Ix(inRange)
@@ -256,7 +256,12 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType' m Qbit potentialQu
 
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType' m Bit bitToTest *> verifyGateApp' m toBeExecuted
 
-verifyCommand m GateFamilyDecl{indexVars, gate} = verifyParametricGateDecl indexVars gate m
+verifyCommand m (GateFamilyDecl indexVars gate@(GateInfo name _ _))
+  = ensureM (hasNoDuplicateVars >>> return) genDuplicateVarsErr indexVars *> verifyParametricGateDecl indexVars gate m
+  where
+    hasNoDuplicateVars :: [IndexVar] -> Bool
+    hasNoDuplicateVars vars = ((==) `on` length) vars (nub vars)
+    genDuplicateVarsErr = DeclUsesDuplicateIdxVars name >>> flip WithContext (LineNumber 9999)
 
 verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
 verifyExprType' m expectedType = verifyExprType m expectedType >>> fromEither

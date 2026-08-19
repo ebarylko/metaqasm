@@ -328,12 +328,14 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     isAccessingValidReg wantedIdx inScopeIdxVars (RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs
 
     proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
-    proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) (error "Have not implemented right branch yet")  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
+    proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) genInvalidAccErr  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
     targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf
 
     wrappedEitherFromPred :: Monad m => (a -> ExceptT err m Bool) -> (a -> err) -> a -> ExceptT err m a
 
     wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
+
+    genInvalidAccErr  = genCounterExample (extractVal registerNumber) >>> InvalidParametricRegAcc (extractVal registerName) >>> flip WithContext (extractCtx registerName)
 
     -- Takes two numbers, a, b, and generates a condition checking
     -- that a is in [0, b)

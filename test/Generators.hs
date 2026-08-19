@@ -1141,8 +1141,8 @@ circuitFamilyThatAccessesValidReg = formatToString validCircuitDecl <$> gateThat
     hGate = viewed paramInfo $ hadamardApp (regCollAccess $ fconst "n")
 
 
--- Generates a circuit family that accesses the (n + 1)th element of a
--- collection of size n + 1
+-- Generates a circuit family that accesses the (n + x)th element of a
+-- collection of size n + x, where x is a constant
 circuitFamilyThatAccessesInvalidReg :: Gen MetaQasmProgram
 circuitFamilyThatAccessesInvalidReg = formatToString invalidFamCircDecl <$> gateThatTakesARegColl
   where

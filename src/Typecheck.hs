@@ -261,7 +261,7 @@ verifyCommand m (GateFamilyDecl indexVars gate@(GateInfo name _ _))
   where
     hasNoDuplicateVars :: [IndexVar] -> Bool
     hasNoDuplicateVars vars = ((==) `on` length) vars (nub vars)
-    genDuplicateVarsErr = DeclUsesDuplicateIdxVars (extractVal name) >>> flip WithContext (LineNumber 9999)
+    genDuplicateVarsErr = DeclUsesDuplicateIdxVars (extractVal name) >>> flip WithContext (extractCtx name)
 
 verifyExprType' :: EvaluationContext -> TermType -> Expression -> TypeCalculationResult'
 verifyExprType' m expectedType = verifyExprType m expectedType >>> fromEither

@@ -119,7 +119,7 @@ arg : id             {(Var . toVar) $1 }
 -- and constructs a term representing all of this
 -- information about the gate
 genGateInfo :: Token -> [GateArg] -> GateApp -> GateInfo
-genGateInfo  = GateInfo . extractName
+genGateInfo  = GateInfo . toVar
 
 -- Takes the type of collection being parsed, a token representing the
 -- name of the collection, the number of elements in the collection,

@@ -87,7 +87,8 @@ import Generators(outOfScopeVar,
                  validGateDeclThatDoesNotDependOnIndexVars,
                  circuitFamilyThatMayTakeEmptyRegColl,
                  circuitFamilyThatMayTakeNegLengthRegColl,
-                 circuitFamilyThatUsesFreeIndexVar)
+                 circuitFamilyThatUsesFreeIndexVar,
+                 circuitFamilyThatAccessesValidReg)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -562,3 +563,9 @@ spec =  do
   describe "Declaring a circuit family that uses a free index variable"  $ do
     prop "Is invalid" $ do
       forAll circuitFamilyThatUsesFreeIndexVar prop_cannotUseFreeIndexVarInCircuitFamDecl
+
+
+  describe "Accessing the nth element of a collection of size n + 1"  $ do
+    modifyMaxSuccess (const 10) $ do
+      prop "Is valid" $ do
+        forAll circuitFamilyThatAccessesValidReg prop_isValidProgram

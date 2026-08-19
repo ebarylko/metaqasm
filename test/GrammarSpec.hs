@@ -93,15 +93,15 @@ toIndexVarWithCoeff :: Identifier -> Int -> IndexCoeffs
 toIndexVarWithCoeff = IndexVar >>> M.singleton
 
 -- Takes the name of a register collection, an index variable n,
---  a number N, a function that generates an index  i which is a difference of other indices,
+--  a number N, a function that generates an index  i using n and N,
 -- and returns a register access for the ith element
-indexDiffRegAccessUsing :: (Identifier -> Int -> Index) -> Identifier -> Identifier -> Int -> Expression
+regAccessUsing :: (Identifier -> Int -> Index) -> Identifier -> Identifier -> Int -> Expression
 
-indexDiffRegAccessUsing f regCollName indexVarName = f indexVarName  >>> onLine1  >>> RegisterAccess (onLine1 regCollName)
+regAccessUsing f regCollName indexVarName = f indexVarName  >>> onLine1  >>> RegisterAccess (onLine1 regCollName)
 
-subNumFromIndexVar = indexDiffRegAccessUsing $ \indexVarName idx -> Index (-idx) $ toIndexVarWithCoeff indexVarName 1 
-subIndexVarFromNum = indexDiffRegAccessUsing $ \indexVarName idx -> Index idx $ toIndexVarWithCoeff indexVarName (-1) 
-
+subNumFromIndexVar = regAccessUsing $ \indexVarName idx -> Index (-idx) $ toIndexVarWithCoeff indexVarName 1 
+subIndexVarFromNum = regAccessUsing $ \indexVarName idx -> Index idx $ toIndexVarWithCoeff indexVarName (-1) 
+addIndexVarAndNum = regAccessUsing $ \indexVarName idx -> Index idx $ toIndexVarWithCoeff indexVarName 1 
 
 -- Takes the name of a register collection, indices x and y, and
 -- generates an expression representing the access of the
@@ -230,6 +230,7 @@ spec = do
       describe "Summing two indices" $ do
         it "Yields a term representing the summation" $ do
           "x[0 + 0]" `shouldParseToExpr` indexSumRegAccess "x" 0 0
+          "x[n + 1]" `shouldParseToExpr` addIndexVarAndNum "x" "n" 1
 
       describe "Taking the difference of two indices" $ do
         it "Yields a term representing the difference" $ do

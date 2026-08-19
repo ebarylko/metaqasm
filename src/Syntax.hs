@@ -17,7 +17,8 @@ module Syntax(Expression(..),
           Command(..),
           toConstIdx,
           GateArg(..),
-          idxVarsCoefficients) where
+          idxVarsCoefficients,
+          constPortion) where
 
 import Lexer(LineNumber)
 import Data.Function(on, (&))
@@ -48,12 +49,8 @@ type IndexCoeffs = M.Map IndexVar Int
 data Index = Index{_constPortion :: Int, _idxVarsCoefficients :: IndexCoeffs} deriving (Show, Eq)
 L.makeLenses ''Index
 
-applyBinOpOnIndices :: (Int -> Int -> a) -> Index -> Index -> a
-applyBinOpOnIndices = (`on` L.view constPortion)
-
-
 instance Ord Index where
-  (<=) = applyBinOpOnIndices (<=)
+  (<=) = (<=) `on` L.view constPortion
 
 toConstIdx :: Int -> Index
 toConstIdx val = Index val M.empty
@@ -70,18 +67,27 @@ difference a b = M.union negVarsOnlyInB varsInAOrB & M.filter (/= 0)
     negVarsOnlyInB = M.difference b a  & M.map negate
     varsInAOrB = M.unionWith (-) a b
 
+sumCoeffs :: IndexCoeffs -> IndexCoeffs -> IndexCoeffs
+sumCoeffs = M.unionWith (+)
+
+-- Takes two binary operations, one which operates on the constant portions of two indices, the other which operates on
+-- the parametric components, two indices, and generates a new index with the results of applying the
+-- functions to the corresponding components of each index
+applyBinOpOnIndices :: (Int -> Int -> Int) -> (IndexCoeffs -> IndexCoeffs -> IndexCoeffs) -> Index -> Index -> Index
+applyBinOpOnIndices f g (Index left indexVarsL) (Index right indexVarsR) = Index (f left right) $ g indexVarsL indexVarsR
+
 instance Ix Index where
   range _ = error "Did not implement this yet"
   inRange idxBound x = inRange (tupleMap (L.view constPortion) idxBound) (L.view constPortion x)
 
 instance Num Index where
-  (Index left _) + (Index right _) = Index (left + right) M.empty
-  (Index left indexVarsL) - (Index right indexVarsR) = Index (left - right) $ difference indexVarsL indexVarsR
-  (Index left _) * (Index right _) = Index (left * right) M.empty
-  abs = error "Need to implement this"
-  signum = error "Need to implement this"
-  fromInteger = error "Need to implement this"
-  negate = error "Need to implement this"
+  (+) = applyBinOpOnIndices (+) sumCoeffs
+  (-) = applyBinOpOnIndices (-) difference
+  (Index left _) * (Index right _) = Index (left * right) $ M.empty
+  abs = error "No need to implement this"
+  signum = error "No need to implement this"
+  fromInteger = error "No need to implement this"
+  negate = error "No need to implement this"
 
 
 type Idx = WithContext Index LineNumber

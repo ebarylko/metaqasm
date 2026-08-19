@@ -25,6 +25,7 @@ import Syntax(Identifier,
               IndexVar(..),
               RegCollInfo(..),
               idxVarsCoefficients,
+              constPortion,
               toConstIdx,
               GateInfo(..),
               GateArg(..),
@@ -38,7 +39,7 @@ import Vary (Vary)
 import qualified Vary
 import Data.Function ((&), on)
 import Data.Functor(($>))
-import Data.List(findIndex)
+import Data.List(findIndex, find)
 import Data.Maybe(fromJust)
 import qualified Control.Lens as L hiding (Control.Lens.Index)
 import Data.Ix(inRange)
@@ -129,10 +130,6 @@ verifyRegAccess m (RegisterAccess registerName@(WithContext name _) regIdx@(With
     genExpectedRegCollErr :: TermType -> TypeErrAt
     genExpectedRegCollErr = flip WithContext lineNum . flip ExpectedARegColl (Var registerName)
 
-    determineRegElemType :: TermType -> TermType
-    determineRegElemType (RegisterGroup Quantum _) = Qbit
-    determineRegElemType (RegisterGroup Classical _) = Bit
-
     genInvalidAccessErr :: TermType -> TypeErrAt
     genInvalidAccessErr = const $ WithContext (InvalidRegAccess name num) lineNum
 
@@ -205,13 +202,6 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
   actualTypes <- traverse (verifyExpr m) args
   verifyGateArgs line expectedTypes actualTypes args
   where
-    isCircuit :: TermType -> Bool
-    isCircuit = L.has _Circuit
-
-    findGateType :: Id -> EvaluationContext -> TypeCalculationResult
-    findGateType name  = findTypeWithinScope name  >>> eitherFromPred isCircuit genIsNotGateErr
-    genIsNotGateErr :: TermType -> TypeErrAt
-    genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext line
 
 verifyGateApp m (GateSequence a b)
   = verifyGateApp m a *> verifyGateApp m b
@@ -279,28 +269,18 @@ genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx coun
 -- declaration and  validates it if the collection is always
 -- nonempty. Returns an error otherwise
 proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
-proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = interpretProof collSizeProof
+proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = proveNegationOf (const ()) genInvalidLengthRegCollErr proposition
   where
-    genInvalidLengthRegCollErr  :: G.Model -> Either TypeErrAt ()
-    genInvalidLengthRegCollErr  = genCounterExample idx  >>> InvalidParametricRegCollDecl collId  >>> flip WithContext line  >>> Left
-    collSizeProof :: IO (Either G.SolvingFailure G.Model)
-    collSizeProof = G.solve G.z3 $ G.symNot $ givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
 
-    interpretProof :: IO (Either a G.Model) -> ExceptT TypeErrAt IO ()
-    interpretProof = fmap convertProofToTyp >>> ExceptT
-    convertProofToTyp = either (const $ Right ())  genInvalidLengthRegCollErr
+    genInvalidLengthRegCollErr  :: G.Model -> TypeErrAt
+    genInvalidLengthRegCollErr  = genCounterExample idx  >>> InvalidParametricRegCollDecl collId  >>> flip WithContext line
+
+    proposition = givenIdxVarsAreNonNeg `G.symImplies` numOfRegsIsPos
     givenIdxVarsAreNonNeg :: G.SymBool
-    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & foldr (genAndCombineConstraints . toSymVar) G.true
-    genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
-    genAndCombineConstraints = (G..>= 0) >>> (G..&&)
+    givenIdxVarsAreNonNeg = M.keys _idxVarsCoefficients & assumingIdxVarsAreNonNeg
 
     numOfRegsIsPos :: G.SymBool
-    numOfRegsIsPos = toSymInt _constPortion + linearCombOfIdxVars G..> 0
-    linearCombOfIdxVars :: G.SymInteger
-    linearCombOfIdxVars = M.toList _idxVarsCoefficients
-      & (L.each . L._1) L.%~ toSymVar
-      & (L.each . L._2) L.%~ toSymInt
-      & foldr (uncurry (*) >>> (+)) 0
+    numOfRegsIsPos = valueOf idx G..> 0
 
 -- Takes a number and returns the symbolic representation
 -- of that number
@@ -313,28 +293,133 @@ toSymVar :: IndexVar -> G.SymInteger
 toSymVar = (L.^. position @1) >>>  fromString >>> G.ssym
 
 
+
+extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
+extendCtxWithGateParam (GateArg{..}) = M.insert name argType
+
+findGateType :: Id -> EvaluationContext -> TypeCalculationResult
+findGateType gateName = findTypeWithinScope gateName  >>> eitherFromPred isCircuit genIsNotGateErr
+  where
+    genIsNotGateErr :: TermType -> TypeErrAt
+    genIsNotGateErr = flip ExpectedAGate gateName  >>> flip WithContext (extractCtx gateName)
+    isCircuit :: TermType -> Bool
+    isCircuit = L.has _Circuit
+
+determineRegElemType :: TermType -> TermType
+determineRegElemType (RegisterGroup Quantum _) = Qbit
+determineRegElemType (RegisterGroup Classical _) = Bit
+
+
+-- Takes the context under which to evaluate an expression,
+-- the index variables currently in-scope,
+-- a parametric expression, and returns the type of the expression if it is
+-- valid. Returns an error otherwise
+verifyParametricExpr :: EvaluationContext -> [IndexVar] -> Expression -> TypeCalculationResult'
+verifyParametricExpr m _ x@(Var{})  = verifyExpr' m x
+
+verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
+  = findTypeWithinScope' registerName m
+  >>= wrappedEitherFromPred (isAccessingValidReg registerNumber validIdxVars) (error "Not handled yet")
+  & fmap determineRegElemType
+  where
+    findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
+    isAccessingValidReg :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO Bool
+    isAccessingValidReg wantedIdx inScopeIdxVars (RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs
+
+    proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
+    proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) (error "Have not implemented right branch yet")  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
+    targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf
+
+    wrappedEitherFromPred :: Monad m => (a -> ExceptT err m Bool) -> (a -> err) -> a -> ExceptT err m a
+
+    wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
+
+    -- Takes two numbers, a, b, and generates a condition checking
+    -- that a is in [0, b)
+    isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
+    isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&) 
+
+
+-- Takes two functions for interpreting the results of proving a proposition, a
+-- proposition, and returns the result of interpreting the proof of
+-- the negation of the proposition
+proveNegationOf :: (G.SolvingFailure -> a) -> (G.Model -> TypeErrAt) -> G.SymBool -> ExceptT TypeErrAt IO a
+
+proveNegationOf f g = proveNegationOf' >>> fmap (either (f >>> Right) (g >>> Left)) >>> ExceptT
+  where
+    proveNegationOf' :: G.SymBool -> IO (Either G.SolvingFailure G.Model)
+    proveNegationOf' = G.symNot >>> G.solve G.z3
+
+
+-- Takes an index and returns the value represented by it
+valueOf :: Index -> G.SymInteger
+
+valueOf idx = indexVarTerms + constTerm
+  where
+    indexVars = L.view idxVarsCoefficients idx & M.toList
+    indexVarTerms = indexVars
+      & (L.each . L._1) L.%~ toSymVar
+      & (L.each . L._2) L.%~ toSymInt
+      & foldr (uncurry (*) >>> (+)) 0
+    constTerm = L.view constPortion idx & toSymInt
+
+-- Takes a collection of index variables that are in scope and
+-- returns a term expressing the assumption that all of them are
+-- non-negative
+assumingIdxVarsAreNonNeg :: [IndexVar] -> G.SymBool
+assumingIdxVarsAreNonNeg = foldr (genAndCombineConstraints . toSymVar) G.true
+  where
+    genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
+    genAndCombineConstraints = (G..>= 0) >>> (G..&&)
+
+-- Takes the line where a gate was applied,
+-- the types of the expected arguments for a gate,
+-- the types of the actual arguments passed to the gate,
+-- the arguments passed to the gate, and checks if the
+-- expected and actual types match. Returns an error otherwise
+verifyParametricGateArgs :: LineNumber -> [IndexVar] ->  TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
+
+verifyParametricGateArgs _ _ (Circuit expectedArgTypes) actualArgTypes _
+  | expectedArgTypes == actualArgTypes = return Unit
+  | otherwise = error "Have not handled the case where a parametric gate application is invalid"
+
+-- Takes the in-scope index variables, the body of a gate within a parametric gate declaration,
+--  the context under which to evaluate the body, and returns an error if any part of the
+-- gate body has an invalid type. Returns the overall type of the gate otherwise
+verifyParametricGateBody ::[IndexVar] -> GateApp  -> EvaluationContext  -> TypeCalculationResult'
+
+verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
+  expectedTypes <- findGateType' gateId m
+  actualTypes <- traverse (verifyParametricExpr m validIdxVars) gateArgs
+  verifyParametricGateArgs (extractCtx gateId) validIdxVars expectedTypes actualTypes gateArgs
+  where
+    findGateType' a = findGateType a >>> fromEither
+
 -- Takes a collection of index variables that can be used, an argument to a gate, and
 -- checks that the argument does not reference any free index variables
 isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
-isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))  = allM (isValidIndexVar validIdxVars) usedIdxVars
+isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))
+  = find (`notElem` validIdxVars) usedIdxVars
+  & maybe (return True)  (flip genFreeIdxVarErr numOfRegs >>> fromEither)
   where
     usedIdxVars = extractVal numOfRegs & L.view idxVarsCoefficients & M.keys
-    isValidIndexVar :: [IndexVar] -> IndexVar -> ExceptT TypeErrAt IO Bool
-    isValidIndexVar inScopeIndexVars usedVar = bool  (fromEither $ genFreeIdxVarErr usedVar numOfRegs) (return True) $ usedVar `elem` inScopeIndexVars
     genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
     genFreeIdxVarErr freeVar (WithContext regCount line) = toTypeErrAtLoc (UsesFreeIndexVar regCount freeVar) line
 
 isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
 
 -- Takes a circuit family declaration, the context to evaluate it under, and
--- returns an error if the gate may take an empty collection. Approves the
--- declaration otherwise
+-- returns an error if the gate may take a collection of invalid length (i.e., negative or empty).
+-- Approves the declaration otherwise
 verifyParametricGateDecl :: [IndexVar] -> GateInfo -> EvaluationContext -> TypeCalculationResult'
-verifyParametricGateDecl validIndexVars GateInfo{args} _ = allM (isNotUsingFreeIdxVar validIndexVars) args *>  traverse verifyParametricTypeAnnotation args $>  Unit
+verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m =
+  allM (isNotUsingFreeIdxVar validIndexVars) args
+  *>  gateCtx >>= verifyParametricGateBody validIndexVars gateBody
   where
     verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg
     verifyParametricTypeAnnotation x = fromEither (Right x)
+    gateCtx = foldr extendCtxWithGateParam m <$> traverse verifyParametricTypeAnnotation args
 
 
 zero :: Index
@@ -363,6 +448,7 @@ isZero = extractVal >>> (== zero)
 
 type TypeCalculationResult' = ExceptT TypeErrAt IO TermType
 
+
 -- Takes information about a gate declaration, the local context, and
 -- checks that the body of the gate is valid according to the
 -- parameters in the declaration and the context. Returns an error otherwise
@@ -370,8 +456,6 @@ verifyGateDecl :: GateInfo -> EvaluationContext -> TypeCalculationResult'
 verifyGateDecl GateInfo{..} m = (fromEither gateDeclCtx) >>= (`verifyGateApp'`  gateBody)
   where
     gateDeclCtx = foldr extendCtxWithGateParam m <$> traverse verifyTypeAnnotation args
-    extendCtxWithGateParam :: GateArg -> EvaluationContext -> EvaluationContext
-    extendCtxWithGateParam (GateArg{..}) = M.insert name argType
     -- Checks that a type annotation is valid. Returns an error otherwise
     verifyTypeAnnotation :: GateArg -> Either TypeErrAt GateArg
     verifyTypeAnnotation arg@(GateArg regCollName (RegisterGroup collType numOfRegs))

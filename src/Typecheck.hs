@@ -330,7 +330,6 @@ ensureM predicate errFn x = predicate x >>= bool (errFn x & throwError) (return 
 verifyParametricExpr :: EvaluationContext -> [IndexVar] -> Expression -> TypeCalculationResult'
 verifyParametricExpr m _ x@(Var{})  = verifyExpr' m x
 
---verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
 verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ line) registerNumber)
   = findTypeWithinScope' registerName m
   >>= ensureM (isRegColl >>> return) (genExpectedRegCollErr registerName line)

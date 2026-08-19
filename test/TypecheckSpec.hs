@@ -325,6 +325,9 @@ L.makePrisms ''MetaQasmError
 calcTypeOf' :: MetaQasmProgram -> IO (Either MetaQasmError TermType)
 calcTypeOf' = runExceptT . calcTypeOf
 
+typeEvaluationErr :: L.Traversal'  (Either MetaQasmError TermType) TypeEvaluationError
+typeEvaluationErr = L._Left . _TypeErr . _WithContext . L._1
+
 -- Given a circuit family declaration which takes a
 -- register collection that may be of negative length, checks that
 -- evaluating the declaration is invalid and yields an error
@@ -334,7 +337,7 @@ prop_cannotTakePotentialNegLengthRegCollAsArg  =
   calcTypeOf'  >=> (`shouldSatisfy` isInvalidLengthCollErr )
   where
     isInvalidLengthCollErr :: Either MetaQasmError TermType -> Bool
-    isInvalidLengthCollErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegCollDecl)
+    isInvalidLengthCollErr = L.has (typeEvaluationErr . _InvalidParametricRegCollDecl)
 
 
 -- Takes a program containing a circuit family declaration which
@@ -347,13 +350,13 @@ prop_cannotUseFreeIndexVarInCircuitFamDecl  = (`shouldHaveType` freeIndexVarUsag
 
 -- Given a circuit family which takes a collection of size n + 1 and
 -- attempts to access the (n + 1)th element, checks that such an attempt is
--- valid and results in an error
+-- invalid and results in an error
 prop_cannotPerformInvalidParametricAccess :: MetaQasmProgram -> IO ()
 prop_cannotPerformInvalidParametricAccess =
-  calcTypeOf'  >=> (`shouldSatisfy` isInvalidAccessErr)
+  calcTypeOf'  >=> (`shouldSatisfy` isInvalidParametricAccessErr)
   where
-    isInvalidAccessErr :: Either MetaQasmError TermType -> Bool
-    isInvalidAccessErr = L.has (L._Left . _TypeErr . _WithContext . L._1 . _InvalidParametricRegAcc)
+    isInvalidParametricAccessErr :: Either MetaQasmError TermType -> Bool
+    isInvalidParametricAccessErr = L.has (typeEvaluationErr . _InvalidParametricRegAcc)
 
 spec :: Spec
 spec =  do

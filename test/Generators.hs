@@ -66,7 +66,8 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatUsesFreeIndexVar,
                  circuitFamilyThatAccessesValidReg,
                  circuitFamilyThatAccessesInvalidReg,
-                 circuitFamilyThatTreatsGateAsColl)
+                 circuitFamilyThatTreatsGateAsColl,
+                 circuitFamilyWithDuplicateIndexVars)
   where
 
 import Control.Monad(join)
@@ -1164,3 +1165,8 @@ circuitFamilyThatTreatsGateAsColl = (, hGate) <$> addInvalidAcc <$> circuitFamil
     addInvalidAcc = flip (R.subRegex  gate) "{h(h[0])}"
     gate = R.mkRegex "[{][^}]+[}]"
     hGate = Var $ WithContext "h" (LineNumber 1)
+
+circuitFamilyWithDuplicateIndexVars :: Gen MetaQasmProgram
+circuitFamilyWithDuplicateIndexVars = formatToString invalidCirc <$> gateThatTakesARegColl
+  where
+    invalidCirc = replaced "family(n)" "family(n, n)" invalidCircuitFamDecl

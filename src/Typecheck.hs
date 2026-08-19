@@ -309,6 +309,7 @@ findGateType gateName = findTypeWithinScope gateName  >>> eitherFromPred isCircu
 determineRegElemType :: TermType -> TermType
 determineRegElemType (RegisterGroup Quantum _) = Qbit
 determineRegElemType (RegisterGroup Classical _) = Bit
+determineRegElemType _ = error "Was called on something that is not a register collection"
 
 
 -- Takes the context under which to evaluate an expression,
@@ -323,9 +324,6 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
   >>= verifyRegAcc registerNumber validIdxVars
   where
     findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
-    isAccessingValidReg :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO Bool
-    isAccessingValidReg wantedIdx inScopeIdxVars (RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs
-
     proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
     proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) genInvalidAccErr  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
     targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf

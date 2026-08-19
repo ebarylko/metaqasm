@@ -320,8 +320,7 @@ verifyParametricExpr m _ x@(Var{})  = verifyExpr' m x
 
 verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
   = findTypeWithinScope' registerName m
-  >>= wrappedEitherFromPred (isAccessingValidReg registerNumber validIdxVars) (error "Not handled yet")
-  & fmap determineRegElemType
+  >>= verifyRegAcc registerNumber validIdxVars
   where
     findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
     isAccessingValidReg :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO Bool
@@ -331,9 +330,8 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) genInvalidAccErr  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
     targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf
 
-    wrappedEitherFromPred :: Monad m => (a -> ExceptT err m Bool) -> (a -> err) -> a -> ExceptT err m a
-
-    wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
+    verifyRegAcc :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO TermType
+    verifyRegAcc wantedIdx inScopeIdxVars regColl@(RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs  $> determineRegElemType regColl
 
     genInvalidAccErr  = genCounterExample (extractVal registerNumber) >>> InvalidParametricRegAcc (extractVal registerName) >>> flip WithContext (extractCtx registerName)
 

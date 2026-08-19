@@ -63,7 +63,8 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatMayTakeEmptyRegColl,
                  circuitFamilyThatMayTakeNegLengthRegColl,
                  circuitFamilyThatUsesFreeIndexVar,
-                 circuitFamilyThatAccessesValidReg)
+                 circuitFamilyThatAccessesValidReg,
+                 circuitFamilyThatAccessesInvalidReg)
   where
 
 import Control.Monad(join)
@@ -913,14 +914,13 @@ programThatAppliesGateToCircSubType = formatToString prog <$>  higherOrderedGate
 appBinOp :: MetaQasmProgramFormatter a ->  MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 
 appBinOp op fstArg' = (<%+>) (fstArg' <%+> op )
+plus = appBinOp (fconst "+")
 
 -- Takes a formatter and returns a formatter that
 -- returns the sum of twice the value obtained from the
 -- formatter
 twice :: MetaQasmProgramFormatter a -> MetaQasmProgramFormatter a
 twice f = f `plus` f
-  where
-    plus = appBinOp (fconst "+")
 
 -- Generates a MetaQASM program consisting of a hadamard gate application to
 -- a valid register access that uses a sum of indices
@@ -1139,3 +1139,14 @@ circuitFamilyThatAccessesValidReg = formatToString validCircuitDecl <$> gateThat
     validCircuitDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl hGate
     nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
     hGate = viewed paramInfo $ hadamardApp (regCollAccess $ fconst "n")
+
+
+-- Generates a circuit family that accesses the (n + x)th element of a
+-- collection of size n + x, where x is a constant
+circuitFamilyThatAccessesInvalidReg :: Gen MetaQasmProgram
+circuitFamilyThatAccessesInvalidReg = formatToString invalidFamCircDecl <$> gateThatTakesARegColl
+  where
+    invalidFamCircDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl hGate
+    nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation regCount
+    regCount = numOfRegsInColl `plus` fconst "n"
+    hGate = viewed paramInfo $ hadamardApp (regCollAccess regCount)

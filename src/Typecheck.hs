@@ -66,6 +66,7 @@ data TypeEvaluationError =
   | NegSizeRegCollDecl Identifier
   | UsesFreeIndexVar{invalidIdx :: Index, freeIdxVar :: IndexVar}
   | InvalidParametricRegCollDecl Identifier CounterExample
+  | InvalidParametricRegAcc{collId :: Identifier, invalidAcc :: CounterExample}
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
@@ -308,6 +309,7 @@ findGateType gateName = findTypeWithinScope gateName  >>> eitherFromPred isCircu
 determineRegElemType :: TermType -> TermType
 determineRegElemType (RegisterGroup Quantum _) = Qbit
 determineRegElemType (RegisterGroup Classical _) = Bit
+determineRegElemType _ = error "Was called on something that is not a register collection"
 
 
 -- Takes the context under which to evaluate an expression,
@@ -319,25 +321,22 @@ verifyParametricExpr m _ x@(Var{})  = verifyExpr' m x
 
 verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
   = findTypeWithinScope' registerName m
-  >>= wrappedEitherFromPred (isAccessingValidReg registerNumber validIdxVars) (error "Not handled yet")
-  & fmap determineRegElemType
+  >>= verifyRegAcc registerNumber validIdxVars
   where
     findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
-    isAccessingValidReg :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO Bool
-    isAccessingValidReg wantedIdx inScopeIdxVars (RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs
-
     proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
-    proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) (error "Have not implemented right branch yet")  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
+    proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) genInvalidAccErr  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
     targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf
 
-    wrappedEitherFromPred :: Monad m => (a -> ExceptT err m Bool) -> (a -> err) -> a -> ExceptT err m a
+    verifyRegAcc :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO TermType
+    verifyRegAcc wantedIdx inScopeIdxVars regColl@(RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs  $> determineRegElemType regColl
 
-    wrappedEitherFromPred predicate errFn x =  predicate x >>= bool (fromEither $ Left $ errFn x) (return x)
+    genInvalidAccErr  = genCounterExample (extractVal registerNumber) >>> InvalidParametricRegAcc (extractVal registerName) >>> flip WithContext (extractCtx registerName)
 
     -- Takes two numbers, a, b, and generates a condition checking
     -- that a is in [0, b)
     isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
-    isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&) 
+    isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&)
 
 
 -- Takes two functions for interpreting the results of proving a proposition, a

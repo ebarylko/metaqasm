@@ -66,6 +66,7 @@ data TypeEvaluationError =
   | NegSizeRegCollDecl Identifier
   | UsesFreeIndexVar{invalidIdx :: Index, freeIdxVar :: IndexVar}
   | InvalidParametricRegCollDecl Identifier CounterExample
+  | InvalidParametricRegAcc{collId :: Identifier, invalidAcc :: CounterExample}
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
   | TypeMismatch{expectedType :: TermType, actualType :: TermType, erroneousTerm :: Expression}
@@ -337,7 +338,7 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     -- Takes two numbers, a, b, and generates a condition checking
     -- that a is in [0, b)
     isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
-    isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&) 
+    isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&)
 
 
 -- Takes two functions for interpreting the results of proving a proposition, a

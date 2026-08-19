@@ -63,7 +63,8 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatMayTakeEmptyRegColl,
                  circuitFamilyThatMayTakeNegLengthRegColl,
                  circuitFamilyThatUsesFreeIndexVar,
-                 circuitFamilyThatAccessesValidReg)
+                 circuitFamilyThatAccessesValidReg,
+                 circuitFamilyThatAccessesInvalidReg)
   where
 
 import Control.Monad(join)
@@ -1130,6 +1131,9 @@ circuitFamilyThatUsesFreeIndexVar = formatToString invalidCircuitFamDecl' <$> ga
   where
     invalidCircuitFamDecl' = replaced "family(n)" "family(g)" invalidCircuitFamDecl
 
+nonEmptyRegColl :: MetaQasmProgramFormatter GateThatTakesARegColl
+nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
+
 -- Generates a circuit family that accesses the nth element of a
 -- collection of size n + 1
 circuitFamilyThatAccessesValidReg :: Gen MetaQasmProgram
@@ -1137,5 +1141,13 @@ circuitFamilyThatAccessesValidReg :: Gen MetaQasmProgram
 circuitFamilyThatAccessesValidReg = formatToString validCircuitDecl <$> gateThatTakesARegColl
   where
     validCircuitDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl hGate
-    nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
     hGate = viewed paramInfo $ hadamardApp (regCollAccess $ fconst "n")
+
+
+-- Generates a circuit family that accesses the (n + 1)th element of a
+-- collection of size n + 1
+circuitFamilyThatAccessesInvalidReg :: Gen MetaQasmProgram
+circuitFamilyThatAccessesInvalidReg = formatToString invalidFamCircDecl <$> gateThatTakesARegColl
+  where
+    invalidFamCircDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl hGate
+    hGate = viewed paramInfo $ hadamardApp (regCollAccess $ fconst "n + 1")

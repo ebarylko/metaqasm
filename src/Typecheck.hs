@@ -337,7 +337,7 @@ verifyParametricExpr m validIdxVars RegisterAccess{registerName, registerNumber}
     -- Takes two numbers, a, b, and generates a condition checking
     -- that a is in [0, b)
     isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
-    isBoundedExclusivelyBy a lim = a G..>= 0 G..&& a G..< lim
+    isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&) 
 
 
 -- Takes two functions for interpreting the results of proving a proposition, a

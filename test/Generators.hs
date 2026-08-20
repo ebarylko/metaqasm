@@ -69,7 +69,8 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatTreatsGateAsColl,
                  circuitFamilyWithDuplicateIndexVars,
                  validCircuitFamilyWithGateSequence,
-                 circuitFamilyThatUsesFreeIdxVarInBody)
+                 circuitFamilyThatUsesFreeIdxVarInBody,
+                 circuitFamilyThatAppliesNAryGateToLessThanNArgs)
 
   where
 
@@ -1199,3 +1200,13 @@ circuitFamilyThatUsesFreeIdxVarInBody = formatToString invalidCirc <$> gateThatT
   where
     invalidCirc =  singleParamCircFamThatTakesNonemptyColl hGateOnInvalidAcc
     hGateOnInvalidAcc  = replaced "[n]" "[g]" hGateOnNthElem
+
+
+-- Generates a circuit family that applies a n-ary gate to
+-- less than n arguments in the body
+circuitFamilyThatAppliesNAryGateToLessThanNArgs :: Gen MetaQasmProgram
+circuitFamilyThatAppliesNAryGateToLessThanNArgs
+  = formatToString circWithInvalidGateApp <$> gateThatTakesARegColl
+  where
+    circWithInvalidGateApp = singleParamCircFamThatTakesNonemptyColl cNotOnOneQubit
+    cNotOnOneQubit = replaced "h(" "cx(" hGateOnNthElem

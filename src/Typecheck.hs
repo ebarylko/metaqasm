@@ -188,7 +188,7 @@ verifyGateArgs line (Circuit expectedArgTypes) actualArgTypes args
     numOfActualTypes = length actualArgTypes
     gateIsAppliedToTooManyArgs = numOfExpectedTypes < numOfActualTypes
     gateIsAppliedToTooFewArgs = numOfExpectedTypes > numOfActualTypes
-    unexpectedNumOfArgsErr = toTypeErrAtLoc ExpectedNParams{expectedNumOfParams = toConstIdx numOfExpectedTypes, actualNumOfParams = toConstIdx numOfActualTypes} line
+    unexpectedNumOfArgsErr =  genUnexpectedNumOfArgsErr line numOfExpectedTypes numOfActualTypes
     gateArgMismatchErr = toTypeErrAtLoc (findTypeMismatch args expectedArgTypes actualArgTypes) line
 
 
@@ -409,16 +409,28 @@ assumingIdxVarsAreNonNeg = foldr (genAndCombineConstraints . toSymVar) G.true
     genAndCombineConstraints :: G.SymInteger -> G.SymBool -> G.SymBool
     genAndCombineConstraints = (G..>= 0) >>> (G..&&)
 
+-- Takes the line a gate was applied, the number of the expected and
+-- actual arguments, and returns an error stating that more/less arguments
+-- were passed than expected
+genUnexpectedNumOfArgsErr :: LineNumber -> Int -> Int -> Either TypeErrAt a
+genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConstIdx) expectedNumOfArgs >>> flip toTypeErrAtLoc line
+
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,
 -- the types of the actual arguments passed to the gate,
 -- the arguments passed to the gate, and checks if the
 -- expected and actual types match. Returns an error otherwise
-verifyParametricGateArgs :: LineNumber -> [IndexVar] ->  TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
+verifyParametricGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
 
-verifyParametricGateArgs _ _ (Circuit expectedArgTypes) actualArgTypes _
+verifyParametricGateArgs line (Circuit expectedArgTypes) actualArgTypes _
   | expectedArgTypes == actualArgTypes = return Unit
+  | tooFewArgsHaveBeenPassed = numOfUnexpectedArgsErr
   | otherwise = error "Have not handled the case where a parametric gate application is invalid"
+  where
+    numOfExpectedArgs = length expectedArgTypes
+    numOfActualArgs = length actualArgTypes
+    tooFewArgsHaveBeenPassed = numOfExpectedArgs > numOfActualArgs
+    numOfUnexpectedArgsErr  = genUnexpectedNumOfArgsErr line numOfExpectedArgs numOfActualArgs & fromEither
 
 -- Takes the in-scope index variables, the body of a gate within a parametric gate declaration,
 --  the context under which to evaluate the body, and returns an error if any part of the
@@ -428,7 +440,7 @@ verifyParametricGateBody ::[IndexVar] -> GateApp  -> EvaluationContext  -> TypeC
 verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
   expectedTypes <- findGateType' gateId m
   actualTypes <- traverse (verifyParametricExpr m validIdxVars) gateArgs
-  verifyParametricGateArgs (extractCtx gateId) validIdxVars expectedTypes actualTypes gateArgs
+  verifyParametricGateArgs (extractCtx gateId) expectedTypes actualTypes gateArgs
   where
     findGateType' a = findGateType a >>> fromEither
 

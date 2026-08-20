@@ -93,7 +93,8 @@ import Generators(outOfScopeVar,
                  circuitFamilyThatTreatsGateAsColl,
                  circuitFamilyWithDuplicateIndexVars,
                  validCircuitFamilyWithGateSequence,
-                 circuitFamilyThatUsesFreeIdxVarInBody)
+                 circuitFamilyThatUsesFreeIdxVarInBody,
+                 circuitFamilyThatAppliesNAryGateToLessThanNArgs)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -634,3 +635,8 @@ spec =  do
     modifyMaxSuccess (const 10) $ do
       prop "Is invalid" $ do
         forAll circuitFamilyThatUsesFreeIdxVarInBody prop_cannotUseFreeVarInCircuitFamBody
+
+  describe "Declaring a circuit family in which an n-ary gate is applied to less than n args"  $ do
+    modifyMaxSuccess (const 10) $ do
+      prop "Is invalid" $ do
+        forAll circuitFamilyThatAppliesNAryGateToLessThanNArgs prop_cannotApplyGateToTooFewQubits

@@ -213,6 +213,8 @@ verifyGateApp m (GateApp gateName@(WithContext _ line) args) = do
 verifyGateApp m (GateSequence a b)
   = verifyGateApp m a *> verifyGateApp m b
 
+type TypeCalculationResult' = ExceptT TypeErrAt IO TermType
+
 verifyGateApp' :: EvaluationContext -> GateApp -> TypeCalculationResult'
 verifyGateApp' m  = verifyGateApp m >>> fromEither
 
@@ -346,7 +348,7 @@ verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ 
   >>= verifyRegAcc registerNumber validIdxVars
   where
     findTypeWithinScope' a = findTypeWithinScope a >>> fromEither
-    proveAccessIsValid :: [IndexVar] -> Index -> Index -> ExceptT TypeErrAt IO Bool
+    proveAccessIsValid :: [IndexVar] -> Index -> Index -> TypeVerificationResult Bool
     proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) genInvalidAccErr  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
     targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf
 
@@ -364,7 +366,7 @@ verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ 
 -- Takes two functions for interpreting the results of proving a proposition, a
 -- proposition, and returns the result of interpreting the proof of
 -- the negation of the proposition
-proveNegationOf :: (G.SolvingFailure -> a) -> (G.Model -> TypeErrAt) -> G.SymBool -> ExceptT TypeErrAt IO a
+proveNegationOf :: (G.SolvingFailure -> a) -> (G.Model -> TypeErrAt) -> G.SymBool -> TypeVerificationResult a
 
 proveNegationOf f g = proveNegationOf' >>> fmap (either (f >>> Right) (g >>> Left)) >>> ExceptT
   where
@@ -419,7 +421,8 @@ verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
 verifyParametricGateBody validIdxVars (GateSequence fstGate sndGate) m =
   verifyParametricGateBody validIdxVars fstGate m *> verifyParametricGateBody validIdxVars sndGate m
 
-checkNoFreeIdxVarsAreUsed :: Idx -> [IndexVar] -> ExceptT TypeErrAt IO ()
+
+checkNoFreeIdxVarsAreUsed :: Idx -> [IndexVar] -> TypeVerificationResult ()
 checkNoFreeIdxVarsAreUsed num validIdxVars
   = find (`notElem` validIdxVars) usedIdxVars
   & maybe (return ())  (flip genFreeIdxVarErr num >>> fromEither)
@@ -430,7 +433,7 @@ checkNoFreeIdxVarsAreUsed num validIdxVars
 
 -- Takes a collection of index variables that can be used, an argument to a gate, and
 -- checks that the argument does not reference any free index variables
-isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
+isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> TypeVerificationResult Bool
 isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))
   = checkNoFreeIdxVarsAreUsed numOfRegs validIdxVars $> True
 
@@ -444,7 +447,7 @@ verifyParametricGateDecl validIndexVars GateInfo{args, gateBody} m =
   allM (isNotUsingFreeIdxVar validIndexVars) args
   *>  gateCtx >>= verifyParametricGateBody validIndexVars gateBody
   where
-    verifyParametricTypeAnnotation :: GateArg -> ExceptT TypeErrAt IO GateArg
+    verifyParametricTypeAnnotation :: GateArg -> TypeVerificationResult GateArg
     verifyParametricTypeAnnotation arg@(GateArg collId (RegisterGroup _ numOfRegs)) = proveCollIsNonEmpty collId numOfRegs $> arg
     verifyParametricTypeAnnotation x = fromEither (Right x)
     gateCtx = foldr extendCtxWithGateParam m <$> traverse verifyParametricTypeAnnotation args
@@ -474,7 +477,6 @@ isNegIdx = extractVal >>> (< zero)
 isZero :: Idx -> Bool
 isZero = extractVal >>> (== zero)
 
-type TypeCalculationResult' = ExceptT TypeErrAt IO TermType
 
 
 -- Takes information about a gate declaration, the local context, and

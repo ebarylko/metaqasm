@@ -425,11 +425,13 @@ verifyParametricGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression]
 verifyParametricGateArgs line (Circuit expectedArgTypes) actualArgTypes _
   | expectedArgTypes == actualArgTypes = return Unit
   | tooFewArgsHaveBeenPassed = numOfUnexpectedArgsErr
+  | tooManyArgsHaveBeenPassed = numOfUnexpectedArgsErr
   | otherwise = error "Have not handled the case where a parametric gate application is invalid"
   where
     numOfExpectedArgs = length expectedArgTypes
     numOfActualArgs = length actualArgTypes
     tooFewArgsHaveBeenPassed = numOfExpectedArgs > numOfActualArgs
+    tooManyArgsHaveBeenPassed = numOfExpectedArgs < numOfActualArgs
     numOfUnexpectedArgsErr  = genUnexpectedNumOfArgsErr line numOfExpectedArgs numOfActualArgs & fromEither
 
 -- Takes the in-scope index variables, the body of a gate within a parametric gate declaration,

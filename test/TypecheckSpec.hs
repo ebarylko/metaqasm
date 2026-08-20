@@ -617,16 +617,10 @@ spec =  do
     runPropTenTimes "Is valid" circuitFamilyThatAccessesValidReg prop_isValidProgram
 
   describe "Accessing the (n + 1)th element of a collection of size n + 1"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatAccessesInvalidReg prop_cannotPerformInvalidParametricAccess
-
+    runPropTenTimes "Is invalid" circuitFamilyThatAccessesInvalidReg prop_cannotPerformInvalidParametricAccess
 
   describe "Treating a gate like a collection inside a circuit family declaration"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatTreatsGateAsColl prop_cannotTreatSingleQubitUnitaryAsRegColl
-
+    runPropTenTimes "Is invalid"  circuitFamilyThatTreatsGateAsColl prop_cannotTreatSingleQubitUnitaryAsRegColl
 
   describe "Declaring a circuit family with duplicate index variables"  $ do
     prop "Is invalid" $ do
@@ -634,22 +628,13 @@ spec =  do
 
 
   describe "Declaring a valid circuit family containing a gate sequence"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is valid" $ do
-        forAll validCircuitFamilyWithGateSequence prop_isValidProgram
+    runPropTenTimes "Is valid"  validCircuitFamilyWithGateSequence prop_isValidProgram
 
   describe "Declaring a circuit family in which a register is accessed using a free index variable"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatUsesFreeIdxVarInBody prop_cannotUseFreeVarInCircuitFamBody
+    runPropTenTimes "Is invalid"  circuitFamilyThatUsesFreeIdxVarInBody prop_cannotUseFreeVarInCircuitFamBody
 
   describe "Declaring a circuit family in which an n-ary gate is applied to less than n args"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatAppliesNAryGateToLessThanNArgs prop_cannotApplyGateToTooFewQubits
-
+    runPropTenTimes "Is invalid"  circuitFamilyThatAppliesNAryGateToLessThanNArgs prop_cannotApplyGateToTooFewQubits
 
   describe "Declaring a circuit family in which an single qubit unitary is applied to two qubits"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatAppliesOneQbitGateToTwoQbits prop_cannotApplySingleQbitUnitaryToTwoQbits
+    runPropTenTimes "Is invalid"  circuitFamilyThatAppliesOneQbitGateToTwoQbits prop_cannotApplySingleQbitUnitaryToTwoQbits

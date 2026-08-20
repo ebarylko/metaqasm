@@ -1216,8 +1216,8 @@ circuitFamilyThatAppliesNAryGateToLessThanNArgs
 -- Generates a circuit family that applies a single qubit
 -- unitary to two qubits
 circuitFamilyThatAppliesOneQbitGateToTwoQbits :: Gen MetaQasmProgram
-circuitFamilyThatAppliesOneQbitGateToTwoQbits
-  = formatToString circWithInvalidGateApp <$> gateThatTakesARegColl
+circuitFamilyThatAppliesOneQbitGateToTwoQbits =
+  formatToString circWithInvalidGateApp <$> gateThatTakesARegColl
   where
     circWithInvalidGateApp = singleParamCircFamThatTakesNonemptyColl (viewed paramInfo hGateOnTwoQbits)
     hGateOnTwoQbits = twoParamGateApp (fconst "h") nthReg nthReg

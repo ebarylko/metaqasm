@@ -413,6 +413,9 @@ verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
   where
     findGateType' a = findGateType a >>> fromEither
 
+verifyParametricGateBody validIdxVars (GateSequence fstGate sndGate) m =
+  verifyParametricGateBody validIdxVars fstGate m *> verifyParametricGateBody validIdxVars sndGate m
+
 -- Takes a collection of index variables that can be used, an argument to a gate, and
 -- checks that the argument does not reference any free index variables
 isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool

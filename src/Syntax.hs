@@ -132,7 +132,7 @@ data RegCollInfo = RegCollInfo{collType :: RegisterType, regCollName :: Identifi
 
 -- This type represents information known about a gate, namely its name, the arguments it takes,
 -- and the body of the gate
-data GateInfo = GateInfo{gateName :: Identifier, args :: [GateArg], gateBody :: GateApp} deriving (Show, Eq)
+data GateInfo = GateInfo{gateName :: Id, args :: [GateArg], gateBody :: GateApp} deriving (Show, Eq)
 
 
 -- This data type represents all possible commands a user can execute.

@@ -90,7 +90,8 @@ import Generators(outOfScopeVar,
                  circuitFamilyThatUsesFreeIndexVar,
                  circuitFamilyThatAccessesValidReg,
                  circuitFamilyThatAccessesInvalidReg,
-                 circuitFamilyThatTreatsGateAsColl)
+                 circuitFamilyThatTreatsGateAsColl,
+                 circuitFamilyWithDuplicateIndexVars)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -359,6 +360,16 @@ prop_cannotPerformInvalidParametricAccess =
     isInvalidParametricAccessErr :: Either MetaQasmError TermType -> Bool
     isInvalidParametricAccessErr = L.has (typeEvaluationErr . _InvalidParametricRegAcc)
 
+-- Takes a circuit family declaration with duplicate index variables
+-- and checks that evaluating it yields an error mentioning the multiplicity
+-- of the same index variable
+prop_cannotHaveDuplicateIndexVarsInDecl :: MetaQasmProgram -> IO ()
+prop_cannotHaveDuplicateIndexVarsInDecl prog =
+  prog `shouldHaveType` duplicateIdxVarsErr
+  where
+    duplicateIdxVarsErr = prog & extractCircname & flip DeclUsesDuplicateIdxVars [IndexVar "n", IndexVar "n"] & errOnLine1
+    extractCircname = dropWhile (/= ')') >>> drop 2 >>> takeWhile (/= '(')
+
 spec :: Spec
 spec =  do
   describe "Accessing an out of scope variable" $ do
@@ -597,3 +608,8 @@ spec =  do
     modifyMaxSuccess (const 10) $ do
       prop "Is invalid" $ do
         forAll circuitFamilyThatTreatsGateAsColl prop_cannotTreatSingleQubitUnitaryAsRegColl
+
+
+  describe "Declaring a circuit family with duplicate index variables"  $ do
+    prop "Is invalid" $ do
+      forAll circuitFamilyWithDuplicateIndexVars prop_cannotHaveDuplicateIndexVarsInDecl

@@ -10,6 +10,7 @@ import Syntax(Expression(..),
            RegCollInfo(..),
            toConstIdx,
            IndexCoeffs,
+           Id,
            GateInfo(..),
            GateApp(..),
            Index(..),
@@ -67,6 +68,12 @@ regAccess regCollname idx = RegisterAccess (onLine1 regCollname) (index idx)
 
 index :: Int -> Idx
 index = onLine1 . toConstIdx
+
+toGateName :: String -> Id
+toGateName = onLine1
+
+toGate :: String -> [GateArg] -> GateApp -> GateInfo
+toGate = onLine1 >>> GateInfo
 
 -- Takes an binary operation on indices, two numbers representing
 -- the indices, and applies the operations on the index equivalent
@@ -187,7 +194,7 @@ spec = do
                                 quantumRegColl "y" 2]
         let expectedGateBody = gateApp "cx" [var "x" , var "z"]
         let expectedGateApp = Gate $ gateApp "f" [var "a", var "b"]
-        "gate f(x: Qbit, z: Bit, y: Qbit[2]) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl (GateInfo "f" expectedGateArgs expectedGateBody) expectedGateApp
+        "gate f(x: Qbit, z: Bit, y: Qbit[2]) {cx(x, z)} in {f(a, b)}" `shouldParseToCommand` ScopedGateDecl (toGate "f" expectedGateArgs expectedGateBody) expectedGateApp
 
     describe "Parsing qubit resets" $ do
       it "Generates a term representing the act of setting a qubit to its default state" $ do
@@ -206,18 +213,18 @@ spec = do
 
     describe "Parsing unscoped gate declarations" $ do
       it "Generates a term representing the declaration" $ do
-        "gate f(h: Circuit(Qbit, Qbit)) {h(y, y)}" `shouldParseToCommand` GateDecl (GateInfo
+        "gate f(h: Circuit(Qbit, Qbit)) {h(y, y)}" `shouldParseToCommand` GateDecl (toGate
                                                                                     "f"
                                                                                     [GateArg "h" $ Circuit [Qbit, Qbit]]
                                                                                     (gateApp "h" [var "y", var "y"]))
-        "gate f(y: Bit[2]) {h(y)} " `shouldParseToCommand` GateDecl ( GateInfo
+        "gate f(y: Bit[2]) {h(y)} " `shouldParseToCommand` GateDecl ( toGate
                                                                       "f"
                                                                       [classicalRegColl "y" 2]
                                                                       (gateApp "h" [var "y"]))
 
     describe "Parsing gate sequencing" $ do
       it "Generates a term representing the combining of gates" $ do
-        "gate f(x: Qbit) {h(x) ; t(x)}" `shouldParseToCommand` GateDecl (GateInfo
+        "gate f(x: Qbit) {h(x) ; t(x)}" `shouldParseToCommand` GateDecl (toGate
                                                                          "f"
                                                                          [GateArg "x" Qbit]
                                                                          (GateSequence (gateApp "h" [var "x"]) (gateApp "t" [var "x"])))
@@ -246,5 +253,5 @@ spec = do
 
     describe "Parsing circuit family declarations" $ do
       it "Generates a term representing a parameterized circuit" $ do
-        "family (n, y) f(coll : Qbit[1]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n", IndexVar "y"] (GateInfo "f" [quantumRegColl "coll" 1] (gateApp "h" [var "x"]))
-        "family (n) f(coll : Qbit[n]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n"] (GateInfo "f" [parametricQuantRegColl "coll" "n"] (gateApp "h" [var "x"]))
+        "family (n, y) f(coll : Qbit[1]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n", IndexVar "y"] (toGate "f" [quantumRegColl "coll" 1] (gateApp "h" [var "x"]))
+        "family (n) f(coll : Qbit[n]) {h(x)}" `shouldParseToCommand`  GateFamilyDecl [IndexVar "n"] (toGate "f"  [parametricQuantRegColl "coll" "n"] (gateApp "h" [var "x"]))

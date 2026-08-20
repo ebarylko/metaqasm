@@ -1137,8 +1137,12 @@ circuitFamilyThatUsesFreeIndexVar = formatToString invalidCircuitFamDecl' <$> ga
   where
     invalidCircuitFamDecl' = replaced "family(n)" "family(g)" invalidCircuitFamDecl
 
-singleParamGateThatTakesNonemptyColl :: MetaQasmProgramFormatter GateThatTakesARegColl -> MetaQasmProgramFormatter GateThatTakesARegColl 
-singleParamGateThatTakesNonemptyColl = singleParamGateDecl nonEmptyRegColl >>> gateToCircFamily
+-- Given a formatter for the body of a gate, f,
+-- returns a formatter for a circuit family declaration
+-- which takes a nonempty qubit collection and whose body
+-- is the output of f
+singleParamCircFamThatTakesNonemptyColl :: MetaQasmProgramFormatter GateThatTakesARegColl -> MetaQasmProgramFormatter GateThatTakesARegColl
+singleParamCircFamThatTakesNonemptyColl = singleParamGateDecl nonEmptyRegColl >>> gateToCircFamily
   where
     nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
 
@@ -1152,7 +1156,7 @@ circuitFamilyThatAccessesValidReg :: Gen MetaQasmProgram
 
 circuitFamilyThatAccessesValidReg = formatToString validCircuitDecl <$> gateThatTakesARegColl
   where
-    validCircuitDecl = singleParamGateThatTakesNonemptyColl hGateOnNthElem
+    validCircuitDecl = singleParamCircFamThatTakesNonemptyColl hGateOnNthElem
 
 -- Generates a circuit family that accesses the (n + x)th element of a
 -- collection of size n + x, where x is a constant
@@ -1186,12 +1190,12 @@ circuitFamilyWithDuplicateIndexVars = formatToString invalidCirc <$> gateThatTak
 validCircuitFamilyWithGateSequence :: Gen MetaQasmProgram
 validCircuitFamilyWithGateSequence = formatToString validCirc <$> gateThatTakesARegColl
   where
-    validCirc = singleParamGateThatTakesNonemptyColl $ hGateOnNthElem `sepBySemicolon` hGateOnNthElem
+    validCirc = singleParamCircFamThatTakesNonemptyColl $ hGateOnNthElem `sepBySemicolon` hGateOnNthElem
 
 -- Generates a circuit family declaration in which a
 -- free index variable is used to access a register
 circuitFamilyThatUsesFreeIdxVarInBody :: Gen MetaQasmProgram
 circuitFamilyThatUsesFreeIdxVarInBody = formatToString invalidCirc <$> gateThatTakesARegColl
   where
-    invalidCirc =  singleParamGateThatTakesNonemptyColl hGateOnInvalidAcc
+    invalidCirc =  singleParamCircFamThatTakesNonemptyColl hGateOnInvalidAcc
     hGateOnInvalidAcc  = replaced "[n]" "[g]" hGateOnNthElem

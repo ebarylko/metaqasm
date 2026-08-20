@@ -372,6 +372,8 @@ prop_cannotHaveDuplicateIndexVarsInDecl prog =
     duplicateIdxVarsErr = prog & extractCircname & flip DeclUsesDuplicateIdxVars [IndexVar "n", IndexVar "n"] & errOnLine1
     extractCircname = dropWhile (/= ')') >>> drop 2 >>> takeWhile (/= '(')
 
+-- Takes a circuit family declaration that uses a free index variable
+-- in its body and checks that such a declaration is invalid
 prop_cannotUseFreeVarInCircuitFamBody :: MetaQasmProgram -> IO ()
 prop_cannotUseFreeVarInCircuitFamBody =
   (`shouldHaveType` usedFreeVarErr)

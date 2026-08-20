@@ -67,7 +67,8 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatAccessesValidReg,
                  circuitFamilyThatAccessesInvalidReg,
                  circuitFamilyThatTreatsGateAsColl,
-                 circuitFamilyWithDuplicateIndexVars)
+                 circuitFamilyWithDuplicateIndexVars,
+                 validCircuitFamilyWithGateSequence)
   where
 
 import Control.Monad(join)
@@ -1134,16 +1135,22 @@ circuitFamilyThatUsesFreeIndexVar = formatToString invalidCircuitFamDecl' <$> ga
   where
     invalidCircuitFamDecl' = replaced "family(n)" "family(g)" invalidCircuitFamDecl
 
+singleParamGateThatTakesNonemptyColl :: MetaQasmProgramFormatter GateThatTakesARegColl -> MetaQasmProgramFormatter GateThatTakesARegColl 
+singleParamGateThatTakesNonemptyColl = singleParamGateDecl nonEmptyRegColl >>> gateToCircFamily
+  where
+    nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
+
+hGateOnNthElem :: MetaQasmProgramFormatter GateThatTakesARegColl
+hGateOnNthElem = viewed paramInfo $ hadamardApp (regCollAccess $ fconst "n")
+
+
 -- Generates a circuit family that accesses the nth element of a
 -- collection of size n + 1
 circuitFamilyThatAccessesValidReg :: Gen MetaQasmProgram
 
 circuitFamilyThatAccessesValidReg = formatToString validCircuitDecl <$> gateThatTakesARegColl
   where
-    validCircuitDecl = gateToCircFamily $ singleParamGateDecl nonEmptyRegColl hGate
-    nonEmptyRegColl = viewed paramInfo $ qubitRegCollAnnotation $ fconst "n + 1"
-    hGate = viewed paramInfo $ hadamardApp (regCollAccess $ fconst "n")
-
+    validCircuitDecl = singleParamGateThatTakesNonemptyColl hGateOnNthElem
 
 -- Generates a circuit family that accesses the (n + x)th element of a
 -- collection of size n + x, where x is a constant
@@ -1170,3 +1177,11 @@ circuitFamilyWithDuplicateIndexVars :: Gen MetaQasmProgram
 circuitFamilyWithDuplicateIndexVars = formatToString invalidCirc <$> gateThatTakesARegColl
   where
     invalidCirc = replaced "family(n)" "family(n, n)" invalidCircuitFamDecl
+
+
+-- Generates a circuit family where the gate body is comprised of
+-- a sequence of two gates
+validCircuitFamilyWithGateSequence :: Gen MetaQasmProgram
+validCircuitFamilyWithGateSequence = formatToString validCirc <$> gateThatTakesARegColl
+  where
+    validCirc = singleParamGateThatTakesNonemptyColl $ hGateOnNthElem `sepBySemicolon` hGateOnNthElem

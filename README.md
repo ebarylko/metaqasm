@@ -46,6 +46,12 @@ for indices such as m * n
 
 ## Instantiating a circuit family
 
+### Instantiating a circuit family with less/more indies than expected
+
+### Instantiating a circuit family with the correct amount of indices, but one or more can be negative
+
+### Instantiating a circuit family with the correct amount of indices where each is always non-negative
+
 ## Execute a gate a set number of times (for loops)
 
 ## Reversing a circuit
@@ -54,9 +60,19 @@ for indices such as m * n
 
 ### Pass a circuit family as an argument
 
+### Pass a bit as an argument
+
+### Pass a circuit as an argument
+
+## Enforcing a subtyping relationship on circuit families
+
 ## Operating over a slice of an array
 
-## Detecting the use of free index variables
+## Detecting the use of free index variables in circuit family declarations
+
+### Detecting the use of free index variables inside the gate body
+
+## Detecting the use free index variables outside of circuit family declarations
 
 # Miscellaneous
 

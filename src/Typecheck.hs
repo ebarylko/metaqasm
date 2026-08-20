@@ -280,6 +280,8 @@ genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx coun
     getVarVal :: IndexVar -> Int
     getVarVal = toSymVar >>> G.evalSymToCon m >>> fromInteger
 
+-- This data type represents the result of verifying that
+-- an expression has a certain type
 type TypeVerificationResult a = ExceptT TypeErrAt IO a
 
 -- Takes the number of elements in a parametric collection
@@ -328,6 +330,18 @@ determineRegElemType (RegisterGroup Classical _) = Bit
 determineRegElemType _ = error "Was called on something that is not a register collection"
 
 
+
+-- Takes a number, the permitted index variables, and checks that
+-- the number solely uses a subset of the permitted variables
+checkNoFreeIdxVarsAreUsed :: Idx -> [IndexVar] -> TypeVerificationResult ()
+checkNoFreeIdxVarsAreUsed num validIdxVars
+  = find (`notElem` validIdxVars) usedIdxVars
+  & maybe (return ())  (flip genFreeIdxVarErr num >>> fromEither)
+  where
+    usedIdxVars = extractVal num & L.view idxVarsCoefficients & M.keys
+    genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt ()
+    genFreeIdxVarErr freeVar (WithContext regCount line) = toTypeErrAtLoc (UsesFreeIndexVar regCount freeVar) line
+
 -- Given a monadic predicate, a function that generates an error, and
 -- some data, checks that the data satisfies the predicate. If not,
 -- returns the result of applying the error function to the data
@@ -361,7 +375,6 @@ verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ 
     -- that a is in [0, b)
     isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
     isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&)
-
 
 -- Takes two functions for interpreting the results of proving a proposition, a
 -- proposition, and returns the result of interpreting the proof of
@@ -421,15 +434,6 @@ verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
 verifyParametricGateBody validIdxVars (GateSequence fstGate sndGate) m =
   verifyParametricGateBody validIdxVars fstGate m *> verifyParametricGateBody validIdxVars sndGate m
 
-
-checkNoFreeIdxVarsAreUsed :: Idx -> [IndexVar] -> TypeVerificationResult ()
-checkNoFreeIdxVarsAreUsed num validIdxVars
-  = find (`notElem` validIdxVars) usedIdxVars
-  & maybe (return ())  (flip genFreeIdxVarErr num >>> fromEither)
-  where
-    usedIdxVars = extractVal num & L.view idxVarsCoefficients & M.keys
-    genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt ()
-    genFreeIdxVarErr freeVar (WithContext regCount line) = toTypeErrAtLoc (UsesFreeIndexVar regCount freeVar) line
 
 -- Takes a collection of index variables that can be used, an argument to a gate, and
 -- checks that the argument does not reference any free index variables

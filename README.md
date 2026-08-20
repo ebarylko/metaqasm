@@ -56,9 +56,16 @@ for indices such as m * n
 
 ## Reversing a circuit
 
+### Reversing an instance of a circuit family
+
+### Reversing a constant circuit, i.e., one that does not depend on index variables
+
 ## Declaring an unscoped/scoped gate family
 
 ### Pass a circuit family as an argument
+
+#### Pass a first order circuit family as an argument
+#### Pass a higher order circuit family as an argument
 
 ### Pass a bit as an argument
 
@@ -67,10 +74,6 @@ for indices such as m * n
 ## Enforcing a subtyping relationship on circuit families
 
 ## Operating over a slice of an array
-
-## Detecting the use of free index variables in circuit family declarations
-
-### Detecting the use of free index variables inside the gate body
 
 ## Detecting the use free index variables outside of circuit family declarations
 

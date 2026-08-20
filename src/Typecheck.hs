@@ -338,7 +338,7 @@ verifyParametricExpr :: EvaluationContext -> [IndexVar] -> Expression -> TypeCal
 verifyParametricExpr m _ x@(Var{})  = verifyExpr' m x
 
 verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ line) registerNumber)
-  = checkNoFreeIdxVarsAreUsed' registerNumber validIdxVars
+  = checkNoFreeIdxVarsAreUsed registerNumber validIdxVars
   *> findTypeWithinScope' registerName m
   >>= ensureM (isRegColl >>> return) (genExpectedRegCollErr registerName line)
   >>= verifyRegAcc registerNumber validIdxVars
@@ -357,9 +357,6 @@ verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ 
     -- that a is in [0, b)
     isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
     isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&)
-
-    checkNoFreeIdxVarsAreUsed' :: Idx -> [IndexVar] -> ExceptT TypeErrAt IO ()
-    checkNoFreeIdxVarsAreUsed'  = checkNoFreeIdxVarsAreUsed
 
 
 -- Takes two functions for interpreting the results of proving a proposition, a
@@ -433,12 +430,7 @@ checkNoFreeIdxVarsAreUsed num validIdxVars
 -- checks that the argument does not reference any free index variables
 isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> ExceptT TypeErrAt IO Bool
 isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))
-  = find (`notElem` validIdxVars) usedIdxVars
-  & maybe (return True)  (flip genFreeIdxVarErr numOfRegs >>> fromEither)
-  where
-    usedIdxVars = extractVal numOfRegs & L.view idxVarsCoefficients & M.keys
-    genFreeIdxVarErr :: IndexVar -> Idx -> Either TypeErrAt Bool
-    genFreeIdxVarErr freeVar (WithContext regCount line) = toTypeErrAtLoc (UsesFreeIndexVar regCount freeVar) line
+  = checkNoFreeIdxVarsAreUsed numOfRegs validIdxVars $> True
 
 isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
 

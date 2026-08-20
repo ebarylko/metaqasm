@@ -455,6 +455,11 @@ isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> TypeVerificationResult Bool
 isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))
   = checkNoFreeIdxVarsAreUsed numOfRegs validIdxVars $> True
 
+isNotUsingFreeIdxVar validIdxVars (GateArg _ (Circuit circuitArgs)) = allM isNotUsingFreeIdxVar' circuitArgs
+  where
+    isNotUsingFreeIdxVar' :: TermType -> TypeVerificationResult Bool
+    isNotUsingFreeIdxVar' (RegisterGroup _ numOfRegs) = checkNoFreeIdxVarsAreUsed numOfRegs validIdxVars $> True
+
 isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
 
 -- Takes a circuit family declaration, the context to evaluate it under, and

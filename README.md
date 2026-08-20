@@ -75,6 +75,9 @@ for indices such as m * n
 ### Pass a bit as an argument
 
 ### Pass a circuit as an argument
+#### Pass a circuit taking a parametric argument
+#### Pass a higher ordered circuit as an argument
+#### Pass a circuit taking qubits or bits as an argument
 
 ## Enforcing a subtyping relationship on circuit families
 

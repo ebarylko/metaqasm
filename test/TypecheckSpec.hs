@@ -91,7 +91,8 @@ import Generators(outOfScopeVar,
                  circuitFamilyThatAccessesValidReg,
                  circuitFamilyThatAccessesInvalidReg,
                  circuitFamilyThatTreatsGateAsColl,
-                 circuitFamilyWithDuplicateIndexVars)
+                 circuitFamilyWithDuplicateIndexVars,
+                 validCircuitFamilyWithGateSequence)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -613,3 +614,9 @@ spec =  do
   describe "Declaring a circuit family with duplicate index variables"  $ do
     prop "Is invalid" $ do
       forAll circuitFamilyWithDuplicateIndexVars prop_cannotHaveDuplicateIndexVarsInDecl
+
+
+  describe "Declaring a valid circuit family containing a gate sequence"  $ do
+    modifyMaxSuccess (const 10) $ do
+      prop "Is valid" $ do
+        forAll validCircuitFamilyWithGateSequence prop_isValidProgram

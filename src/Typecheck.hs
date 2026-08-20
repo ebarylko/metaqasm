@@ -284,6 +284,16 @@ genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx coun
 -- an expression has a certain type
 type TypeVerificationResult a = ExceptT TypeErrAt IO a
 
+-- Takes two functions for interpreting the results of proving a proposition, a
+-- proposition, and returns the result of interpreting the proof of
+-- the negation of the proposition
+proveNegationOf :: (G.SolvingFailure -> a) -> (G.Model -> TypeErrAt) -> G.SymBool -> TypeVerificationResult a
+
+proveNegationOf f g = proveNegationOf' >>> fmap (either (f >>> Right) (g >>> Left)) >>> ExceptT
+  where
+    proveNegationOf' :: G.SymBool -> IO (Either G.SolvingFailure G.Model)
+    proveNegationOf' = G.symNot >>> G.solve G.z3
+
 -- Takes the number of elements in a parametric collection
 -- declaration and  validates it if the collection is always
 -- nonempty. Returns an error otherwise
@@ -376,15 +386,6 @@ verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ 
     isBoundedExclusivelyBy :: G.SymInteger -> G.SymInteger -> G.SymBool
     isBoundedExclusivelyBy a = (a G..<)  >>> (a G..>= 0 G..&&)
 
--- Takes two functions for interpreting the results of proving a proposition, a
--- proposition, and returns the result of interpreting the proof of
--- the negation of the proposition
-proveNegationOf :: (G.SolvingFailure -> a) -> (G.Model -> TypeErrAt) -> G.SymBool -> TypeVerificationResult a
-
-proveNegationOf f g = proveNegationOf' >>> fmap (either (f >>> Right) (g >>> Left)) >>> ExceptT
-  where
-    proveNegationOf' :: G.SymBool -> IO (Either G.SolvingFailure G.Model)
-    proveNegationOf' = G.symNot >>> G.solve G.z3
 
 
 -- Takes an index and returns the value represented by it

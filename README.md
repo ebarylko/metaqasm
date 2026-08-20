@@ -72,6 +72,8 @@ for indices such as m * n
 
 ### Detecting the use of free index variables inside the gate body
 
+### Detecting the use of free index variables in the argument list
+
 ## Detecting the use free index variables outside of circuit family declarations
 
 # Miscellaneous

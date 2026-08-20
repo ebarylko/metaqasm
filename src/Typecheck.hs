@@ -420,16 +420,17 @@ genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConst
 -- the types of the actual arguments passed to the gate,
 -- the arguments passed to the gate, and checks if the
 -- expected and actual types match. Returns an error otherwise
-verifyParametricGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
-
-verifyParametricGateArgs line (Circuit expectedArgTypes) actualArgTypes _
+verifyParametricGateApp :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
+verifyParametricGateApp line (Circuit expectedArgTypes) actualArgTypes _
   | expectedArgTypes == actualArgTypes = return Unit
   | tooFewArgsHaveBeenPassed = numOfUnexpectedArgsErr
+  | tooManyArgsHaveBeenPassed = numOfUnexpectedArgsErr
   | otherwise = error "Have not handled the case where a parametric gate application is invalid"
   where
     numOfExpectedArgs = length expectedArgTypes
     numOfActualArgs = length actualArgTypes
     tooFewArgsHaveBeenPassed = numOfExpectedArgs > numOfActualArgs
+    tooManyArgsHaveBeenPassed = numOfExpectedArgs < numOfActualArgs
     numOfUnexpectedArgsErr  = genUnexpectedNumOfArgsErr line numOfExpectedArgs numOfActualArgs & fromEither
 
 -- Takes the in-scope index variables, the body of a gate within a parametric gate declaration,
@@ -440,7 +441,7 @@ verifyParametricGateBody ::[IndexVar] -> GateApp  -> EvaluationContext  -> TypeC
 verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
   expectedTypes <- findGateType' gateId m
   actualTypes <- traverse (verifyParametricExpr m validIdxVars) gateArgs
-  verifyParametricGateArgs (extractCtx gateId) expectedTypes actualTypes gateArgs
+  verifyParametricGateApp (extractCtx gateId) expectedTypes actualTypes gateArgs
   where
     findGateType' a = findGateType a >>> fromEither
 

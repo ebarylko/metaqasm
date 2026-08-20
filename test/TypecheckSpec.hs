@@ -94,7 +94,8 @@ import Generators(outOfScopeVar,
                  circuitFamilyWithDuplicateIndexVars,
                  validCircuitFamilyWithGateSequence,
                  circuitFamilyThatUsesFreeIdxVarInBody,
-                 circuitFamilyThatAppliesNAryGateToLessThanNArgs)
+                 circuitFamilyThatAppliesNAryGateToLessThanNArgs,
+                 circuitFamilyThatAppliesOneQbitGateToTwoQbits)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -212,6 +213,11 @@ prop_cannotApplyGateToTooFewQubits  =
   where
     tooFewArgsErr = genExpectedNumOfArgsErr 2 1
 
+prop_cannotApplySingleQbitUnitaryToTwoQbits :: MetaQasmProgram -> IO ()
+prop_cannotApplySingleQbitUnitaryToTwoQbits =
+   (`shouldHaveType` tooFewArgsErr)
+  where
+    tooFewArgsErr = genExpectedNumOfArgsErr 1 2
 
 -- Checks that running a given MetaQASM program does not produce
 -- any errors
@@ -380,6 +386,14 @@ prop_cannotUseFreeVarInCircuitFamBody =
   (`shouldHaveType` usedFreeVarErr)
   where
     usedFreeVarErr = UsesFreeIndexVar (indexVarWithCoeff "g" 1) (IndexVar "g") & errOnLine1
+
+-- Takes the name of a property to test, the
+-- generator for the data being tested, the property, and
+-- tests the property against ten samples of the generator
+runPropTenTimes propName generator propertyToTest =
+  modifyMaxSuccess (const 10) $ do
+  prop propName $ do
+    forAll generator propertyToTest
 
 spec :: Spec
 spec =  do
@@ -589,15 +603,10 @@ spec =  do
       forAll validGateDeclThatDoesNotDependOnIndexVars prop_isValidProgram
 
   describe "Declaring a circuit family where one of the arguments could be an empty collection"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg
-
+    runPropTenTimes "Is invalid" circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg
 
   describe "Declaring a circuit family where one of the arguments could be a collection of negative length"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatMayTakeNegLengthRegColl prop_cannotTakePotentialNegLengthRegCollAsArg
+    runPropTenTimes "Is invalid"  circuitFamilyThatMayTakeNegLengthRegColl prop_cannotTakePotentialNegLengthRegCollAsArg
 
   describe "Declaring a circuit family that uses a free index variable"  $ do
     prop "Is invalid" $ do
@@ -605,21 +614,13 @@ spec =  do
 
 
   describe "Accessing the nth element of a collection of size n + 1"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is valid" $ do
-        forAll circuitFamilyThatAccessesValidReg prop_isValidProgram
+    runPropTenTimes "Is valid" circuitFamilyThatAccessesValidReg prop_isValidProgram
 
   describe "Accessing the (n + 1)th element of a collection of size n + 1"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatAccessesInvalidReg prop_cannotPerformInvalidParametricAccess
-
+    runPropTenTimes "Is invalid" circuitFamilyThatAccessesInvalidReg prop_cannotPerformInvalidParametricAccess
 
   describe "Treating a gate like a collection inside a circuit family declaration"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatTreatsGateAsColl prop_cannotTreatSingleQubitUnitaryAsRegColl
-
+    runPropTenTimes "Is invalid"  circuitFamilyThatTreatsGateAsColl prop_cannotTreatSingleQubitUnitaryAsRegColl
 
   describe "Declaring a circuit family with duplicate index variables"  $ do
     prop "Is invalid" $ do
@@ -627,16 +628,13 @@ spec =  do
 
 
   describe "Declaring a valid circuit family containing a gate sequence"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is valid" $ do
-        forAll validCircuitFamilyWithGateSequence prop_isValidProgram
+    runPropTenTimes "Is valid"  validCircuitFamilyWithGateSequence prop_isValidProgram
 
   describe "Declaring a circuit family in which a register is accessed using a free index variable"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatUsesFreeIdxVarInBody prop_cannotUseFreeVarInCircuitFamBody
+    runPropTenTimes "Is invalid"  circuitFamilyThatUsesFreeIdxVarInBody prop_cannotUseFreeVarInCircuitFamBody
 
   describe "Declaring a circuit family in which an n-ary gate is applied to less than n args"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatAppliesNAryGateToLessThanNArgs prop_cannotApplyGateToTooFewQubits
+    runPropTenTimes "Is invalid"  circuitFamilyThatAppliesNAryGateToLessThanNArgs prop_cannotApplyGateToTooFewQubits
+
+  describe "Declaring a circuit family in which an single qubit unitary is applied to two qubits"  $ do
+    runPropTenTimes "Is invalid"  circuitFamilyThatAppliesOneQbitGateToTwoQbits prop_cannotApplySingleQbitUnitaryToTwoQbits

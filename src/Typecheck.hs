@@ -257,7 +257,8 @@ verifyCommand m (QubitReset potentialQubit) = verifyExprType' m Qbit potentialQu
 verifyCommand m ConditionalGateExec{bitToTest, toBeExecuted} = verifyExprType' m Bit bitToTest *> verifyGateApp' m toBeExecuted
 
 verifyCommand m (GateFamilyDecl indexVars gate@(GateInfo name _ _))
-  = ensureM (hasNoDuplicateVars >>> return) genDuplicateVarsErr indexVars *> verifyParametricGateDecl indexVars gate m
+  = ensureM (hasNoDuplicateVars >>> return) genDuplicateVarsErr indexVars
+  *> verifyParametricGateDecl indexVars gate m
   where
     hasNoDuplicateVars :: [IndexVar] -> Bool
     hasNoDuplicateVars vars = ((==) `on` length) vars (nub vars)

@@ -1222,3 +1222,14 @@ circuitFamilyThatAppliesOneQbitGateToTwoQbits =
     circWithInvalidGateApp = singleParamCircFamThatTakesNonemptyColl (viewed paramInfo hGateOnTwoQbits)
     hGateOnTwoQbits = twoParamGateApp (fconst "h") nthReg nthReg
     nthReg = regCollAccess $ fconst "n"
+
+-- Generates a circuit family declaration in which
+-- a gate is applied to a subtype of the expected parameter
+circuitFamWithGateAppToSubtype :: Gen MetaQasmProgram
+circuitFamWithGateAppToSubtype = formatToString circFamWithAppOnSubtype <$> twoArgGateDeclInfo
+  where
+    circFamWithAppOnSubtype :: MetaQasmProgramFormatter TwoArgGateDeclInfo
+    circFamWithAppOnSubtype = gateDecl circ collWithAtLeastTwoElems gateApp
+    circ = circuitAnnotation fstParam $ fconst "Qbit[n + 1]"
+    collWithAtLeastTwoElems = sndParam `sepByColon` fconst "Qbit[n + 2]"
+    gateApp = singleParamGateApp fstParam sndParam

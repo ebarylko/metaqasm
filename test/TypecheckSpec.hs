@@ -387,6 +387,14 @@ prop_cannotUseFreeVarInCircuitFamBody =
   where
     usedFreeVarErr = UsesFreeIndexVar (indexVarWithCoeff "g" 1) (IndexVar "g") & errOnLine1
 
+-- Takes the name of a property to test, the
+-- generator for the data being tested, the property, and
+-- tests the property against ten samples of the generator
+runPropTenTimes propName generator propertyToTest =
+  modifyMaxSuccess (const 10) $ do
+  prop propName $ do
+    forAll generator propertyToTest
+
 spec :: Spec
 spec =  do
   describe "Accessing an out of scope variable" $ do
@@ -595,15 +603,10 @@ spec =  do
       forAll validGateDeclThatDoesNotDependOnIndexVars prop_isValidProgram
 
   describe "Declaring a circuit family where one of the arguments could be an empty collection"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg
-
+    runPropTenTimes "Is invalid" circuitFamilyThatMayTakeEmptyRegColl prop_cannotTakePotentiallyEmptyRegCollAsArg
 
   describe "Declaring a circuit family where one of the arguments could be a collection of negative length"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is invalid" $ do
-        forAll circuitFamilyThatMayTakeNegLengthRegColl prop_cannotTakePotentialNegLengthRegCollAsArg
+    runPropTenTimes "Is invalid"  circuitFamilyThatMayTakeNegLengthRegColl prop_cannotTakePotentialNegLengthRegCollAsArg
 
   describe "Declaring a circuit family that uses a free index variable"  $ do
     prop "Is invalid" $ do
@@ -611,9 +614,7 @@ spec =  do
 
 
   describe "Accessing the nth element of a collection of size n + 1"  $ do
-    modifyMaxSuccess (const 10) $ do
-      prop "Is valid" $ do
-        forAll circuitFamilyThatAccessesValidReg prop_isValidProgram
+    runPropTenTimes "Is valid" circuitFamilyThatAccessesValidReg prop_isValidProgram
 
   describe "Accessing the (n + 1)th element of a collection of size n + 1"  $ do
     modifyMaxSuccess (const 10) $ do

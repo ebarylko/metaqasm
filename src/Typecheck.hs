@@ -420,9 +420,8 @@ genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConst
 -- the types of the actual arguments passed to the gate,
 -- the arguments passed to the gate, and checks if the
 -- expected and actual types match. Returns an error otherwise
-verifyParametricGateArgs :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
-
-verifyParametricGateArgs line (Circuit expectedArgTypes) actualArgTypes _
+verifyParametricGateApp :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
+verifyParametricGateApp line (Circuit expectedArgTypes) actualArgTypes _
   | expectedArgTypes == actualArgTypes = return Unit
   | tooFewArgsHaveBeenPassed = numOfUnexpectedArgsErr
   | tooManyArgsHaveBeenPassed = numOfUnexpectedArgsErr
@@ -442,7 +441,7 @@ verifyParametricGateBody ::[IndexVar] -> GateApp  -> EvaluationContext  -> TypeC
 verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
   expectedTypes <- findGateType' gateId m
   actualTypes <- traverse (verifyParametricExpr m validIdxVars) gateArgs
-  verifyParametricGateArgs (extractCtx gateId) expectedTypes actualTypes gateArgs
+  verifyParametricGateApp (extractCtx gateId) expectedTypes actualTypes gateArgs
   where
     findGateType' a = findGateType a >>> fromEither
 

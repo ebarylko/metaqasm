@@ -95,7 +95,7 @@ import Generators(outOfScopeVar,
                  validCircuitFamilyWithGateSequence,
                  circuitFamilyThatUsesFreeIdxVarInBody,
                  circuitFamilyThatAppliesNAryGateToLessThanNArgs,
-                 circuitFamilyThatAppliesNAryGateToMoreThanNArgs)
+                 circuitFamilyThatAppliesOneQbitGateToTwoQbits)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -648,7 +648,7 @@ spec =  do
         forAll circuitFamilyThatAppliesNAryGateToLessThanNArgs prop_cannotApplyGateToTooFewQubits
 
 
-  describe "Declaring a circuit family in which an n-ary gate is applied to more than n args"  $ do
+  describe "Declaring a circuit family in which an single qubit unitary is applied to two qubits"  $ do
     modifyMaxSuccess (const 10) $ do
       prop "Is invalid" $ do
-        forAll circuitFamilyThatAppliesNAryGateToMoreThanNArgs prop_cannotApplySingleQbitUnitaryToTwoQbits
+        forAll circuitFamilyThatAppliesOneQbitGateToTwoQbits prop_cannotApplySingleQbitUnitaryToTwoQbits

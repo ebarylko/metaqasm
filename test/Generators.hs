@@ -68,7 +68,9 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatAccessesInvalidReg,
                  circuitFamilyThatTreatsGateAsColl,
                  circuitFamilyWithDuplicateIndexVars,
-                 validCircuitFamilyWithGateSequence)
+                 validCircuitFamilyWithGateSequence,
+                 circuitFamilyThatUsesFreeIdxVarInBody)
+
   where
 
 import Control.Monad(join)
@@ -1185,3 +1187,11 @@ validCircuitFamilyWithGateSequence :: Gen MetaQasmProgram
 validCircuitFamilyWithGateSequence = formatToString validCirc <$> gateThatTakesARegColl
   where
     validCirc = singleParamGateThatTakesNonemptyColl $ hGateOnNthElem `sepBySemicolon` hGateOnNthElem
+
+-- Generates a circuit family declaration in which a
+-- free index variable is used to access a register
+circuitFamilyThatUsesFreeIdxVarInBody :: Gen MetaQasmProgram
+circuitFamilyThatUsesFreeIdxVarInBody = formatToString invalidCirc <$> gateThatTakesARegColl
+  where
+    invalidCirc =  singleParamGateThatTakesNonemptyColl hGateOnInvalidAcc
+    hGateOnInvalidAcc  = replaced "[n]" "[g]" hGateOnNthElem

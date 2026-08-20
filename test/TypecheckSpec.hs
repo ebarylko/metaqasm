@@ -92,7 +92,8 @@ import Generators(outOfScopeVar,
                  circuitFamilyThatAccessesInvalidReg,
                  circuitFamilyThatTreatsGateAsColl,
                  circuitFamilyWithDuplicateIndexVars,
-                 validCircuitFamilyWithGateSequence)
+                 validCircuitFamilyWithGateSequence,
+                 circuitFamilyThatUsesFreeIdxVarInBody)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -371,6 +372,12 @@ prop_cannotHaveDuplicateIndexVarsInDecl prog =
     duplicateIdxVarsErr = prog & extractCircname & flip DeclUsesDuplicateIdxVars [IndexVar "n", IndexVar "n"] & errOnLine1
     extractCircname = dropWhile (/= ')') >>> drop 2 >>> takeWhile (/= '(')
 
+prop_cannotUseFreeVarInCircuitFamBody :: MetaQasmProgram -> IO ()
+prop_cannotUseFreeVarInCircuitFamBody =
+  (`shouldHaveType` usedFreeVarErr)
+  where
+    usedFreeVarErr = UsesFreeIndexVar (indexVarWithCoeff "g" 1) (IndexVar "g") & errOnLine1
+
 spec :: Spec
 spec =  do
   describe "Accessing an out of scope variable" $ do
@@ -620,3 +627,8 @@ spec =  do
     modifyMaxSuccess (const 10) $ do
       prop "Is valid" $ do
         forAll validCircuitFamilyWithGateSequence prop_isValidProgram
+
+  describe "Declaring a circuit family in which a register is accessed using a free index variable"  $ do
+    modifyMaxSuccess (const 10) $ do
+      prop "Is invalid" $ do
+        forAll circuitFamilyThatUsesFreeIdxVarInBody prop_cannotUseFreeVarInCircuitFamBody

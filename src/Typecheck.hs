@@ -278,10 +278,12 @@ genCounterExample idx@(Index _ _idxVarsCoefficients) m = CounterExample idx coun
     getVarVal :: IndexVar -> Int
     getVarVal = toSymVar >>> G.evalSymToCon m >>> fromInteger
 
+type TypeVerificationResult a = ExceptT TypeErrAt IO a
+
 -- Takes the number of elements in a parametric collection
 -- declaration and  validates it if the collection is always
 -- nonempty. Returns an error otherwise
-proveCollIsNonEmpty :: Identifier -> Idx -> ExceptT TypeErrAt IO ()
+proveCollIsNonEmpty :: Identifier -> Idx -> TypeVerificationResult ()
 proveCollIsNonEmpty collId (WithContext idx@(Index _constPortion _idxVarsCoefficients) line) = proveNegationOf (const ()) genInvalidLengthRegCollErr proposition
   where
 
@@ -348,7 +350,7 @@ verifyParametricExpr m validIdxVars (RegisterAccess registerName@(WithContext _ 
     proveAccessIsValid idxVarsInUse wantedIdx regCount =  proveNegationOf (const True) genInvalidAccErr  $ assumingIdxVarsAreNonNeg idxVarsInUse `G.symImplies` targetIdxIsValid wantedIdx regCount
     targetIdxIsValid = isBoundedExclusivelyBy `on` valueOf
 
-    verifyRegAcc :: Idx -> [IndexVar] -> TermType -> ExceptT TypeErrAt IO TermType
+    verifyRegAcc :: Idx -> [IndexVar] -> TermType -> TypeCalculationResult'
     verifyRegAcc wantedIdx inScopeIdxVars regColl@(RegisterGroup _ numOfRegs) = (proveAccessIsValid inScopeIdxVars `on` extractVal)  wantedIdx numOfRegs  $> determineRegElemType regColl
 
     genInvalidAccErr  = genCounterExample (extractVal registerNumber) >>> InvalidParametricRegAcc (extractVal registerName) >>> flip WithContext line

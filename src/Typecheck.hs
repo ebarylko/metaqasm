@@ -420,12 +420,14 @@ genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConst
 -- the actual types of the gate arguments, and tries to show that applying the gate to the
 -- arguments is always valid. If not possible, returns an error explaining why.
 proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] -> TypeCalculationResult'
-proveValidityOfGateApp validIndexVars expectedTypes actualTypes = mapM_ (uncurry isSuperTypeOf) (zip expectedTypes actualTypes) $> Unit
+proveValidityOfGateApp validIndexVars expectedTypes actualTypes = mapM_ (uncurry checkIsSuperTypeOf) (zip expectedTypes actualTypes) $> Unit
   where
-    isSuperTypeOf :: TermType -> TermType -> TypeVerificationResult ()
-    isSuperTypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) =
+    -- Takes two types and checks that the first is a supertype of the second.
+    -- If not, returns an error stating there was a type mismatch
+    checkIsSuperTypeOf :: TermType -> TermType -> TypeVerificationResult ()
+    checkIsSuperTypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) =
       (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs $> ()
-    isSuperTypeOf Qbit Qbit = return ()
+    checkIsSuperTypeOf Qbit Qbit = return ()
     actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize :: Idx -> Idx -> TypeVerificationResult Bool
     actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs  =
       proveNegationOf

@@ -68,6 +68,7 @@ data TypeEvaluationError =
   | UsesFreeIndexVar{invalidIdx :: Index, freeIdxVar :: IndexVar}
   | InvalidParametricRegCollDecl Identifier CounterExample
   | InvalidParametricRegAcc{collId :: Identifier, invalidAcc :: CounterExample}
+  | ParametricTypeMisMatch{expected :: TermType, actual :: TermType, mismatchedTerm :: Expression, whatWentWrong :: CounterExample}
   | DeclUsesDuplicateIdxVars{circName :: Identifier, duplicateVars :: [IndexVar]}
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}

@@ -1234,3 +1234,13 @@ circuitFamWithGateAppToSubtype = formatToString circFamWithAppOnSubtype <$> twoA
     circuitTakingNonEmptyColl = circuitAnnotation fstParam $ fconst "Qbit[n + 1]"
     collWithAtLeastTwoElems = sndParam `sepByColon` fconst "Qbit[n + 2]"
     appCircToColl = singleParamGateApp fstParam sndParam
+
+
+-- Generates a circuit family declaration in which
+-- a gate expecting a collection with at least three elements
+-- is applied to a collection with at least two elements
+circuitFamWithGateAppToNonSubtypeElem :: Gen MetaQasmProgram
+circuitFamWithGateAppToNonSubtypeElem = mkGateTakeABiggerRegColl <$> circuitFamWithGateAppToSubtype
+  where
+    mkGateTakeABiggerRegColl = flip (R.subRegex regCollSize ) "n + 3"
+    regCollSize = R.mkRegex "n [+] 1"

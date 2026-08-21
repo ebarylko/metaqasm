@@ -96,7 +96,8 @@ import Generators(outOfScopeVar,
                  circuitFamilyThatUsesFreeIdxVarInBody,
                  circuitFamilyThatAppliesNAryGateToLessThanNArgs,
                  circuitFamilyThatAppliesOneQbitGateToTwoQbits,
-                 circuitFamWithGateAppToSubtype)
+                 circuitFamWithGateAppToSubtype,
+                 circuitFamWithGateAppToNonSubtypeElem)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -388,6 +389,16 @@ prop_cannotUseFreeVarInCircuitFamBody =
   where
     usedFreeVarErr = UsesFreeIndexVar (indexVarWithCoeff "g" 1) (IndexVar "g") & errOnLine1
 
+-- Takes a pair of a program that applies a gate taking collections with at
+-- least three elements to collections with at least two elements, the
+-- collection with at least two elements, and checks that
+-- running the program yields an error
+prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl :: InvalidProgCausedByTerm -> IO ()
+prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl (prog, term) =
+  prog `shouldHaveType` parametricMismatchErr
+  where
+    parametricMismatchErr
+
 -- Takes the name of a property to test, the
 -- generator for the data being tested, the property, and
 -- tests the property against ten samples of the generator
@@ -642,3 +653,6 @@ spec =  do
 
   describe "Declaring a circuit family in which a gate taking a collection is applied to a subtype of the expected collection"  $ do
     runPropTenTimes "Is valid"  circuitFamWithGateAppToSubtype prop_isValidProgram
+
+  describe "Declaring a circuit family in which a gate is applied to a nonsubtype of the expected argument"  $ do
+    runPropTenTimes "Is invalid"  circuitFamWithGateAppToNonSubtypeElem prop_isValidProgram

@@ -48,6 +48,7 @@ import Data.String(fromString)
 import Control.Monad.Except(ExceptT(..), MonadError(..))
 import Data.Generics.Product (position)
 import Control.Monad.Extra(allM)
+import Control.Monad(mapM_)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -415,17 +416,35 @@ assumingIdxVarsAreNonNeg = foldr (genAndCombineConstraints . toSymVar) G.true
 genUnexpectedNumOfArgsErr :: LineNumber -> Int -> Int -> Either TypeErrAt a
 genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConstIdx) expectedNumOfArgs >>> flip toTypeErrAtLoc line
 
+-- Takes the index variables that are in scope, the expected types of the gate arguments,
+-- the actual types of the gate arguments, and tries to show that applying the gate to the
+-- arguments is always valid. If not possible, returns an error explaining why.
+proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] -> TypeCalculationResult'
+proveValidityOfGateApp validIndexVars expectedTypes actualTypes = mapM_ (uncurry checkIsSuperTypeOf) (zip expectedTypes actualTypes) $> Unit
+  where
+    -- Takes two types and checks that the first is a supertype of the second.
+    -- If not, returns an error stating there was a type mismatch
+    checkIsSuperTypeOf :: TermType -> TermType -> TypeVerificationResult ()
+    checkIsSuperTypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) =
+      (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs $> ()
+    checkIsSuperTypeOf Qbit Qbit = return ()
+    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize :: Idx -> Idx -> TypeVerificationResult Bool
+    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs  =
+      proveNegationOf
+      (const True)
+      (error "Expected number of registers is bigger than the actual number of registers")
+      $ assumingIdxVarsAreNonNeg validIndexVars `G.symImplies` ((G..<=) `on` extractVal >>> valueOf) expectedNumOfRegs actualNumOfRegs
+
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,
 -- the types of the actual arguments passed to the gate,
 -- the arguments passed to the gate, and checks if the
 -- expected and actual types match. Returns an error otherwise
-verifyParametricGateApp :: LineNumber -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
-verifyParametricGateApp line (Circuit expectedArgTypes) actualArgTypes _
-  | expectedArgTypes == actualArgTypes = return Unit
+verifyParametricGateApp :: LineNumber -> [IndexVar] -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
+verifyParametricGateApp line validIdxVars (Circuit expectedArgTypes) actualArgTypes _
   | tooFewArgsHaveBeenPassed = numOfUnexpectedArgsErr
   | tooManyArgsHaveBeenPassed = numOfUnexpectedArgsErr
-  | otherwise = error "Have not handled the case where a parametric gate application is invalid"
+  | otherwise = proveValidityOfGateApp validIdxVars expectedArgTypes actualArgTypes
   where
     numOfExpectedArgs = length expectedArgTypes
     numOfActualArgs = length actualArgTypes
@@ -441,7 +460,7 @@ verifyParametricGateBody ::[IndexVar] -> GateApp  -> EvaluationContext  -> TypeC
 verifyParametricGateBody validIdxVars GateApp{gateId, gateArgs} m = do
   expectedTypes <- findGateType' gateId m
   actualTypes <- traverse (verifyParametricExpr m validIdxVars) gateArgs
-  verifyParametricGateApp (extractCtx gateId) expectedTypes actualTypes gateArgs
+  verifyParametricGateApp (extractCtx gateId) validIdxVars expectedTypes actualTypes gateArgs
   where
     findGateType' a = findGateType a >>> fromEither
 
@@ -454,6 +473,11 @@ verifyParametricGateBody validIdxVars (GateSequence fstGate sndGate) m =
 isNotUsingFreeIdxVar :: [IndexVar] -> GateArg -> TypeVerificationResult Bool
 isNotUsingFreeIdxVar validIdxVars (GateArg _ (RegisterGroup _ numOfRegs))
   = checkNoFreeIdxVarsAreUsed numOfRegs validIdxVars $> True
+
+isNotUsingFreeIdxVar validIdxVars (GateArg _ (Circuit circuitArgs)) = allM isNotUsingFreeIdxVar' circuitArgs
+  where
+    isNotUsingFreeIdxVar' :: TermType -> TypeVerificationResult Bool
+    isNotUsingFreeIdxVar' (RegisterGroup _ numOfRegs) = checkNoFreeIdxVarsAreUsed numOfRegs validIdxVars $> True
 
 isNotUsingFreeIdxVar _ (GateArg _ Qbit) = return True
 

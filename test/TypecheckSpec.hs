@@ -95,7 +95,8 @@ import Generators(outOfScopeVar,
                  validCircuitFamilyWithGateSequence,
                  circuitFamilyThatUsesFreeIdxVarInBody,
                  circuitFamilyThatAppliesNAryGateToLessThanNArgs,
-                 circuitFamilyThatAppliesOneQbitGateToTwoQbits)
+                 circuitFamilyThatAppliesOneQbitGateToTwoQbits,
+                 circuitFamWithGateAppToSubtype)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -638,3 +639,6 @@ spec =  do
 
   describe "Declaring a circuit family in which an single qubit unitary is applied to two qubits"  $ do
     runPropTenTimes "Is invalid"  circuitFamilyThatAppliesOneQbitGateToTwoQbits prop_cannotApplySingleQbitUnitaryToTwoQbits
+
+  describe "Declaring a circuit family in which a gate taking a collection is applied to a subtype of the expected collection"  $ do
+    runPropTenTimes "Is valid"  circuitFamWithGateAppToSubtype prop_isValidProgram

@@ -26,6 +26,11 @@ Run `stack test` in the root of the repository.
 
 # Features that have been completed
 Everything listed in the typedQASM specification in the paper above has been completed.
+Asides from that, circuit families taking parametric collections and qubits can be declared, but not instantiated.
+
+Moreover, a subtyping relation on constant sized collections outside of circuit family declarations is enforced.
+This implies a function that expects a collection of kind k (Qbit, Bit) and size N can be applied to a collection of kind k and size M, where M > N.
+In addition,  given gates `f: Circuit(Circuit(Qbit[n + 1])), g: Circuit(Qbit[n])`, f can be applied to g as `Qbit[n]` is a supertype of `Qbit[n + 1]` (function subtyping is contravariant in the input arguments)
 
 
 # TODO
@@ -70,6 +75,8 @@ for indices such as m * n
 ### Pass a bit as an argument
 
 ### Pass a circuit as an argument
+#### Pass a higher ordered circuit as an argument
+#### Pass a circuit taking qubits or bits as an argument
 
 ## Enforcing a subtyping relationship on circuit families
 

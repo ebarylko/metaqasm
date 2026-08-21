@@ -419,12 +419,18 @@ genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConst
 -- the actual types of the gate arguments, and tries to show that applying the gate to the
 -- arguments is always valid. If not possible, returns an error explaining why.
 proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] -> TypeCalculationResult'
-proveValidityOfGateApp validIndexVars expectedTypes actualTypes = allM (uncurry $ isSuperTypeOf ) (zip expectedTypes actualTypes) $> Unit
+proveValidityOfGateApp validIndexVars expectedTypes actualTypes = allM (uncurry isSuperTypeOf) (zip expectedTypes actualTypes) $> Unit
   where
     isSuperTypeOf :: TermType -> TermType -> TypeVerificationResult Bool
     isSuperTypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) =
-      (collTy == collTy' &&) <$> proveNegationOf (const True) (error "Have not handled the case when the expected number of registers is bigger than the actual number of registers") (assumingIdxVarsAreNonNeg validIndexVars `G.symImplies` ((G..<=) `on` extractVal >>> valueOf) expectedNumOfRegs actualNumOfRegs)
+      (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs
     isSuperTypeOf Qbit Qbit = return True
+    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize :: Idx -> Idx -> TypeVerificationResult Bool
+    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs  =
+      proveNegationOf
+      (const True)
+      (error "Expected number of registers is bigger than the actual number of registers")
+      $ assumingIdxVarsAreNonNeg validIndexVars `G.symImplies` ((G..<=) `on` extractVal >>> valueOf) expectedNumOfRegs actualNumOfRegs
 
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,

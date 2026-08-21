@@ -1230,7 +1230,7 @@ circuitFamWithGateAppToSubtype :: Gen MetaQasmProgram
 circuitFamWithGateAppToSubtype = formatToString circFamWithAppOnSubtype <$> twoArgGateDeclInfo
   where
     circFamWithAppOnSubtype :: MetaQasmProgramFormatter TwoArgGateDeclInfo
-    circFamWithAppOnSubtype = gateToCircFamily $ gateDecl circ collWithAtLeastTwoElems gateApp
-    circ = circuitAnnotation fstParam $ fconst "Qbit[n + 1]"
+    circFamWithAppOnSubtype = gateToCircFamily $ gateDecl circuitTakingNonEmptyColl collWithAtLeastTwoElems appCircToColl
+    circuitTakingNonEmptyColl = circuitAnnotation fstParam $ fconst "Qbit[n + 1]"
     collWithAtLeastTwoElems = sndParam `sepByColon` fconst "Qbit[n + 2]"
-    gateApp = singleParamGateApp fstParam sndParam
+    appCircToColl = singleParamGateApp fstParam sndParam

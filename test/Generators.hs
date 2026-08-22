@@ -1236,9 +1236,10 @@ circuitFamWithGateAppToSubtype = formatToString circFamWithAppOnSubtype <$> twoA
     appCircToColl = singleParamGateApp fstParam sndParam
 
 
--- Generates a circuit family declaration in which
+-- Generates a pair of a circuit family declaration in which
 -- a gate expecting a collection with at least three elements
--- is applied to a collection with at least two elements
+-- is applied to a collection with at least two elements and
+-- the name of the smaller collection
 circuitFamWithGateAppToNonSubtypeElem :: Gen InvalidProgCausedByTerm
 circuitFamWithGateAppToNonSubtypeElem = (mkGateTakeABiggerRegColl &&& extractSmallerCollName)  <$> circuitFamWithGateAppToSubtype
   where

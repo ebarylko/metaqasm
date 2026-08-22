@@ -26,9 +26,7 @@ import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))
 import Control.Arrow((>>>))
-import Data.Maybe(fromJust)
 import qualified Control.Lens as L
-import Data.Either(fromLeft)
 import Control.Monad.Except(ExceptT(..), withExceptT, runExceptT)
 import qualified Data.Map as M
 import Control.Monad ((>=>), liftM2, join)
@@ -404,8 +402,9 @@ prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl :: InvalidProgC
 prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl (prog, term) =
   calcTypeOf' prog >>= (`shouldSatisfy` (flip isParametricMismatchErr term))
   where
-    collWithAtLeastThreeElems = Index 3 (M.singleton "n" 1)  & onLine1 & RegisterGroup Quantum
-    collWithAtLeastTwoElems = Index 2 (M.singleton "n" 1) & onLine1 & RegisterGroup Quantum
+    collWithAtLeastThreeElems = parametricIdx 3   & onLine1 & RegisterGroup Quantum
+    collWithAtLeastTwoElems = parametricIdx 2 & onLine1 & RegisterGroup Quantum
+    parametricIdx = flip Index (M.singleton (IndexVar "n") 1)
 
     parametricTypeMismatch = _TypeErr . _WithContext . L._1 . _ParametricTypeMismatch
     isParametricMismatchErr :: Either MetaQasmError TermType -> Expression -> Bool
@@ -668,4 +667,5 @@ spec =  do
     runPropTenTimes "Is valid"  circuitFamWithGateAppToSubtype prop_isValidProgram
 
   describe "Declaring a circuit family in which a gate is applied to a nonsubtype of the expected argument"  $ do
-    runPropTenTimes "Is invalid"  circuitFamWithGateAppToNonSubtypeElem prop_isValidProgram
+    runPropTenTimes "Is invalid"  circuitFamWithGateAppToNonSubtypeElem prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl
+

@@ -291,8 +291,11 @@ prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
     expectedRegCollErr = errOnLine1 (ExpectedARegColl gateType gateName)
     gateType = Circuit [Qbit]
 
+onLine1 :: a -> WithContext a LineNumber
+onLine1 = (`WithContext` line1)
+
 errOnLine1 :: TypeEvaluationError -> ProgramTypeEvaluationResult
-errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left >>> fromEither
+errOnLine1 = onLine1 >>> TypeErr >>> Left >>> fromEither
 
 prop_cannotHaveNegIdx :: ProgramWithExpectedErr -> IO ()
 prop_cannotHaveNegIdx (prog, negIdxErr) = prog `shouldHaveType` errOnLine1 negIdxErr
@@ -391,25 +394,23 @@ prop_cannotUseFreeVarInCircuitFamBody =
     usedFreeVarErr = UsesFreeIndexVar (indexVarWithCoeff "g" 1) (IndexVar "g") & errOnLine1
 
 
-onLine1 :: a -> WithContext a LineNumber
-onLine1 = (`WithContext` line1)
-
 -- Takes a pair of a program that applies a gate taking collections with at
 -- least three elements to collections with at least two elements, the
 -- collection with at least two elements, and checks that
--- running the program yields an error
+-- running the program yields an error mentioning the mismatch between the
+-- collections
 prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl :: InvalidProgCausedByTerm -> IO ()
 prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl (prog, term) =
-  calcTypeOf' prog >>= (`shouldSatisfy` (flip isParametricMismatchErr term))
+  calcTypeOf' prog >>= (`shouldSatisfy` (isParametricMismatchErr term))
   where
-    collWithAtLeastThreeElems = parametricIdx 3   & onLine1 & RegisterGroup Quantum
-    collWithAtLeastTwoElems = parametricIdx 2 & onLine1 & RegisterGroup Quantum
-    parametricIdx = flip Index (M.singleton (IndexVar "n") 1)
+    collWithAtLeastThreeElems = collWithAtLeastNElems 3
+    collWithAtLeastTwoElems = collWithAtLeastNElems 2
+    collWithAtLeastNElems = flip Index (M.singleton (IndexVar "n") 1) >>> onLine1 >>> RegisterGroup Quantum
 
     parametricTypeMismatch = _TypeErr . _WithContext . L._1 . _ParametricTypeMismatch
-    isParametricMismatchErr :: Either MetaQasmError TermType -> Expression -> Bool
-    isParametricMismatchErr result smallerColl = Just ( collWithAtLeastThreeElems , collWithAtLeastTwoElems , smallerColl) == L.preview mismatch result
-    mismatch = L._Left . parametricTypeMismatch . L.to (\(expected, actual, term, _, _) -> (expected, actual, term))
+    isParametricMismatchErr :: Expression -> Either MetaQasmError TermType  -> Bool
+    isParametricMismatchErr smallerColl result  = Just ( collWithAtLeastThreeElems , collWithAtLeastTwoElems , smallerColl) == L.preview mismatch result
+    mismatch = L._Left . parametricTypeMismatch . L.to (\(expectedTyp, actualTyp, actualTerm, _, _) -> (expectedTyp, actualTyp, actualTerm))
 
 -- Takes the name of a property to test, the
 -- generator for the data being tested, the property, and

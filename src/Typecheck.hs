@@ -418,24 +418,28 @@ genUnexpectedNumOfArgsErr :: LineNumber -> Int -> Int -> Either TypeErrAt a
 genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConstIdx) expectedNumOfArgs >>> flip toTypeErrAtLoc line
 
 -- Takes the index variables that are in scope, the expected types of the gate arguments,
--- the actual types of the gate arguments, and tries to show that applying the gate to the
+-- the actual types of the gate arguments, the actual gate args, the line the gate
+-- was applied at, and tries to show that applying the gate to the
 -- arguments is always valid. If not possible, returns an error explaining why.
-proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] ->  [Expression] -> TypeCalculationResult'
-proveValidityOfGateApp validIndexVars expectedTypes actualTypes actualArgs = mapM_ (uncurry3 isSuperTypeOf) (zip3 expectedTypes actualTypes actualArgs) $> Unit
+proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] ->  [Expression] -> LineNumber -> TypeCalculationResult'
+proveValidityOfGateApp validIndexVars expectedTypes actualTypes actualArgs line = mapM_ (uncurry3 isSuperTypeOf) (zip3 expectedTypes actualTypes actualArgs) $> Unit
   where
     -- Takes two types and checks that the first is a supertype of the second.
     -- If not, returns an error stating there was a type mismatch
     isSuperTypeOf :: TermType -> TermType -> Expression -> TypeVerificationResult Bool
-    isSuperTypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) actualRegColl =
-      (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs
+    isSuperTypeOf expectedRegCollSize@(RegisterGroup collTy _) actualRegCollSize@(RegisterGroup collTy' _) actualRegColl =
+      (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedRegCollSize actualRegCollSize actualRegColl
     isSuperTypeOf Qbit Qbit _ = return True
 
-    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize :: Idx -> Idx -> TypeVerificationResult Bool
-    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs  =
+    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize :: TermType -> TermType -> Expression -> TypeVerificationResult Bool
+    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize (RegisterGroup _ expectedNumOfRegs) (RegisterGroup _ actualNumOfRegs)  _ =
       proveNegationOf
       (const True)
       (error "Expected number of registers is bigger than the actual number of registers")
       $ assumingIdxVarsAreNonNeg validIndexVars `G.symImplies` ((G..<=) `on` extractVal >>> valueOf) expectedNumOfRegs actualNumOfRegs
+
+    genRegCollMismatchErr :: LineNumber -> TermType -> TermType -> Expression -> G.Model -> TypeCalculationResult'
+    genRegCollMismatchErr gateAppLine expectedRegCollType@(RegisterGroup _ expectedNumOfRegs) actualRegCollType@(RegisterGroup _ actualNumOfRegs) erroneousTerm m = (ParametricTypeMismatch expectedRegCollType  actualRegCollType erroneousTerm `on` extractVal >>> flip genCounterExample m)  expectedNumOfRegs actualNumOfRegs & flip toTypeErrAtLoc gateAppLine & fromEither
 
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,
@@ -446,7 +450,7 @@ verifyParametricGateApp :: LineNumber -> [IndexVar] -> TermType -> [TermType] ->
 verifyParametricGateApp line validIdxVars (Circuit expectedArgTypes) actualArgTypes actualArgs
   | tooFewArgsHaveBeenPassed = numOfUnexpectedArgsErr
   | tooManyArgsHaveBeenPassed = numOfUnexpectedArgsErr
-  | otherwise = proveValidityOfGateApp validIdxVars expectedArgTypes actualArgTypes actualArgs
+  | otherwise = proveValidityOfGateApp validIdxVars expectedArgTypes actualArgTypes actualArgs line 
   where
     numOfExpectedArgs = length expectedArgTypes
     numOfActualArgs = length actualArgTypes

@@ -2,7 +2,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Typecheck
     (determineType,
@@ -49,6 +48,7 @@ import Control.Monad.Except(ExceptT(..), MonadError(..))
 import Data.Generics.Product (position)
 import Control.Monad.Extra(allM)
 import Control.Monad(mapM_)
+import Data.Tuple.Extra(uncurry3)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -68,6 +68,7 @@ data TypeEvaluationError =
   | UsesFreeIndexVar{invalidIdx :: Index, freeIdxVar :: IndexVar}
   | InvalidParametricRegCollDecl Identifier CounterExample
   | InvalidParametricRegAcc{collId :: Identifier, invalidAcc :: CounterExample}
+  | ParametricTypeMismatch{expected :: TermType, actual :: TermType, mismatchedTerm :: Expression, expectedTypeInstance :: CounterExample, actualTypeInstance :: CounterExample}
   | DeclUsesDuplicateIdxVars{circName :: Identifier, duplicateVars :: [IndexVar]}
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
@@ -416,24 +417,36 @@ assumingIdxVarsAreNonNeg = foldr (genAndCombineConstraints . toSymVar) G.true
 genUnexpectedNumOfArgsErr :: LineNumber -> Int -> Int -> Either TypeErrAt a
 genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConstIdx) expectedNumOfArgs >>> flip toTypeErrAtLoc line
 
+addContextTo :: ctx -> a -> WithContext a ctx
+addContextTo = flip WithContext
+
+showIndexIsInvalid ::  Idx -> G.Model -> CounterExample
+showIndexIsInvalid  = extractVal  >>> genCounterExample
+
 -- Takes the index variables that are in scope, the expected types of the gate arguments,
--- the actual types of the gate arguments, and tries to show that applying the gate to the
+-- the actual types of the gate arguments, the actual gate args, the line the gate
+-- was applied at, and tries to show that applying the gate to the
 -- arguments is always valid. If not possible, returns an error explaining why.
-proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] -> TypeCalculationResult'
-proveValidityOfGateApp validIndexVars expectedTypes actualTypes = mapM_ (uncurry checkIsSuperTypeOf) (zip expectedTypes actualTypes) $> Unit
+proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] ->  [Expression] -> LineNumber -> TypeCalculationResult'
+proveValidityOfGateApp validIndexVars expectedTypes actualTypes actualArgs line = mapM_ (uncurry3 isSuperTypeOf) (zip3 expectedTypes actualTypes actualArgs) $> Unit
   where
-    -- Takes two types and checks that the first is a supertype of the second.
+    -- Takes the expected and actual types of an expression, the expression,
+    -- and checks that the expected type is a supertype of the actual type.
     -- If not, returns an error stating there was a type mismatch
-    checkIsSuperTypeOf :: TermType -> TermType -> TypeVerificationResult ()
-    checkIsSuperTypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) =
-      (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs $> ()
-    checkIsSuperTypeOf Qbit Qbit = return ()
-    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize :: Idx -> Idx -> TypeVerificationResult Bool
-    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs  =
+    isSuperTypeOf :: TermType -> TermType -> Expression -> TypeVerificationResult Bool
+    isSuperTypeOf expectedRegCollSize@(RegisterGroup collTy _) actualRegCollSize@(RegisterGroup collTy' _) actualRegColl =
+      (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedRegCollSize actualRegCollSize actualRegColl
+    isSuperTypeOf Qbit Qbit _ = return True
+
+    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize :: TermType -> TermType -> Expression -> TypeVerificationResult Bool
+    actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedRegCollType@(RegisterGroup _ expectedNumOfRegs) actualRegCollType@(RegisterGroup _ actualNumOfRegs) actualRegColl  =
       proveNegationOf
       (const True)
-      (error "Expected number of registers is bigger than the actual number of registers")
+      (genRegCollMismatchErr line expectedRegCollType actualRegCollType actualRegColl)
       $ assumingIdxVarsAreNonNeg validIndexVars `G.symImplies` ((G..<=) `on` extractVal >>> valueOf) expectedNumOfRegs actualNumOfRegs
+
+    genRegCollMismatchErr :: LineNumber -> TermType -> TermType -> Expression -> G.Model -> TypeErrAt
+    genRegCollMismatchErr gateAppLine expectedRegCollType@(RegisterGroup _ expectedNumOfRegs) actualRegCollType@(RegisterGroup _ actualNumOfRegs) erroneousTerm m = (ParametricTypeMismatch expectedRegCollType  actualRegCollType erroneousTerm `on` flip showIndexIsInvalid m) expectedNumOfRegs actualNumOfRegs & addContextTo gateAppLine
 
 -- Takes the line where a gate was applied,
 -- the types of the expected arguments for a gate,
@@ -441,10 +454,10 @@ proveValidityOfGateApp validIndexVars expectedTypes actualTypes = mapM_ (uncurry
 -- the arguments passed to the gate, and checks if the
 -- expected and actual types match. Returns an error otherwise
 verifyParametricGateApp :: LineNumber -> [IndexVar] -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
-verifyParametricGateApp line validIdxVars (Circuit expectedArgTypes) actualArgTypes _
+verifyParametricGateApp line validIdxVars (Circuit expectedArgTypes) actualArgTypes actualArgs
   | tooFewArgsHaveBeenPassed = numOfUnexpectedArgsErr
   | tooManyArgsHaveBeenPassed = numOfUnexpectedArgsErr
-  | otherwise = proveValidityOfGateApp validIdxVars expectedArgTypes actualArgTypes
+  | otherwise = proveValidityOfGateApp validIdxVars expectedArgTypes actualArgTypes actualArgs line 
   where
     numOfExpectedArgs = length expectedArgTypes
     numOfActualArgs = length actualArgTypes

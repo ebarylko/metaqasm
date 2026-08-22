@@ -12,10 +12,11 @@ import Typecheck(TypeEvaluationError(..),
                 fromEither,
                 TypeErrAt,
                 Term)
-
 import Syntax(Identifier,
               TermType(..),
               toConstIdx,
+              Expression(..),
+              RegisterType(..),
               IndexVar(..),
               Index(..),
               WithContext(..))
@@ -96,7 +97,8 @@ import Generators(outOfScopeVar,
                  circuitFamilyThatUsesFreeIdxVarInBody,
                  circuitFamilyThatAppliesNAryGateToLessThanNArgs,
                  circuitFamilyThatAppliesOneQbitGateToTwoQbits,
-                 circuitFamWithGateAppToSubtype)
+                 circuitFamWithGateAppToSubtype,
+                 circuitFamWithGateAppToNonSubtypeElem)
 import Data.Function(on, (&))
 
 -- This represents the possible errors in a metaQasm program, being
@@ -289,8 +291,11 @@ prop_cannotTreatSingleQubitUnitaryAsRegColl (prog, gateName) =
     expectedRegCollErr = errOnLine1 (ExpectedARegColl gateType gateName)
     gateType = Circuit [Qbit]
 
+onLine1 :: a -> WithContext a LineNumber
+onLine1 = (`WithContext` line1)
+
 errOnLine1 :: TypeEvaluationError -> ProgramTypeEvaluationResult
-errOnLine1 = (`WithContext` line1) >>> TypeErr >>> Left >>> fromEither
+errOnLine1 = onLine1 >>> TypeErr >>> Left >>> fromEither
 
 prop_cannotHaveNegIdx :: ProgramWithExpectedErr -> IO ()
 prop_cannotHaveNegIdx (prog, negIdxErr) = prog `shouldHaveType` errOnLine1 negIdxErr
@@ -387,6 +392,25 @@ prop_cannotUseFreeVarInCircuitFamBody =
   (`shouldHaveType` usedFreeVarErr)
   where
     usedFreeVarErr = UsesFreeIndexVar (indexVarWithCoeff "g" 1) (IndexVar "g") & errOnLine1
+
+
+-- Takes a pair of a program that applies a gate taking collections with at
+-- least three elements to collections with at least two elements, the
+-- collection with at least two elements, and checks that
+-- running the program yields an error mentioning the mismatch between the
+-- collections
+prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl :: InvalidProgCausedByTerm -> IO ()
+prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl (prog, term) =
+  calcTypeOf' prog >>= (`shouldSatisfy` (isParametricMismatchErr term))
+  where
+    collWithAtLeastThreeElems = collWithAtLeastNElems 3
+    collWithAtLeastTwoElems = collWithAtLeastNElems 2
+    collWithAtLeastNElems = flip Index (M.singleton (IndexVar "n") 1) >>> onLine1 >>> RegisterGroup Quantum
+
+    parametricTypeMismatch = _TypeErr . _WithContext . L._1 . _ParametricTypeMismatch
+    isParametricMismatchErr :: Expression -> Either MetaQasmError TermType  -> Bool
+    isParametricMismatchErr smallerColl result  = Just ( collWithAtLeastThreeElems , collWithAtLeastTwoElems , smallerColl) == L.preview mismatch result
+    mismatch = L._Left . parametricTypeMismatch . L.to (\(expectedTyp, actualTyp, actualTerm, _, _) -> (expectedTyp, actualTyp, actualTerm))
 
 -- Takes the name of a property to test, the
 -- generator for the data being tested, the property, and
@@ -642,3 +666,7 @@ spec =  do
 
   describe "Declaring a circuit family in which a gate taking a collection is applied to a subtype of the expected collection"  $ do
     runPropTenTimes "Is valid"  circuitFamWithGateAppToSubtype prop_isValidProgram
+
+  describe "Declaring a circuit family in which a gate is applied to a nonsubtype of the expected argument"  $ do
+    runPropTenTimes "Is invalid"  circuitFamWithGateAppToNonSubtypeElem prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl
+

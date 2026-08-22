@@ -72,8 +72,8 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatUsesFreeIdxVarInBody,
                  circuitFamilyThatAppliesNAryGateToLessThanNArgs,
                  circuitFamilyThatAppliesOneQbitGateToTwoQbits,
-                 circuitFamWithGateAppToSubtype)
-
+                 circuitFamWithGateAppToSubtype,
+                 circuitFamWithGateAppToNonSubtypeElem)
   where
 
 import Control.Monad(join)
@@ -1234,3 +1234,19 @@ circuitFamWithGateAppToSubtype = formatToString circFamWithAppOnSubtype <$> twoA
     circuitTakingNonEmptyColl = circuitAnnotation fstParam $ fconst "Qbit[n + 1]"
     collWithAtLeastTwoElems = sndParam `sepByColon` fconst "Qbit[n + 2]"
     appCircToColl = singleParamGateApp fstParam sndParam
+
+
+-- Generates a pair of a circuit family declaration in which
+-- a gate expecting a collection with at least three elements
+-- is applied to a collection with at least two elements and
+-- the name of the smaller collection
+circuitFamWithGateAppToNonSubtypeElem :: Gen InvalidProgCausedByTerm
+circuitFamWithGateAppToNonSubtypeElem = (mkGateTakeABiggerRegColl &&& extractSmallerCollName)  <$> circuitFamWithGateAppToSubtype
+  where
+    mkGateTakeABiggerRegColl = flip (R.subRegex regCollSize ) "n + 3"
+    regCollSize = R.mkRegex "n [+] 1"
+    extractSmallerCollName ::  MetaQasmProgram -> Expression
+    extractSmallerCollName = extractSndGateArg >>> toQbitRegColl
+    toQbitRegColl = flip WithContext (LineNumber 1) >>> Var
+    extractSndGateArg :: MetaQasmProgram -> Identifier
+    extractSndGateArg = dropWhile (/= ':') >>> dropWhile (/= ',') >>> drop 2 >>> takeWhile (/= ':')

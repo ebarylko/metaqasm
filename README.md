@@ -30,7 +30,10 @@ Asides from that, circuit families taking parametric collections and qubits can 
 
 Moreover, a subtyping relation on constant sized collections outside of circuit family declarations is enforced.
 This implies a function that expects a collection of kind k (Qbit, Bit) and size N can be applied to a collection of kind k and size M, where M > N.
-In addition,  given gates `f: Circuit(Circuit(Qbit[n + 1])), g: Circuit(Qbit[n])`, f can be applied to g as `Qbit[n]` is a supertype of `Qbit[n + 1]` (function subtyping is contravariant in the input arguments)
+In addition,  given gates `f: Circuit(Circuit(Qbit[n + 1])), g: Circuit(Qbit[n])`, f can be applied to g as `Qbit[n]` is a supertype of `Qbit[n + 1]` (function subtyping is contravariant in the input arguments).
+
+For parametric collections, any collection of size n + c can be used in place of a collection of size n + c', where n is an index variable, c, c' are both
+positive constants where c >= c'.
 
 
 # TODO
@@ -83,6 +86,10 @@ for indices such as m * n
 ## Operating over a slice of an array
 
 ## Detecting the use free index variables outside of circuit family declarations
+
+## Create a command line interface for typechecking programs
+
+The interface would be of the form `metaqasm fileName`
 
 # Miscellaneous
 

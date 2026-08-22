@@ -1239,8 +1239,13 @@ circuitFamWithGateAppToSubtype = formatToString circFamWithAppOnSubtype <$> twoA
 -- Generates a circuit family declaration in which
 -- a gate expecting a collection with at least three elements
 -- is applied to a collection with at least two elements
-circuitFamWithGateAppToNonSubtypeElem :: Gen MetaQasmProgram
-circuitFamWithGateAppToNonSubtypeElem = mkGateTakeABiggerRegColl <$> circuitFamWithGateAppToSubtype
+circuitFamWithGateAppToNonSubtypeElem :: Gen InvalidProgCausedByTerm
+circuitFamWithGateAppToNonSubtypeElem = (mkGateTakeABiggerRegColl &&& extractSmallerCollName)  <$> circuitFamWithGateAppToSubtype
   where
     mkGateTakeABiggerRegColl = flip (R.subRegex regCollSize ) "n + 3"
     regCollSize = R.mkRegex "n [+] 1"
+    extractSmallerCollName ::  MetaQasmProgram -> Expression
+    extractSmallerCollName = extractSndGateArg >>> toQbitRegColl
+    toQbitRegColl = flip WithContext (LineNumber 1) >>> Var
+    extractSndGateArg :: MetaQasmProgram -> Identifier
+    extractSndGateArg = dropWhile (/= ':') >>> dropWhile (/= ',') >>> drop 2 >>> takeWhile (/= ':')

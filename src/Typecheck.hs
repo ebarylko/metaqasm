@@ -2,7 +2,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Typecheck
     (determineType,
@@ -49,6 +48,7 @@ import Control.Monad.Except(ExceptT(..), MonadError(..))
 import Data.Generics.Product (position)
 import Control.Monad.Extra(allM)
 import Control.Monad(mapM_)
+import Data.Tuple.Extra(uncurry3)
 
 -- This data type represents the context under which to evaluate
 -- the type of a term
@@ -68,7 +68,7 @@ data TypeEvaluationError =
   | UsesFreeIndexVar{invalidIdx :: Index, freeIdxVar :: IndexVar}
   | InvalidParametricRegCollDecl Identifier CounterExample
   | InvalidParametricRegAcc{collId :: Identifier, invalidAcc :: CounterExample}
-  | ParametricTypeMisMatch{expected :: TermType, actual :: TermType, mismatchedTerm :: Expression, whatWentWrong :: CounterExample}
+  | ParametricTypeMismatch{expected :: TermType, actual :: TermType, mismatchedTerm :: Expression, expectedTypeInstance :: CounterExample, actualTypeInstance :: CounterExample}
   | DeclUsesDuplicateIdxVars{circName :: Identifier, duplicateVars :: [IndexVar]}
   | InvalidRegAccess{collName :: Identifier, invalidIdx ::Index}
   | ExpectedNParams{expectedNumOfParams :: Index, actualNumOfParams :: Index}
@@ -420,15 +420,16 @@ genUnexpectedNumOfArgsErr line expectedNumOfArgs = (ExpectedNParams `on` toConst
 -- Takes the index variables that are in scope, the expected types of the gate arguments,
 -- the actual types of the gate arguments, and tries to show that applying the gate to the
 -- arguments is always valid. If not possible, returns an error explaining why.
-proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] -> TypeCalculationResult'
-proveValidityOfGateApp validIndexVars expectedTypes actualTypes = mapM_ (uncurry checkIsSuperTypeOf) (zip expectedTypes actualTypes) $> Unit
+proveValidityOfGateApp :: [IndexVar] -> [TermType] -> [TermType] ->  [Expression] -> TypeCalculationResult'
+proveValidityOfGateApp validIndexVars expectedTypes actualTypes actualArgs = mapM_ (uncurry3 isSuperTypeOf) (zip3 expectedTypes actualTypes actualArgs) $> Unit
   where
     -- Takes two types and checks that the first is a supertype of the second.
     -- If not, returns an error stating there was a type mismatch
-    checkIsSuperTypeOf :: TermType -> TermType -> TypeVerificationResult ()
-    checkIsSuperTypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) =
-      (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs $> ()
-    checkIsSuperTypeOf Qbit Qbit = return ()
+    isSuperTypeOf :: TermType -> TermType -> Expression -> TypeVerificationResult Bool
+    isSuperTypeOf (RegisterGroup collTy expectedNumOfRegs) (RegisterGroup collTy' actualNumOfRegs) actualRegColl =
+      (collTy == collTy' &&) <$> actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs
+    isSuperTypeOf Qbit Qbit _ = return True
+
     actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize :: Idx -> Idx -> TypeVerificationResult Bool
     actualRegCollSizeIsNeverSmallerThanTheExpectedRegCollSize expectedNumOfRegs actualNumOfRegs  =
       proveNegationOf
@@ -442,10 +443,10 @@ proveValidityOfGateApp validIndexVars expectedTypes actualTypes = mapM_ (uncurry
 -- the arguments passed to the gate, and checks if the
 -- expected and actual types match. Returns an error otherwise
 verifyParametricGateApp :: LineNumber -> [IndexVar] -> TermType -> [TermType] -> [Expression] -> TypeCalculationResult'
-verifyParametricGateApp line validIdxVars (Circuit expectedArgTypes) actualArgTypes _
+verifyParametricGateApp line validIdxVars (Circuit expectedArgTypes) actualArgTypes actualArgs
   | tooFewArgsHaveBeenPassed = numOfUnexpectedArgsErr
   | tooManyArgsHaveBeenPassed = numOfUnexpectedArgsErr
-  | otherwise = proveValidityOfGateApp validIdxVars expectedArgTypes actualArgTypes
+  | otherwise = proveValidityOfGateApp validIdxVars expectedArgTypes actualArgTypes actualArgs
   where
     numOfExpectedArgs = length expectedArgTypes
     numOfActualArgs = length actualArgTypes

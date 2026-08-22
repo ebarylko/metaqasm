@@ -84,6 +84,10 @@ for indices such as m * n
 
 ## Detecting the use free index variables outside of circuit family declarations
 
+## Create a command line interface for typechecking programs
+
+The interface would be of the form `metaqasm fileName`
+
 # Miscellaneous
 
 ## The typechecking process

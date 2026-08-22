@@ -12,10 +12,11 @@ import Typecheck(TypeEvaluationError(..),
                 fromEither,
                 TypeErrAt,
                 Term)
-
 import Syntax(Identifier,
               TermType(..),
               toConstIdx,
+              Expression(..),
+              RegisterType(..),
               IndexVar(..),
               Index(..),
               WithContext(..))
@@ -25,7 +26,9 @@ import Test.QuickCheck(forAll)
 import Test.Hspec.QuickCheck
 import Data.Bifunctor (Bifunctor(first))
 import Control.Arrow((>>>))
+import Data.Maybe(fromJust)
 import qualified Control.Lens as L
+import Data.Either(fromLeft)
 import Control.Monad.Except(ExceptT(..), withExceptT, runExceptT)
 import qualified Data.Map as M
 import Control.Monad ((>=>), liftM2, join)
@@ -389,15 +392,25 @@ prop_cannotUseFreeVarInCircuitFamBody =
   where
     usedFreeVarErr = UsesFreeIndexVar (indexVarWithCoeff "g" 1) (IndexVar "g") & errOnLine1
 
+
+onLine1 :: a -> WithContext a LineNumber
+onLine1 = (`WithContext` line1)
+
 -- Takes a pair of a program that applies a gate taking collections with at
 -- least three elements to collections with at least two elements, the
 -- collection with at least two elements, and checks that
 -- running the program yields an error
 prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl :: InvalidProgCausedByTerm -> IO ()
 prop_cannotApplyGateTakingCollWithAtLeastThreeElemsToSmallerColl (prog, term) =
-  prog `shouldHaveType` parametricMismatchErr
+  calcTypeOf' prog >>= (`shouldSatisfy` (flip isParametricMismatchErr term))
   where
-    parametricMismatchErr
+    collWithAtLeastThreeElems = Index 3 (M.singleton "n" 1)  & onLine1 & RegisterGroup Quantum
+    collWithAtLeastTwoElems = Index 2 (M.singleton "n" 1) & onLine1 & RegisterGroup Quantum
+
+    parametricTypeMismatch = _TypeErr . _WithContext . L._1 . _ParametricTypeMismatch
+    isParametricMismatchErr :: Either MetaQasmError TermType -> Expression -> Bool
+    isParametricMismatchErr result smallerColl = Just ( collWithAtLeastThreeElems , collWithAtLeastTwoElems , smallerColl) == L.preview mismatch result
+    mismatch = L._Left . parametricTypeMismatch . L.to (\(expected, actual, term, _, _) -> (expected, actual, term))
 
 -- Takes the name of a property to test, the
 -- generator for the data being tested, the property, and

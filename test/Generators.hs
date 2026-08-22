@@ -72,8 +72,8 @@ module Generators(outOfScopeVar,
                  circuitFamilyThatUsesFreeIdxVarInBody,
                  circuitFamilyThatAppliesNAryGateToLessThanNArgs,
                  circuitFamilyThatAppliesOneQbitGateToTwoQbits,
-                 circuitFamWithGateAppToSubtype)
-
+                 circuitFamWithGateAppToSubtype,
+                 circuitFamWithGateAppToNonSubtypeElem)
   where
 
 import Control.Monad(join)
